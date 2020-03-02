@@ -1,4 +1,4 @@
-//Version 1.15.8
+//Version 1.15.9
 //nachbearbeitet von ticaki
 //Stand 02.03.2020
 /*
@@ -13,6 +13,9 @@
 /*                                                                           */
 /*                                                                           */
 /* ************************************************************************* */
+
+//StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
+var onClickMessageState = 'javascript.0.DWD_Script.'; // abschließender Punkt . nicht vergessen
 
 /* ************************************************************************* */
 /* NICHT EDITIEREN */
@@ -49,19 +52,45 @@ var pushdienst=0;
 //pushdienst+= STATE;             // Auskommentieren zum aktivieren. State befindet sich unter onClickMessageState.message
 //pushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
 
+/* ************************************************************************* */
+/*                       Beispiele zur Konfiguration                         */
+/* ************************************************************************* */
+// kein oder einen Eintrag möglich:
+//var senderEmailID = ["max@mustermann.de"];
+
+// kein oder mehrfach nach gleichem Muster [1,2,3] bzw. ['1','2','3'] Einträge
+// '' ist das selbe wie "", jedoch nicht mischen.
+//var empfaengerEmailID = ["max@musterman.de","max2@musterman.de"];
+//var telegramUser = []; // leer
+//var telegramUser = ['']; // leer
+//var telegramUser = ['Hans']; // User mit Namen Hans
+//var telegramUser = ['Hans','Gretel']; // User mit Namen Hans und User mit Namen Gretel
+//var idSayIt = ["sayit.0.tts.text"];
+//var sayItVolumen = [60]; // Zahl ohne ''
+//var idSayIt = ["sayit.0.tts.text","sayit.1.tts.text"];
+//var sayItVolumen = [60,30]; // mehrfach Zahl ohne ''
+//var ioGoUser = ['max@musterman.de'];
+//var idAlexaSerial =['G090RV32984110Y','G090RZ3345643XR'];
+//var alexaVolumen = [40,30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
+/* ************************************************************************* */
+/*                                                                           */
+/* ************************************************************************* */
+
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
 var empfaengerEmailID = [""];// mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
 
 /* Konfiguration Sprachausgabe über Home24-Mediaplayer */
+//var idMediaplayer = ["192.168.178.x:Port"];
 var idMediaplayer = [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
 
 /* Konfiguration Telegram */
 var telegramUser = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
+var telegramChatId =[''];
 
 /* Konfiguration Sprachausgabe über SayIt */
-var idSayIt = ["sayit.0.tts.text"]; // mehrfach Einträge möglich z.B:["sayit.0.tts.text"] ["sayit.0.tts.text","sayit.1.tts.text"]]
-var lautstaerke = [60]; // gleiche Anzahl wie idSayIt
+var idSayIt = ["sayit.0.tts.text"]; // mehrfach Einträge möglich
+var sayItVolumen = [60]; // gleiche Anzahl wie idSayIt
 
 /* Konfiguration Sprachausgabe über Alexa
 /* mehrere Einträge möglich, bei mir ging nur der Echo, 2 dots 2.Gen reagieren nicht auf announcement. */
@@ -71,12 +100,10 @@ var alexaVolumen = [40]; // Lautstärke die gleiche Anzahl an Einträgen wie bei
 //Konfiguration von ioGo
 var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
 
-//StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
-var onClickMessageState = 'javascript.0.DWD_Script.'; // abschließender Punkt . nicht vergessen
 
 // Filtereinstellungen
 const minlevel = 0 // Warnungen gleich oder unterhalb dieses Levels nicht senden;
-const maxhoehe = 2000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+const maxhoehe = 2410 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
 //Formatierungsstring für Datum/Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
 const formatierungString = "TT.MM.YY SS:mm";
@@ -126,29 +153,74 @@ var newData = [InitArraylength];
 var timer = null;
 var onClickCheckRun = false;
 
-
 for (let a=0;a<senderEmailID.length;a++) {
-    if (!senderEmailID[a]) senderEmailID.splice(a,1);
+    if (!senderEmailID[a]) senderEmailID.splice(a--,1);
+    else {
+        testValueTypeLog(senderEmailID[a],'senderEmailID','string');
+    }
 }
 for (let a=0;a<empfaengerEmailID.length;a++) {
-    if (!empfaengerEmailID[a]) empfaengerEmailID.splice(a,1);
+    if (!empfaengerEmailID[a]) empfaengerEmailID.splice(a--,1);
+    else {
+        testValueTypeLog(empfaengerEmailID[a],'empfaengerEmailID','string');
+    }
 }
 for (let a=0;a<idAlexaSerial.length;a++) {
-    if (!idAlexaSerial[a]) idAlexaSerial.splice(a,1);
+    if (!idAlexaSerial[a]) idAlexaSerial.splice(a--,1);
+    else {
+        testValueTypeLog(idAlexaSerial[a],'idAlexaSerial','string');
+    }
 }
 for (let a=0;a<idMediaplayer.length;a++) {
-    if (!idMediaplayer[a]) idMediaplayer.splice(a,1);
+    if (!idMediaplayer[a]) idMediaplayer.splice(a--,1);
+    else {
+        testValueTypeLog(idMediaplayer[a],'idMediaplayer','string');
+    }
 }
 for (let a=0;a<telegramUser.length;a++) {
-    if (!telegramUser[a]) telegramUser.splice(a,1);
+    if (!telegramUser[a]) telegramUser.splice(a--,1);
+    else {
+        testValueTypeLog(telegramUser[a],'telegramUser','string');
+    }
 }
 for (let a=0;a<idSayIt.length;a++) {
-    if (!idSayIt[a]) idSayIt.splice(a,1);
+    if (!idSayIt[a]) idSayIt.splice(a--,1);
+    else {
+        testValueTypeLog(idSayIt[a],'idSayIt','string');
+    }
 }
 for (let a=0;a<ioGoUser.length;a++) {
-    if (!ioGoUser[a]) ioGoUser.splice(a,1);
+    if (!ioGoUser[a]) ioGoUser.splice(a--,1);
+    else {
+        testValueTypeLog(ioGoUser[a],'ioGoUser','string');
+    }
+}
+for (let a=0;a<telegramChatId.length;a++) {
+    if (!telegramChatId[a]) telegramChatId.splice(a--,1);
+    else {
+        testValueTypeLog(telegramChatId[a],'telegramChatId','string');
+    }
+}
+for (let a=0;a<sayItVolumen.length;a++) {
+    testValueTypeLog(sayItVolumen[a],'sayItVolumen','number');
+}
+for (let a=0;a<alexaVolumen.length;a++) {
+    testValueTypeLog(alexaVolumen[a],'alexaVolumen','number');
 }
 
+
+function testValueTypeLog(test, teststring, type) {
+    if ( typeof test !== type ) {
+        let errorLog = 'Konfiguration enthält einen Fehler. Ändere '+teststring+' = [';
+        if (type == 'string') {
+            errorLog+=test+']; in '+teststring+' = [\''+test+'\'];';
+        } else {
+            errorLog+='\''+test+'\']; in '+teststring+' = ['+test+'];';
+        }
+        log(errorLog, 'error');
+        stopScript();
+    }
+}
 /* Überpüfe die Konfiguration soweit möglich */
 if ((pushdienst&ALEXA) != 0) {
     if (idAlexaSerial.length==0) {
@@ -409,7 +481,7 @@ function check() {
 
             var replaceDescription0 = entferneDatenpunkt(description);
             MeldungNewSprache = (level>3)?'Achtung Unwetter ':'' + headline + " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. " + replaceDescription0 + '  .  ';
-            if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNewSprache+='Handlungsanweisungen: '+instruction;
+            if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNewSprache+=' Handlungsanweisungen: '+instruction;
             MeldungSpracheDWD.push(MeldungNewSprache);
         }
     }
@@ -423,7 +495,6 @@ function check() {
         let c = a;
         while (MeldungSpracheDWD.length>0)
         {
-            let b = 60000;
             let msgAppend = '';
             if (MeldungSpracheDWD.length > 1) {
                 if (MeldungSpracheDWD.length-1==1) {
@@ -435,7 +506,7 @@ function check() {
                 if (activeCount==0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
                 else {
                     if (activeCount==1) msgAppend = ' Insgesamt eine aktive Warnung.';
-                    else msgAppend = ' Insgesamt '+activeCount+ 'aktive Warnungen.';
+                    else msgAppend = ' Insgesamt '+activeCount+ ' aktive Warnungen.';
                 }
             }
             if((pushdienst & HOMETWO)!=0 ){
@@ -463,7 +534,6 @@ function check() {
 
     AllEmailMsg+=AllEmailMsgDelete;
     if ((pushdienst & ALLMSG)!=0 && AllEmailMsg != '') {
-        //sendEmail(gefahr?"Wichtige Wetterwarnungen des DWD(iobroker)":"Wetterwarnungen des DWD(iobroker)",AllEmailMsg);
         sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen des DWD(iobroker)":"Wetterwarnungen des DWD(iobroker)",'','',AllEmailMsg);
     }
 
@@ -567,9 +637,6 @@ function SetAlertState(){
     {
         let stateAlertIdFull = stateAlertid+warningTypesString[b]+'.';
         let AlertLevel = -1;
-        let AlertType = -1;
-        let AlertStart = null;
-        let AlertEnd = null;
         let AlertIndex = -1;
         for (let c=0;c<newData.length;c++) {
             if (newData[c].type == b && newData[c].level > AlertLevel) {
@@ -592,6 +659,10 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
             if (telegramUser.length>0) {
                 for (let a=0;a<telegramUser.length;a++) {
                     sendTo ("telegram.0", {user: telegramUser[a], text: msgsingle});
+                }
+            } else if (telegramChatId.length>0){
+                for (let a=0;a<telegramChatId.length;a++) {
+                    sendTo ("telegram.0", {ChatId: telegramChatId[a], text: msgsingle});
                 }
             } else {
                 sendTo ("telegram.0", msgsingle);
@@ -630,11 +701,10 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         }
         if ((pushdienst & SAYIT)!=0) {
             for(let a=0;a<idSayIt.length;a++) {
-                setState(idSayIt[a], lautstaerke[a] + ";" + msgspeak);
+                setState(idSayIt[a], sayItVolumen[a] + ";" + msgspeak);
             }
         }
         if ((pushdienst & ALEXA)!=0) {
-
             for(let a=0;a<idAlexaSerial.length;a++) {
                 // Wenn auf Gruppe keine Lautstärken regelung möglich
                 if (existsState(getFullId(idAlexaVolumen,idAlexaSerial[a]))) setState(getFullId(idAlexaVolumen,idAlexaSerial[a]), alexaVolumen[a]);
