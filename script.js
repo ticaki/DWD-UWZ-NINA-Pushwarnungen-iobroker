@@ -1,4 +1,4 @@
-//Version 1.15.9
+//Version 1.15.9.1
 //nachbearbeitet von ticaki
 //Stand 02.03.2020
 /*
@@ -660,11 +660,13 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
                 for (let a=0;a<telegramUser.length;a++) {
                     sendTo ("telegram.0", {user: telegramUser[a], text: msgsingle});
                 }
-            } else if (telegramChatId.length>0){
+            }
+            if (telegramChatId.length>0){
                 for (let a=0;a<telegramChatId.length;a++) {
                     sendTo ("telegram.0", {ChatId: telegramChatId[a], text: msgsingle});
                 }
-            } else {
+            }
+            if(!(telegramUser.length>0||telegramChatId.length>0)) {
                 sendTo ("telegram.0", msgsingle);
             }
         }
