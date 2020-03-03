@@ -1,15 +1,14 @@
-//Version 0.81
-//überarbeitet von ticaki
-//Stand 03.03.2020
+//Version 0.82
 /*
-
-*/
 /* ************************************************************************* */
-/*             Script zum Übertragen der DWD-Wetterwarnungen über            */
-/*             Telegram, Pushover, Home24-Mediaplayer oder SayIt             */
+/*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
+/*             Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa          */
+/*             Datenpunkt, eMail oder ioGo                                   */
+/*             Pushnachrichten können manuell ausgelöst werden               */
+/*             höchstes Warnlevel pro Warnungstyp is als State vorhanden     */
 /*     mit freundlicher Unterstützung von Paul53 (Tausend Dank nochmals)     */
-/*                    Stand: 130022017    PrinzEisenherz1                    */
-/*                                                                           */
+/*                    Stand: 13022017    PrinzEisenherz1                     */
+/*                    Stand: 03032020    ticaki                              */
 /*                                                                           */
 /*                                                                           */
 /* ************************************************************************* */
@@ -421,7 +420,7 @@ function check() {
         sendMessage(pushdienst&ALLMSG,'Wetterentwarnung '+artikelMODE+'(iobroker)','','',PushMsg);
 
         /* alle Sicherungen Wetterwarnung löschen */
-        warnDatabase.old = warnDatabase.new.slice();
+        warnDatabase.old = cloneObj(warnDatabase.new);
       return;
     }
     let AllEmailMsg='';
@@ -433,7 +432,7 @@ function check() {
         let description = warnDatabase.old[i].description;
         let headline = warnDatabase.old[i].headline;
         let hash = warnDatabase.old[i].hash;
-        if(description !== undefined && headline !== undefined  && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
+        if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
             let end = getFormatDate(warnDatabase.old[i].end);
 
             let pushmsg = "Die Wetterwarnung " +"'"+ headline + " gültig bis " + end + "'" + " des DWD wurde aufgehoben.";
@@ -455,8 +454,8 @@ function check() {
         let instruction = warnDatabase.new[i].instruction;
         let hash = warnDatabase.new[i].hash;
         if(hash && warnDatabase.old.findIndex(function(j){return j.hash == hash;}) == -1 ) {
-            let begin = getFormatDate(new Date(warnDatabase.new[i].start));
-            let end = getFormatDate(new Date(warnDatabase.new[i].end));
+            let begin = getFormatDate(warnDatabase.new[i].start);
+            let end = getFormatDate(warnDatabase.new[i].end);
             let MeldungNew = headline + "\ngültig vom " + begin + " Uhr bis " + end + " Uhr\n" + description;
             if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+='\nHandlungsanweisungen: '+instruction;
             if (warnDatabase.new.length>1) MeldungNew += ' Insgesamt '+warnDatabase.new.length+' gültige Warnungen.'
@@ -527,7 +526,7 @@ function check() {
     }
 
     /* Neue Werte sichern */
-    warnDatabase.old = warnDatabase.new.slice();
+    warnDatabase.old = cloneObj(warnDatabase.new);
 }
 
 /* Entfernt "°C" aus Sprachmeldung und ersetzt es durch "Grad" */
@@ -586,7 +585,7 @@ function onChange(dp) {
 function removeDatabaseDataID(id) {
     if (!id || (typeof id !== 'string')) return;
     if (warnDatabase.new && warnDatabase.new.length > 0) {
-        let i = warnDatabase.new.findIndex(function(j){return j.id==dp.id});
+        let i = warnDatabase.new.findIndex(function(j){return j.id==id});
         if (i!=-1) warnDatabase.new.splice(i,1);
     }
 }
@@ -653,8 +652,8 @@ function getIdIndex(a) {
     return a[2][7];
 }*/
 function getFormatDate(a) {
-    if (!a || a === '') return '';
-    return formatDate(a.getTime(), formatierungString);
+    if (!a || !(typeof a === 'number')) return '';
+    return formatDate(new Date (a).getTime(), formatierungString);
 }
 // @PARAM Rückgabe von getFormatDate
 function getFormatDateSpeak(a) {
