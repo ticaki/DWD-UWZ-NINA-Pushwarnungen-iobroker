@@ -2,7 +2,6 @@
 //nachbearbeitet von ticaki
 //Stand 02.03.2020
 /*
-
 */
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD-Wetterwarnungen über            */
@@ -15,7 +14,7 @@
 /* ************************************************************************* */
 
 //StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
-var onClickMessageState = 'javascript.0.DWD_Script.'; // abschließender Punkt . nicht vergessen
+var onClickMessageState = 'javascript.0.Test.DWD_Script.'; // abschließender Punkt . nicht vergessen
 
 /* ************************************************************************* */
 /* NICHT EDITIEREN */
@@ -228,7 +227,7 @@ if ((pushdienst&ALEXA) != 0) {
         stopScript();
     }
     for (let a=0;a<idAlexaSerial.length;a++) {
-        if (!existsState(getFullId(idAlexa,idAlexaSerial[a]))) {
+        if (!extendedExists(getFullId(idAlexa,idAlexaSerial[a]))) {
             log('Alexa-Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen!','error');
             stopScript();
         }
@@ -238,7 +237,7 @@ if ((pushdienst&ALEXA) != 0) {
 if ((pushdienst&SAYIT) != 0) {
     for (let a=0;a<idSayIt.length;a++) {
         if (
-            !existsState(idSayIt[a])
+            !extendedExists(idSayIt[a])
         ) {
             log('SayIt-Konfiguration ist fehlerhaft. Überpüfen!','error');
             stopScript();
@@ -259,7 +258,7 @@ for (let a=0;a<InitArraylength;a++) {
     if (a!=0) id+=a.toString();
     id+='.object';
     var warn = {};
-    if (existsState(id)) warn = JSON.parse(getState(id).val);
+    if (extendedExists(id)) warn = JSON.parse(getState(id).val);
     warn = convertJsonDWD(warn);
     newDescriptions[a] = warn.description;
     oldDescriptions[a] = warn.description;
@@ -274,14 +273,41 @@ for (let a=0;a<InitArraylength;a++) {
 }
 
 // State der Pushnachrichten über pushover/telegram spiegelt
-const mirrorMessageState = onClickMessageState+'message';
-if (!existsState(mirrorMessageState)) {
-    createState(mirrorMessageState,'', {
-        read: true,
-        write: false,
-        desc: "Beschreibung",
-        type: "string",
-    });
+
+if(onClickMessageState[onClickMessageState.length-1] != '.')
+    onClickMessageState += '.';
+
+function getRoot(){
+    let sRoot = '';
+    if(onClickMessageState.includes('userdata'))
+        sRoot = '0_userdata.0';
+    else
+        sRoot = 'javascript.'+ onClickMessageState.split('.')[1];
+    return sRoot;
+}
+
+function getEndOfState(state){
+    return state.replace(getRoot()+'.','');
+}
+
+function extendedExists(id){
+    let b = ($(id).length > 0) && (existsState(id));
+    return b;
+}
+
+const mirrorMessageState = onClickMessageState + 'message';
+if (!extendedExists(mirrorMessageState)) {
+    log('getRoot: ' +getRoot());
+    log('message: ' + getEndOfState(mirrorMessageState));
+    createUserStates(getRoot(),false,[
+        [getEndOfState(mirrorMessageState), {'type':'string', 'read':true, 'write':false,'desc':'Beschreibung','def':'' }]
+    ]);
+    // createState(mirrorMessageState,'', {
+    //     read: true,
+    //     write: false,
+    //     desc: "Beschreibung",
+    //     type: "string",
+    // });
 }
 
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
@@ -315,8 +341,17 @@ const stateAlert = // Änderungen auch in SetAlertState() anpassen
         {
             let stateAlertIdFull = stateAlertId+warningTypesString[b]+'.'+stateAlert[a].name;
             stateAlert[a].type.name = stateAlertIdFull.toString();
-            if (!existsState(stateAlertIdFull)) {
-                createState(stateAlertIdFull,stateAlert[a].default, stateAlert[a].type);
+            if (!extendedExists(stateAlertIdFull)) {
+                let def;
+                if(stateAlert[a].default == null && stateAlert[a].type.type == 'string')
+                    def = '';
+                else
+                    def = stateAlert[a].default ;
+                createUserStates(getRoot(),false,[
+                    [getEndOfState(stateAlertIdFull), {'type':stateAlert[a].type.type,'def':def}]
+                ]);
+
+                // createState(stateAlertIdFull,stateAlert[a].default, stateAlert[a].type);
                 allStateExist=false;
             }
         }
@@ -324,19 +359,23 @@ const stateAlert = // Änderungen auch in SetAlertState() anpassen
     if (allStateExist) SetAlertState();
 }
 
+function onClickStates() {
 // Nachrichtenversand per Click States erzeugen und subscript
 for (var a=0;a<konstanten.length;a++){
-    if (!existsState(onClickMessageState+'Commands.'+konstanten[a].name)) {
-        createState(onClickMessageState+'Commands.'+konstanten[a].name,false, {
-            read: true,
-            write: true,
-            desc: "Beschreibung",
-            type: "boolean",
-            role: "button",
-            def: false
-        });
+    if (!extendedExists(onClickMessageState+'Commands.'+konstanten[a].name)) {
+         createUserStates(getRoot(),false,[
+            [getEndOfState(onClickMessageState+'Commands.'+konstanten[a].name), {'type':'boolean', 'read':true, 'write':true, 'role':'button', 'def':false,'desc':'Beschreibung' }]
+        ]);
+        // createState('javascript.0.DWD_Test.'+'Commands.'+konstanten[a].name,false, {
+        //     read: true,
+        //     write: true,
+        //     desc: "Beschreibung",
+        //     type: "boolean",
+        //     role: "button",
+        //     def: false
+        // });
     }
-    if (existsState(onClickMessageState+'Commands.'+konstanten[a].name)){
+    if (extendedExists(onClickMessageState+'Commands.'+konstanten[a].name)){
         subscribe({id: onClickMessageState+'Commands.'+konstanten[a].name},function(obj){
             if (!obj.state.val) return;
             setState(obj.id,false,true);
@@ -361,7 +400,9 @@ for (var a=0;a<konstanten.length;a++){
             pushdienst = oldPushdienst;
         })
     }
-}
+}};
+
+onClickStates();
 
 // Zeitsteuerung für SayIt & Alexa
 var START = new Date();
@@ -709,7 +750,7 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         if ((pushdienst & ALEXA)!=0) {
             for(let a=0;a<idAlexaSerial.length;a++) {
                 // Wenn auf Gruppe keine Lautstärken regelung möglich
-                if (existsState(getFullId(idAlexaVolumen,idAlexaSerial[a]))) setState(getFullId(idAlexaVolumen,idAlexaSerial[a]), alexaVolumen[a]);
+                if (extendedExists(getFullId(idAlexaVolumen,idAlexaSerial[a]))) setState(getFullId(idAlexaVolumen,idAlexaSerial[a]), alexaVolumen[a]);
                 setState(getFullId(idAlexa,idAlexaSerial[a]), msgspeak);
             }
         }
@@ -727,4 +768,130 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
 
 function getFullId(a,b) {
     return a.replace(placeHolder,b)
+}
+
+/**
+ * Create states under 0_userdata.0 or javascript.x
+ * Current Version:     https://github.com/Mic-M/iobroker.createUserStates
+ * Support:             https://forum.iobroker.net/topic/26839/
+ * Autor:               Mic (ioBroker) | Mic-M (github)
+ * Version:             1.1 (26 January 2020)
+ * Example:             see https://github.com/Mic-M/iobroker.createUserStates#beispiel
+ * -----------------------------------------------
+ * PLEASE NOTE: Per https://github.com/ioBroker/ioBroker.javascript/issues/474, the used function setObject()
+ *              executes the callback PRIOR to completing the state creation. Therefore, we use a setTimeout and counter.
+ * -----------------------------------------------
+ * @param {string} where          Where to create the state: '0_userdata.0' or 'javascript.x'.
+ * @param {boolean} force         Force state creation (overwrite), if state is existing.
+ * @param {array} statesToCreate  State(s) to create. single array or array of arrays
+ * @param {object} [callback]     Optional: a callback function -- This provided function will be executed after all states are created.
+ */
+function createUserStates(where, force, statesToCreate, callback = undefined) {
+
+    const WARN = false; // Only for 0_userdata.0: Throws warning in log, if state is already existing and force=false. Default is false, so no warning in log, if state exists.
+    const LOG_DEBUG = false; // To debug this function, set to true
+    // Per issue #474 (https://github.com/ioBroker/ioBroker.javascript/issues/474), the used function setObject() executes the callback
+    // before the state is actual created. Therefore, we use a setTimeout and counter as a workaround.
+    const DELAY = 50; // Delay in milliseconds (ms). Increase this to 100, if it is not working.
+
+    // Validate "where"
+    if (where.endsWith('.')) where = where.slice(0, -1); // Remove trailing dot
+    if ( (where.match(/^((javascript\.([1-9][0-9]|[0-9]))$|0_userdata\.0$)/) == null) ) {
+        log('This script does not support to create states under [' + where + ']', 'error');
+        return;
+    }
+
+    // Prepare "statesToCreate" since we also allow a single state to create
+    if(!Array.isArray(statesToCreate[0])) statesToCreate = [statesToCreate]; // wrap into array, if just one array and not inside an array
+
+    // Add "where" to STATES_TO_CREATE
+    for (let i = 0; i < statesToCreate.length; i++) {
+        let lpPath = statesToCreate[i][0].replace(/\.*\./g, '.'); // replace all multiple dots like '..', '...' with a single '.'
+        lpPath = lpPath.replace(/^((javascript\.([1-9][0-9]|[0-9])\.)|0_userdata\.0\.)/,'') // remove any javascript.x. / 0_userdata.0. from beginning
+        lpPath = where + '.' + lpPath; // add where to beginning of string
+        statesToCreate[i][0] = lpPath;
+    }
+
+    if (where != '0_userdata.0') {
+        // Create States under javascript.x
+        let numStates = statesToCreate.length;
+        statesToCreate.forEach(function(loopParam) {
+            if (LOG_DEBUG) log('[Debug] Now we are creating new state [' + loopParam[0] + ']');
+            let loopInit = (loopParam[1]['def'] == undefined) ? null : loopParam[1]['def']; // mimic same behavior as createState if no init value is provided
+            createState(loopParam[0], loopInit, force, loopParam[1], function() {
+                numStates--;
+                if (numStates === 0) {
+                    if (LOG_DEBUG) log('[Debug] All states processed.');
+                    if (typeof callback === 'function') { // execute if a function was provided to parameter callback
+                        if (LOG_DEBUG) log('[Debug] Function to callback parameter was provided');
+                        return callback();
+                    } else {
+                        return;
+                    }
+                }
+            });
+        });
+    } else {
+        // Create States under 0_userdata.0
+        let numStates = statesToCreate.length;
+        let counter = -1;
+        statesToCreate.forEach(function(loopParam) {
+            counter += 1;
+            if (LOG_DEBUG) log ('[Debug] Currently processing following state: [' + loopParam[0] + ']');
+            if( ($(loopParam[0]).length > 0) && (existsState(loopParam[0])) ) { // Workaround due to https://github.com/ioBroker/ioBroker.javascript/issues/478
+                // State is existing.
+                if (WARN && !force) log('State [' + loopParam[0] + '] is already existing and will no longer be created.', 'warn');
+                if (!WARN && LOG_DEBUG) log('[Debug] State [' + loopParam[0] + '] is already existing. Option force (=overwrite) is set to [' + force + '].');
+                if(!force) {
+                    // State exists and shall not be overwritten since force=false
+                    // So, we do not proceed.
+                    numStates--;
+                    if (numStates === 0) {
+                        if (LOG_DEBUG) log('[Debug] All states successfully processed!');
+                        if (typeof callback === 'function') { // execute if a function was provided to parameter callback
+                            if (LOG_DEBUG) log('[Debug] An optional callback function was provided, which we are going to execute now.');
+                            return callback();
+                        }
+                    } else {
+                        // We need to go out and continue with next element in loop.
+                        return; // https://stackoverflow.com/questions/18452920/continue-in-cursor-foreach
+                    }
+                } // if(!force)
+            }
+
+            // State is not existing or force = true, so we are continuing to create the state through setObject().
+            let obj = {};
+            obj.type = 'state';
+            obj.native = {};
+            obj.common = loopParam[1];
+            setObject(loopParam[0], obj, function (err) {
+                if (err) {
+                    log('Cannot write object for state [' + loopParam[0] + ']: ' + err);
+                } else {
+                    if (LOG_DEBUG) log('[Debug] Now we are creating new state [' + loopParam[0] + ']')
+                    let init = null;
+                    if(loopParam[1].def === undefined) {
+                        if(loopParam[1].type === 'number') init = 0;
+                        if(loopParam[1].type === 'boolean') init = false;
+                        if(loopParam[1].type === 'string') init = '';
+                    } else {
+                        init = loopParam[1].def;
+                    }
+                    setTimeout(function() {
+                        setState(loopParam[0], init, true, function() {
+                            if (LOG_DEBUG) log('[Debug] setState durchgeführt: ' + loopParam[0]);
+                            numStates--;
+                            if (numStates === 0) {
+                                if (LOG_DEBUG) log('[Debug] All states processed.');
+                                if (typeof callback === 'function') { // execute if a function was provided to parameter callback
+                                    if (LOG_DEBUG) log('[Debug] Function to callback parameter was provided');
+                                    return callback();
+                                }
+                            }
+                        });
+                    }, DELAY + (20 * counter) );
+                }
+            });
+        });
+    }
 }
