@@ -1,6 +1,6 @@
-//Version 1.15.8
-//nachbearbeitet von ticaki
-//Stand 02.03.2020
+//Version 0.81
+//überarbeitet von ticaki
+//Stand 03.03.2020
 /*
 
 */
@@ -429,7 +429,7 @@ function check() {
     let MeldungSpracheDWD=[];
 
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
-    for(let i = 0; i < warnDatabase.new.length; i++) {
+    for(let i = 0; i < warnDatabase.old.length; i++) {
         let description = warnDatabase.old[i].description;
         let headline = warnDatabase.old[i].headline;
         let hash = warnDatabase.old[i].hash;
