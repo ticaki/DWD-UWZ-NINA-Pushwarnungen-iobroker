@@ -1,4 +1,4 @@
-//Version 0.88
+//Version 0.88.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -582,7 +582,7 @@ function InitDatabase(){
 if ( MODE === 'DWD') {
     on(/^dwd\.0\..*\.object$/, onChange);
 } else if (MODE === 'UWZ') {
-    on(/^uwz\..*\.object$/, onChange);
+    on(/^javascript\.0\.UWZ\..*\.object$/, onChange);
 }
 
 function onChange(dp) {
