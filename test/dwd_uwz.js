@@ -1,4 +1,4 @@
-//Version 0.87
+//Version 0.88
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -412,7 +412,7 @@ function check() {
     warnDatabase.new.sort(function(a,b) {return a.begin-b.begin;})
 
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
-    if(warnDatabase.new.length==0 && warnDatabase.old.length>0) {
+    if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
         let PushMsg = 'Achtung' + '  .  ' + 'Alle Warnmeldungen '+artikelMODE+' wurden aufgehoben';
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
@@ -427,9 +427,9 @@ function check() {
         warnDatabase.old = cloneObj(warnDatabase.new);
         return;
     }
-    let AllEmailMsg='';
-    let AllEmailMsgDelete='';
-    let MeldungSpracheDWD=[];
+    let allEmailMsg='';
+    let allEmailMsgDelete='';
+    let speakMsgTemp=[];
 
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
@@ -440,13 +440,13 @@ function check() {
             let end = getFormatDate(warnDatabase.old[i].end);
 
             let pushmsg = "Die Wetterwarnung " +"'"+ headline + " gültig bis " + end + "'" + " des DWD wurde aufgehoben.";
-            pushmsg += ' Insgesamt '+(warnDatabase.new.length==1 ?'eine gültige Warnung.':warnDatabase.new.length+' gültige Warnungen.');
-            AllEmailMsgDelete+=pushmsg+'\n\n';
+            allEmailMsgDelete+=pushmsg+'\n\n';
+            pushmsg += getStringWarnCount(warnDatabase.new.length);
             sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushmsg,'','');
 
             /* Sprache: Verknüpfen aller aufgehobenen Wetterwarnungen */
             pushmsg = headline + ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr wurde aufgehoben' + '  .  ';
-            MeldungSpracheDWD.push(pushmsg);
+            speakMsgTemp.push(pushmsg);
         }
     }
     let gefahr = false;
@@ -462,37 +462,39 @@ function check() {
             let end = getFormatDate(warnDatabase.new[i].end);
             let MeldungNew = headline + "\ngültig vom " + begin + " Uhr bis " + end + " Uhr\n" + description;
             if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+='\nHandlungsanweisungen: '+instruction;
-            if (warnDatabase.new.length>1) MeldungNew += ' Insgesamt '+warnDatabase.new.length+' gültige Warnungen.'
+
+            // Anzahl Meldungen erst am Ende zu email hinzufügen
+            allEmailMsg+=MeldungNew+'\n\n';
+            if (warnDatabase.new.length>1) MeldungNew += getStringWarnCount(warnDatabase.new.length);
             /* ab Level 4 zusätzlicher Hinweis */
             if (!gefahr) gefahr=level>warnlevel;
             let topic = (level>warnlevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
 
             sendMessage(pushdienst&PUSH,topic,MeldungNew,'','');
-            AllEmailMsg+=MeldungNew+'\n\n';
             /* Sprache: Verknüpfen aller neuen Warnmeldungen */
 
             var replaceDescription0 = entferneDatenpunkt(description);
             MeldungNew = (level>warnlevel)?'Achtung Unwetter ':'' + headline + " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. " + replaceDescription0 + '  .  ';
             if (instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+=' Handlungsanweisungen: '+instruction;
-            MeldungSpracheDWD.push(MeldungNew);
+            speakMsgTemp.push(MeldungNew);
         }
     }
     /* Bereich für Sprachausgabe */
     if (onClickCheckRun) {
-        if (MeldungSpracheDWD.length==0) MeldungSpracheDWD.push('Es liegen keine Warnmeldungen '+artikelMODE+' vor.');
+        if (speakMsgTemp.length==0) speakMsgTemp.push('Es liegen keine Warnmeldungen '+artikelMODE+' vor.');
     }
-    if (MeldungSpracheDWD.length>0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (pushdienst & (HOMETWO+SAYIT+ALEXA))!=0 ) {
+    if (speakMsgTemp.length>0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (pushdienst & (HOMETWO+SAYIT+ALEXA))!=0 ) {
         let a=1000;
         let b = a;
         let c = a;
-        while (MeldungSpracheDWD.length>0)
+        while (speakMsgTemp.length>0)
         {
             let msgAppend = '';
-            if (MeldungSpracheDWD.length > 1) {
-                if (MeldungSpracheDWD.length-1==1) {
+            if (speakMsgTemp.length > 1) {
+                if (speakMsgTemp.length-1==1) {
                     msgAppend = ' Eine weitere neue Warnung.';
                 } else {
-                    msgAppend = MeldungSpracheDWD.length-1+' weitere neue Warnungen.';
+                    msgAppend = speakMsgTemp.length-1+' weitere neue Warnungen.';
                 }
             } else {
                 if (warnDatabase.new.length==0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
@@ -504,35 +506,39 @@ function check() {
             if((pushdienst & HOMETWO)!=0 ){
                 setTimeout(function(msg,msg2){
                     sendMessage(HOMETWO,'','',msg+msg2,'');
-                },a,MeldungSpracheDWD[0], msgAppend);
+                },a,speakMsgTemp[0], msgAppend);
             }
             /* Bereich für Sprachausgabe über SayIt + Alexa */
             if ((pushdienst & SAYIT)!=0) {
                 setTimeout(function(msg,msg2){
                     sendMessage(SAYIT,'','',msg+msg2,'');
-                },b,MeldungSpracheDWD[0], msgAppend);
+                },b,speakMsgTemp[0], msgAppend);
             }
             if ((pushdienst & ALEXA)!=0) {
                 setTimeout(function(msg,msg2){
                     sendMessage(ALEXA,'','',msg+msg2,'');
-                },c,MeldungSpracheDWD[0], msgAppend);
+                },c,speakMsgTemp[0], msgAppend);
             }
             a+=60000;
             b+=45000;
             c+=30000;
-            MeldungSpracheDWD.shift();
+            speakMsgTemp.shift();
         }
     }
 
-    AllEmailMsg+=AllEmailMsgDelete;
-    if ((pushdienst & ALLMSG)!=0 && AllEmailMsg != '') {
-        sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMODE+"(iobroker)":"Wetterwarnungen "+artikelMODE+"(iobroker)",'','',AllEmailMsg);
+    allEmailMsg+=allEmailMsgDelete;
+    if ((pushdienst & ALLMSG)!=0 && allEmailMsg != '') {
+        allEmailMsg += '\n\n' + getStringWarnCount(warnDatabase.new.length);
+        sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMODE+"(iobroker)":"Wetterwarnungen "+artikelMODE+"(iobroker)",'','',allEmailMsg);
     }
 
     /* Neue Werte sichern */
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
 
+function getStringWarnCount(count) {
+    return ' Insgesamt '+(count==1 ?'eine gültige Warnung.':count+' gültige Warnungen.');
+}
 /* Entfernt "°C" aus Sprachmeldung und ersetzt es durch "Grad" */
 function entferneDatenpunkt(beschreibung) {
     var rueckgabe;
@@ -650,24 +656,7 @@ function getDatabaseData(warn){
     result['hash'] = JSON.stringify(warn).hashCode();
     return result;
 }
-/*function convertJsonDWD(warn) {
-warn = (!warn || warn === ''? {} : warn);
-if (warn != {} && (warn.altitudeStart>maxhoehe || warn.level < minlevel)) warn = {};
-let a = warn.description === undefined ? '' : warn.description;
-let b = warn.headline === undefined ? '' : warn.headline;
-let c = warn.start === undefined ? null : warn.start||null;
-let d = warn.end === undefined ? null : warn.end||null;
-let e = warn.instruction === undefined ? '' : warn.instruction;
-let f = warn.type === undefined ? -1 : warn.type;
-let g = warn.level === undefined ? -1 : warn.level;
-return {"description":a,"headline":b,"start":c,"end":d,"instruction":e,"type":f,"level":g};
-}
 
-function getIdIndex(a) {
-a = a.split('.');
-if (a[2].length == 7) return 0
-return a[2][7];
-}*/
 function getFormatDate(a) {
     if (!a || !(typeof a === 'number')) return '';
     return formatDate(new Date (a).getTime(), formatierungString);
