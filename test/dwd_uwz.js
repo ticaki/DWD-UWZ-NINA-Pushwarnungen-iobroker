@@ -1,4 +1,4 @@
-//Version 0.82
+//Version 0.83
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -94,7 +94,7 @@ var sayItVolumen = [60]; // gleiche Anzahl wie idSayIt
 /* Konfiguration Sprachausgabe über Alexa
 /* mehrere Einträge möglich, bei mir ging nur der Echo, 2 dots 2.Gen reagieren nicht auf announcement. */
 var idAlexaSerial =['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y','G090RV32984110Y']
-var alexaVolumen = [40]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
+var alexaVolumen = [20]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 
 //Konfiguration von ioGo
 var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
@@ -102,7 +102,9 @@ var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel'];
 
 // Filtereinstellungen
 const minlevel = 0 // Warnungen gleich oder unterhalb dieses Levels nicht senden;
-const maxhoehe = 1410 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+const warnlevel = 3 // Warnung oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+const minhoehe = 0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
+const maxhoehe = 15000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
 //Formatierungsstring für Datum/Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
 const formatierungString = "TT.MM.YY SS:mm";
@@ -150,14 +152,14 @@ var onClickCheckRun = false;
 var warnDatabase = {new:[],old:[]};
 
 String.prototype.hashCode = function() {
-  var hash = 0, i, chr;
-  if (this.length === 0) return hash;
-  for (i = 0; i < this.length; i++) {
-    chr   = this.charCodeAt(i);
-    hash  = ((hash << 5) - hash) + chr;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return hash;
+    var hash = 0, i, chr;
+    if (this.length === 0) return hash;
+    for (i = 0; i < this.length; i++) {
+        chr   = this.charCodeAt(i);
+        hash  = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
 };
 
 
@@ -260,20 +262,6 @@ if ((pushdienst&EMAIL) != 0) {
         stopScript();
     }
 }
-/* erstmaliges Befüllen der arrays */
-InitDatabase();
-
-
-// State der Pushnachrichten über pushover/telegram spiegelt
-const mirrorMessageState = onClickMessageState+'message';
-if (!existsState(mirrorMessageState)) {
-    createState(mirrorMessageState,'', {
-        read: true,
-        write: false,
-        desc: "Beschreibung",
-        type: "string",
-    });
-}
 
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
 // Warning types
@@ -309,6 +297,22 @@ if (MODE == 'DWD') {
         "Bodenfrost"
     ];
 }
+
+/* erstmaliges Befüllen der arrays */
+InitDatabase();
+
+
+// State der Pushnachrichten über pushover/telegram spiegelt
+const mirrorMessageState = onClickMessageState+'message';
+if (!existsState(mirrorMessageState)) {
+    createState(mirrorMessageState,'', {
+        read: true,
+        write: false,
+        desc: "Beschreibung",
+        type: "string",
+    });
+}
+
 
 const stateAlert = // Änderungen auch in SetAlertState() anpassen
 [
@@ -421,7 +425,7 @@ function check() {
 
         /* alle Sicherungen Wetterwarnung löschen */
         warnDatabase.old = cloneObj(warnDatabase.new);
-      return;
+        return;
     }
     let AllEmailMsg='';
     let AllEmailMsgDelete='';
@@ -460,8 +464,8 @@ function check() {
             if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+='\nHandlungsanweisungen: '+instruction;
             if (warnDatabase.new.length>1) MeldungNew += ' Insgesamt '+warnDatabase.new.length+' gültige Warnungen.'
             /* ab Level 4 zusätzlicher Hinweis */
-            if (!gefahr) gefahr=level>3;
-            let topic = (level>3)?'Wichtige Wetterwarnung':'Wetterwarnung';
+            if (!gefahr) gefahr=level>warnlevel;
+            let topic = (level>warnlevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
 
             sendMessage(pushdienst&PUSH,topic,MeldungNew,'','');
             AllEmailMsg+=MeldungNew+'\n\n';
@@ -559,7 +563,7 @@ function InitDatabase(){
         }
     } else if ( MODE === 'UWZ') {
         warnDatabase={new:[],old:[]}
-        var idAll = $('state[state.id=UWZ.0.*.object]');;
+        var idAll = $('state[state.id=javascript.0.UWZ.*.object]');
         for (let a=0;a<idAll.length;a++) {
             let id = idAll[a];
             addDatabaseData(id, getState(id).val, true, true);
@@ -608,7 +612,7 @@ function getDatabaseData(warn){
     if (!warn || typeof warn !== 'object') return null;
     let result={};
     if (MODE === 'DWD') {
-        if (warn != {} && (warn.altitudeStart>maxhoehe || warn.level < minlevel)) return null;
+        if (warn != {} && (warn.altitudeStart>maxhoehe || warn.altitudeEnd<minhoehe || warn.level < minlevel)) return null;
         result['mode'] = 'DWD';
         result['description'] = warn.description === undefined ? '' : warn.description;
         result['headline'] = warn.headline === undefined ? '' : warn.headline;
@@ -618,38 +622,37 @@ function getDatabaseData(warn){
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.level === undefined ? -1 : warn.level;
     } else if (MODE === 'UWZ') {
-        if (warn != {} && warn.level < minlevel) return null;
+        if (warn != {} && (warn.payload.altMin>maxhoehe || warn.payload.altMax<minhoehe || warn.level < minlevel)) return null;
         result['mode'] = 'UWZ';
-        result['description'] = warn.LongText === undefined ? '' : warn.LongText;
-        result['headline'] = warn.ShortText === undefined ? '' : warn.ShortText;
-        result['start'] = warn.begin === undefined ? null : warn.begin||null;
-        result['end'] = warn.end === undefined ? null : warn.end||null;
+        result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
+        result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart*1000||null;
+        result['end'] = warn.dtgEnd === undefined ? null : warn.dtgEnd*1000||null;
         result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.severity === undefined ? -1 : warn.severity;
-
+        result['headline'] = warn.type === undefined ? '' : 'Warnung vor '+warningTypesString[result.type];
     }
     result['id']='';
     result['hash'] = JSON.stringify(warn).hashCode();
     return result;
 }
 /*function convertJsonDWD(warn) {
-    warn = (!warn || warn === ''? {} : warn);
-    if (warn != {} && (warn.altitudeStart>maxhoehe || warn.level < minlevel)) warn = {};
-    let a = warn.description === undefined ? '' : warn.description;
-    let b = warn.headline === undefined ? '' : warn.headline;
-    let c = warn.start === undefined ? null : warn.start||null;
-    let d = warn.end === undefined ? null : warn.end||null;
-    let e = warn.instruction === undefined ? '' : warn.instruction;
-    let f = warn.type === undefined ? -1 : warn.type;
-    let g = warn.level === undefined ? -1 : warn.level;
-    return {"description":a,"headline":b,"start":c,"end":d,"instruction":e,"type":f,"level":g};
+warn = (!warn || warn === ''? {} : warn);
+if (warn != {} && (warn.altitudeStart>maxhoehe || warn.level < minlevel)) warn = {};
+let a = warn.description === undefined ? '' : warn.description;
+let b = warn.headline === undefined ? '' : warn.headline;
+let c = warn.start === undefined ? null : warn.start||null;
+let d = warn.end === undefined ? null : warn.end||null;
+let e = warn.instruction === undefined ? '' : warn.instruction;
+let f = warn.type === undefined ? -1 : warn.type;
+let g = warn.level === undefined ? -1 : warn.level;
+return {"description":a,"headline":b,"start":c,"end":d,"instruction":e,"type":f,"level":g};
 }
 
 function getIdIndex(a) {
-    a = a.split('.');
-    if (a[2].length == 7) return 0
-    return a[2][7];
+a = a.split('.');
+if (a[2].length == 7) return 0
+return a[2][7];
 }*/
 function getFormatDate(a) {
     if (!a || !(typeof a === 'number')) return '';
@@ -791,29 +794,29 @@ function cloneObj(j) {
 
 /*
 /*var userConfig = [
-    {name:'Telegram',type:'boolean',init:false,container:'bool'},
-    {name:'Pushover',type:'boolean',init:false,container:'bool'},
-    {name:'ioGo',type:'boolean',init:false,container:'bool'},
-    {name:'Alexa',type:'boolean',init:false,container:'bool'},
-    {name:'SayIt',type:'boolean',init:false,container:'bool'},
-    {name:'Home24',type:'boolean',init:false,container:'bool'},
-    {name:'eMail',type:'boolean',init:false,container:'bool'},
-    {name:'Datenpunkt',type:'boolean',init:false,container:'bool'},
-    {name:'eMail Sender',type:'string',init:'',container:'string'},
-    {name:'eMail Empfänger',type:'string',init:'',container:'array'},
-    {name:'Home24 IP',type:'string',init:'',container:'array'},
-    {name:'Telegram Nutzer',type:'string',init:'',container:'array'},
-    {name:'SayIt Datenpunkt',type:'string',init:'',container:'array'},
-    {name:'SayIt Lautstärke',type:'string',init:'',container:'array'},
-    {name:'Alexa Echo Seriennummern',type:'string',init:'',container:'array'},
-    {name:'Alexa Echo Lautstärke',type:'string',init:'',container:'array'},
-    {name:'ioGo Benutzer',type:'string',init:'',container:'array'},
-    {name:'Mindest Warnlevel',type:'number',init:0,container:'number'},
-    {name:'Maximale Höhe',type:'number',init:'2000',container:'number'},
-    {name:'Sprachausgabe Wochentags Startzeit',type:'string',init:'6:30',container:'string'},
-    {name:'Sprachausgabe Wochenende Startzeit',type:'string',init:'9:30',container:'string'},
-    {name:'Sprachausgabe Endzeit',type:'string',init:'22:30',container:'string'},
-    {name:'Automatikmodus',type:'boolean',init:true,container:'bool'},
-    {name:'Sprachausgabe Click überschreibt Zeiten',type:'boolean',init:true,container:'bool'},
-    {name:'Sprachausgabe alle Windgeschwindigkeiten vorlesen',type:'boolean',init:true,container:'bool'},
+{name:'Telegram',type:'boolean',init:false,container:'bool'},
+{name:'Pushover',type:'boolean',init:false,container:'bool'},
+{name:'ioGo',type:'boolean',init:false,container:'bool'},
+{name:'Alexa',type:'boolean',init:false,container:'bool'},
+{name:'SayIt',type:'boolean',init:false,container:'bool'},
+{name:'Home24',type:'boolean',init:false,container:'bool'},
+{name:'eMail',type:'boolean',init:false,container:'bool'},
+{name:'Datenpunkt',type:'boolean',init:false,container:'bool'},
+{name:'eMail Sender',type:'string',init:'',container:'string'},
+{name:'eMail Empfänger',type:'string',init:'',container:'array'},
+{name:'Home24 IP',type:'string',init:'',container:'array'},
+{name:'Telegram Nutzer',type:'string',init:'',container:'array'},
+{name:'SayIt Datenpunkt',type:'string',init:'',container:'array'},
+{name:'SayIt Lautstärke',type:'string',init:'',container:'array'},
+{name:'Alexa Echo Seriennummern',type:'string',init:'',container:'array'},
+{name:'Alexa Echo Lautstärke',type:'string',init:'',container:'array'},
+{name:'ioGo Benutzer',type:'string',init:'',container:'array'},
+{name:'Mindest Warnlevel',type:'number',init:0,container:'number'},
+{name:'Maximale Höhe',type:'number',init:'2000',container:'number'},
+{name:'Sprachausgabe Wochentags Startzeit',type:'string',init:'6:30',container:'string'},
+{name:'Sprachausgabe Wochenende Startzeit',type:'string',init:'9:30',container:'string'},
+{name:'Sprachausgabe Endzeit',type:'string',init:'22:30',container:'string'},
+{name:'Automatikmodus',type:'boolean',init:true,container:'bool'},
+{name:'Sprachausgabe Click überschreibt Zeiten',type:'boolean',init:true,container:'bool'},
+{name:'Sprachausgabe alle Windgeschwindigkeiten vorlesen',type:'boolean',init:true,container:'bool'},
 ];*/
