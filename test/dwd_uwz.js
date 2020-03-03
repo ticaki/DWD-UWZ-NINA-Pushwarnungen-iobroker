@@ -1,4 +1,4 @@
-//Version 0.85
+//Version 0.87
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -609,10 +609,17 @@ function addDatabaseData(id, value,parse,old) {
 }
 
 function getDatabaseData(warn){
-    if (!warn || typeof warn !== 'object') return null;
+    if (!warn || warn === undefined || typeof warn !== 'object' || warn === {}) return null;
     let result={};
     if (MODE === 'DWD') {
-        if (warn != {} && (warn.altitudeStart>maxhoehe || (warn.altitudeEnd && warn.altitudeEnd<minhoehe) || warn.level < minlevel)) return null;
+        if (
+            warn !== {}
+            && (
+                warn.altitudeStart>maxhoehe
+                || (warn.altitudeEnd && warn.altitudeEnd<minhoehe)
+                || warn.level < minlevel
+            )
+        ) return null;
         result['mode'] = 'DWD';
         result['description'] = warn.description === undefined ? '' : warn.description;
         result['headline'] = warn.headline === undefined ? '' : warn.headline;
@@ -622,7 +629,14 @@ function getDatabaseData(warn){
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.level === undefined ? -1 : warn.level;
     } else if (MODE === 'UWZ') {
-        if (warn != {} && (warn.payload.altMin>maxhoehe || (warn.payload.altMax&&warn.payload.altMax<minhoehe) || warn.level < minlevel)) return null;
+        if (
+            warn.payload !== undefined
+            && (
+                warn.payload.altMin>maxhoehe
+                || (warn.payload.altMax && warn.payload.altMax<minhoehe)
+                || warn.level < minlevel
+            )
+        ) return null;
         result['mode'] = 'UWZ';
         result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
         result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart*1000||null;
