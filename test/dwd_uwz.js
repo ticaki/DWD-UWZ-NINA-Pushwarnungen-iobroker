@@ -1,4 +1,4 @@
-//Version 0.83
+//Version 0.85
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -472,7 +472,7 @@ function check() {
             /* Sprache: Verknüpfen aller neuen Warnmeldungen */
 
             var replaceDescription0 = entferneDatenpunkt(description);
-            MeldungNew = (level>3)?'Achtung Unwetter ':'' + headline + " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. " + replaceDescription0 + '  .  ';
+            MeldungNew = (level>warnlevel)?'Achtung Unwetter ':'' + headline + " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. " + replaceDescription0 + '  .  ';
             if (instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+=' Handlungsanweisungen: '+instruction;
             MeldungSpracheDWD.push(MeldungNew);
         }
@@ -576,7 +576,7 @@ function InitDatabase(){
 if ( MODE === 'DWD') {
     on(/^dwd\.0\..*\.object$/, onChange);
 } else if (MODE === 'UWZ') {
-    on(/^dwd\.0\..*\.object$/, onChange);
+    on(/^uwz\..*\.object$/, onChange);
 }
 
 function onChange(dp) {
@@ -612,7 +612,7 @@ function getDatabaseData(warn){
     if (!warn || typeof warn !== 'object') return null;
     let result={};
     if (MODE === 'DWD') {
-        if (warn != {} && (warn.altitudeStart>maxhoehe || warn.altitudeEnd<minhoehe || warn.level < minlevel)) return null;
+        if (warn != {} && (warn.altitudeStart>maxhoehe || (warn.altitudeEnd && warn.altitudeEnd<minhoehe) || warn.level < minlevel)) return null;
         result['mode'] = 'DWD';
         result['description'] = warn.description === undefined ? '' : warn.description;
         result['headline'] = warn.headline === undefined ? '' : warn.headline;
@@ -622,7 +622,7 @@ function getDatabaseData(warn){
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.level === undefined ? -1 : warn.level;
     } else if (MODE === 'UWZ') {
-        if (warn != {} && (warn.payload.altMin>maxhoehe || warn.payload.altMax<minhoehe || warn.level < minlevel)) return null;
+        if (warn != {} && (warn.payload.altMin>maxhoehe || (warn.payload.altMax&&warn.payload.altMax<minhoehe) || warn.level < minlevel)) return null;
         result['mode'] = 'UWZ';
         result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
         result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart*1000||null;
