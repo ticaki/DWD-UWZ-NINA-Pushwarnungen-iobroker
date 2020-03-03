@@ -1,4 +1,4 @@
-//Version 0.88.1
+//Version 0.89
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -121,7 +121,11 @@ var autoMode = true;
 var forcedSpeak = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
 var windForceDetailsSpeak = false;
-
+/* ************************************************************************* */
+/*                       Nur Anpassen wenn nötig                             */
+/* ************************************************************************* */
+var uwzPath = 'javascript.0.UWZ';
+var dwdPath = 'dwd.0';
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -451,7 +455,7 @@ function check() {
     }
     let gefahr = false;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
-    for(i = 0; i < warnDatabase.new.length; i++) {
+    for(let i = 0; i < warnDatabase.new.length; i++) {
         let headline = warnDatabase.new[i].headline;
         let description = warnDatabase.new[i].description;
         let level = warnDatabase.new[i].level;
@@ -528,7 +532,7 @@ function check() {
 
     allEmailMsg+=allEmailMsgDelete;
     if ((pushdienst & ALLMSG)!=0 && allEmailMsg != '') {
-        allEmailMsg += '\n\n' + getStringWarnCount(warnDatabase.new.length);
+        allEmailMsg += getStringWarnCount(warnDatabase.new.length);
         sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMODE+"(iobroker)":"Wetterwarnungen "+artikelMODE+"(iobroker)",'','',allEmailMsg);
     }
 
@@ -562,14 +566,14 @@ function entferneDatenpunkt(beschreibung) {
 function InitDatabase(){
     if ( MODE === 'DWD') {
         warnDatabase={new:[],old:[]};
-        var idAll = $('state[state.id=dwd.0.*.object]');
+        var idAll = $('state[state.id='+dwdPath+'.*.object]');
         for (let a=0;a<idAll.length;a++) {
             let id = idAll[a];
             addDatabaseData(id, getState(id).val, true, true);
         }
     } else if ( MODE === 'UWZ') {
         warnDatabase={new:[],old:[]}
-        var idAll = $('state[state.id=javascript.0.UWZ.*.object]');
+        var idAll = $('state[state.id='+uwzPath+'.*.object]');
         for (let a=0;a<idAll.length;a++) {
             let id = idAll[a];
             addDatabaseData(id, getState(id).val, true, true);
@@ -577,11 +581,21 @@ function InitDatabase(){
     }
 }
 
-
-
 if ( MODE === 'DWD') {
-    on(/^dwd\.0\..*\.object$/, onChange);
+    let path = dwdPath.split('.');
+    let r = '';
+    for (let a=0;a<path.length;a++) {
+        if (path[a]) r+=path[a]+'\.';
+    }
+    r +='.*\.object$';
+    on(new RegExp(r), onChange);
 } else if (MODE === 'UWZ') {
+    let path = uwzPath.split('.');
+    let r = '';
+    for (let a=0;a<path.length;a++) {
+        if (path[a]) r+=path[a]+'\.';
+    }
+    r +='.*\.object$';
     on(/^javascript\.0\.UWZ\..*\.object$/, onChange);
 }
 
