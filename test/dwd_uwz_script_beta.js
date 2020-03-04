@@ -56,7 +56,7 @@ var UWZ = 'UWZ';
 /* ************************************************************************* */
 var MODE = UWZ; // DWD oder UWZ
 //StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
-var onClickMessageState = 'javascript.0.'+MODE+'_Script_test.'; // abschließender Punkt . nicht vergessen
+var onClickMessageState = 'javascript.0.'+MODE+'_Script.'; // abschließender Punkt . nicht vergessen
 
 /* Konfiguration der zu nutzenden Ausgabe um //pushdienst+= PUSHOVER; zu aktivieren, bitte die // enfernen, also pushdienst+= PUSHOVER; */
 //pushdienst+= TELEGRAM;          // Auskommentieren zum aktivieren
