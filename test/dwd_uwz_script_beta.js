@@ -16,7 +16,7 @@
 /*
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
-- DWD & Unwetterzentrale
+- DWD-Adapter & Unwetterzentrale-Script
 - Wetterwarnung
 - Wetterentwarnung
 
@@ -27,6 +27,7 @@ Funktionen:
 - Datenpunkte mit der Startzeit, Endzeit und höchsten Warnlevel dieses Typs
 - Unterstützung für 0_userdata
 - Datenpunkthauptpfade sind konfigurierbar
+- Konfigurationsprüfung soweit möglich
 
 /* ************************************************************************* */
 /* NICHT EDITIEREN */
@@ -163,7 +164,7 @@ var dwdPath = 'dwd.0';
 
 
 //Logausgabe
-var DEBUG = true;
+var DEBUG = false;
 
 // Wandel Usereingabe in True/False um
 autoMode = !!autoMode;
@@ -321,8 +322,13 @@ if ((pushdienst&EMAIL) != 0) {
 
 if(onClickMessageState[onClickMessageState.length-1] != '.') onClickMessageState += '.';
 
-
-
+/***************************************************************************************
+* function testValueTypeLog(test, teststring, typ, need=false)
+* @param {any} test           Variable deren Typ/Inhalt getestet werden soll
+* @param {string} teststring  Variable als String, wie er im Script steht
+* @param {string} typ         Soll-Type der Variable alles + 'array'
+* @param {boolean} need       Variable darf nicht null/leer sein
+/***************************************************************************************/
 function testValueTypeLog(test, teststring, typ, need=false) {
     if (test === undefined) {
         let errorLog = 'Konfiguration enthält Fehler. Der/Ein Wert von var '+teststring+' ist undefiniert oder fehlt!';
