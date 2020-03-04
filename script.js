@@ -14,7 +14,7 @@
 /* ************************************************************************* */
 
 //StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
-var onClickMessageState = 'javascript.0.Test.DWD_Script.'; // abschließender Punkt . nicht vergessen
+var onClickMessageState = 'javascript.0.DWD_Script.'; // abschließender Punkt . nicht vergessen
 
 /* ************************************************************************* */
 /* NICHT EDITIEREN */
@@ -274,9 +274,11 @@ for (let a=0;a<InitArraylength;a++) {
 
 // State der Pushnachrichten über pushover/telegram spiegelt
 
+// Stell sicher, dass sich am Ende ein Punkt befindet
 if(onClickMessageState[onClickMessageState.length-1] != '.')
     onClickMessageState += '.';
 
+// Hole Anfangsknoten für createUserStates
 function getRoot(){
     let sRoot = '';
     if(onClickMessageState.includes('userdata'))
@@ -286,10 +288,12 @@ function getRoot(){
     return sRoot;
 }
 
+// Schneide den Anfang ab - z.B. javascript.0.
 function getEndOfState(state){
     return state.replace(getRoot()+'.','');
 }
 
+// Übernahme vom createUserStates Skript
 function extendedExists(id){
     let b = ($(id).length > 0) && (existsState(id));
     return b;
@@ -302,12 +306,6 @@ if (!extendedExists(mirrorMessageState)) {
     createUserStates(getRoot(),false,[
         [getEndOfState(mirrorMessageState), {'type':'string', 'read':true, 'write':false,'desc':'Beschreibung','def':'' }]
     ]);
-    // createState(mirrorMessageState,'', {
-    //     read: true,
-    //     write: false,
-    //     desc: "Beschreibung",
-    //     type: "string",
-    // });
 }
 
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
@@ -351,7 +349,6 @@ const stateAlert = // Änderungen auch in SetAlertState() anpassen
                     [getEndOfState(stateAlertIdFull), {'type':stateAlert[a].type.type,'def':def}]
                 ]);
 
-                // createState(stateAlertIdFull,stateAlert[a].default, stateAlert[a].type);
                 allStateExist=false;
             }
         }
@@ -366,14 +363,6 @@ for (var a=0;a<konstanten.length;a++){
          createUserStates(getRoot(),false,[
             [getEndOfState(onClickMessageState+'Commands.'+konstanten[a].name), {'type':'boolean', 'read':true, 'write':true, 'role':'button', 'def':false,'desc':'Beschreibung' }]
         ]);
-        // createState('javascript.0.DWD_Test.'+'Commands.'+konstanten[a].name,false, {
-        //     read: true,
-        //     write: true,
-        //     desc: "Beschreibung",
-        //     type: "boolean",
-        //     role: "button",
-        //     def: false
-        // });
     }
     if (extendedExists(onClickMessageState+'Commands.'+konstanten[a].name)){
         subscribe({id: onClickMessageState+'Commands.'+konstanten[a].name},function(obj){
