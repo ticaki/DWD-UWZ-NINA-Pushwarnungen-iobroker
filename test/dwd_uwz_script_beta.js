@@ -1,4 +1,4 @@
-//Version 0.86
+//Version 0.90
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
