@@ -134,7 +134,7 @@ const formatierungString = "TT.MM.YY SS:mm";
 
 // Sprachausgabe Zeiten
 // Für durchgehende Sprachausgabe die Einstellung der Zeiten auf '' setzen. z.B. var startTimeSpeak = '';
-var startTimeSpeak = '6:45';// Zeiten mo-fr ab der Sprachausgaben ok sind. Nicht unter 6 Uhr gehen oder den Schedule ändern
+var startTimeSpeak = '6:45';// Zeiten mo-fr ab der Sprachausgaben ok sind.
 var startTimeSpeakWeekend = '9:00';// sa + so Bemerkung siehe oben
 var endTimeSpeak = '22:30'; // ab diesem Zeitpunkt gibt es keine Sprachausgabe
 
