@@ -491,8 +491,8 @@ function convertStringToDate(s) {
     var e = s.split(':');
     if (!Array.isArray(e) || e.length != 2) return null;
     var d = new Date();
-    d.setHours(e[0]);
-    d.setMinutes(e[1]);
+    d.setHours(Number(e[0]));
+    d.setMinutes(Number(e[1]));
     d.setSeconds(0);
     return d;
 }
