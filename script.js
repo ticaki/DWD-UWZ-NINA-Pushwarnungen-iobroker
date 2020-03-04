@@ -1,4 +1,4 @@
-//Version 1.15.9.1
+//Version 1.15.9.2
 //nachbearbeitet von ticaki
 //Stand 02.03.2020
 /*
@@ -510,7 +510,7 @@ function check() {
             /* Sprache: Verknüpfen aller neuen Warnmeldungen */
 
             var replaceDescription0 = entferneDatenpunkt(description);
-            MeldungNewSprache = (level>3)?'Achtung Unwetter ':'' + headline + " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. " + replaceDescription0 + '  .  ';
+            MeldungNewSprache = ((level>3)?'Achtung Unwetter ':'') + headline + " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. " + replaceDescription0 + '  .  ';
             if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNewSprache+=' Handlungsanweisungen: '+instruction;
             MeldungSpracheDWD.push(MeldungNewSprache);
         }
