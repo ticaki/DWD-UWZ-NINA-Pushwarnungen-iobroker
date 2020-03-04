@@ -1,4 +1,4 @@
-//Version 0.89.1
+//Version 0.89.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -407,7 +407,7 @@ function convertStringToDate(s) {
     return d;
 }
 
-var artikelMODE = MODE == 'DWD'?'des DWD' : 'der UWZ';
+var artikelMODE = MODE == 'DWD'?'des DWD' : 'der Unwetterzentrale';
 function check() {
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend||!startTimeSpeak||!endTimeSpeak);
     setWeekend();
@@ -443,7 +443,7 @@ function check() {
         if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
             let end = getFormatDate(warnDatabase.old[i].end);
 
-            let pushmsg = "Die Wetterwarnung " +"'"+ headline + " gültig bis " + end + "'" + " des DWD wurde aufgehoben.";
+            let pushmsg = "Die Wetterwarnung " +"'"+ headline + " gültig bis " + end + "'" + " "+artikelMODE+" wurde aufgehoben.";
             allEmailMsgDelete+=pushmsg+'\n\n';
             pushmsg += getStringWarnCount(warnDatabase.new.length);
             sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushmsg,'','');
@@ -664,7 +664,7 @@ function getDatabaseData(warn){
         result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.severity === undefined ? -1 : warn.severity;
-        result['headline'] = warn.type === undefined ? '' : 'Warnung vor '+warningTypesString[result.type];
+        result['headline'] = warn.type === undefined ? '' : 'Warnung '+artikelMODE+' vor '+warningTypesString[result.type];
     }
     result['id']='';
     result['hash'] = JSON.stringify(warn).hashCode();
