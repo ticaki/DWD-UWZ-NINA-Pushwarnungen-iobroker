@@ -1,4 +1,4 @@
-//Version 0.89.2
+//Version 0.89.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -34,6 +34,8 @@ const ALEXA = konstanten[5].value;
 const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
 var pushdienst=0;
+var DWD = 'DWD';
+var UWZ = 'UWZ';
 /* ************************************************************************* */
 /*                       Konfiguration ab hier                               */
 /* ************************************************************************* */
@@ -154,6 +156,41 @@ var forceSpeak = false;
 var timer = null;
 var onClickCheckRun = false;
 var warnDatabase = {new:[],old:[]};
+var artikelMODE = MODE == 'DWD'?'des DWD' : 'der Unwetterzentrale';
+
+// Warning types
+var warningTypesString =[];
+if (MODE == 'DWD') {
+    warningTypesString = [
+        'Gewitter',
+        'Sturm',
+        'Regen',
+        'Schnee',
+        'Nebel',
+        'Frost',
+        'Glatteis',
+        'Tauwetter',
+        'Hitzewarnungen',
+        'UV_Warnungen'/*,
+        'Kuestenwarnungen',
+        'Binnenseewarnungen'*/
+    ];
+} else if (MODE == 'UWZ') {
+    warningTypesString = [
+        "n_a",
+        "unbekannt",
+        "Sturm-Orkan",
+        "Schneefall",
+        "Starkregen",
+        "Extremfrost",
+        "Waldbrandgefahr",
+        "Gewitter",
+        "Glätte",
+        "Hitze",
+        "Glatteisregen",
+        "Bodenfrost"
+    ];
+}
 
 String.prototype.hashCode = function() {
     var hash = 0, i, chr;
@@ -268,42 +305,8 @@ if ((pushdienst&EMAIL) != 0) {
 }
 
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
-// Warning types
-var warningTypesString =[];
-if (MODE == 'DWD') {
-    warningTypesString = [
-        'Gewitter',
-        'Sturm',
-        'Regen',
-        'Schnee',
-        'Nebel',
-        'Frost',
-        'Glatteis',
-        'Tauwetter',
-        'Hitzewarnungen',
-        'UV_Warnungen'/*,
-        'Kuestenwarnungen',
-        'Binnenseewarnungen'*/
-    ];
-} else if (MODE == 'UWZ') {
-    warningTypesString = [
-        "n_a",
-        "unbekannt",
-        "Sturm-Orkan",
-        "Schneefall",
-        "Starkregen",
-        "Extremfrost",
-        "Waldbrandgefahr",
-        "Gewitter",
-        "Glätte",
-        "Hitze",
-        "Glatteisregen",
-        "Bodenfrost"
-    ];
-}
 
-/* erstmaliges Befüllen der arrays */
-InitDatabase();
+
 
 
 // State der Pushnachrichten über pushover/telegram spiegelt
@@ -374,6 +377,9 @@ for (var a=0;a<konstanten.length;a++){
         })
     }
 }
+/* erstmaliges Befüllen der arrays */
+InitDatabase();
+
 
 // Zeitsteuerung für SayIt & Alexa
 var START = new Date();
@@ -407,7 +413,6 @@ function convertStringToDate(s) {
     return d;
 }
 
-var artikelMODE = MODE == 'DWD'?'des DWD' : 'der Unwetterzentrale';
 function check() {
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend||!startTimeSpeak||!endTimeSpeak);
     setWeekend();
