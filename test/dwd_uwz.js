@@ -1,4 +1,4 @@
-//Version 0.89
+//Version 0.89.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -109,17 +109,17 @@ const maxhoehe = 15000 // Warnung für eine Höhe oberhalb dieses Wertes nicht s
 //Formatierungsstring für Datum/Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
 const formatierungString = "TT.MM.YY SS:mm";
 
-// Sprachausgabe Zeiten
+// Sprachausgabe Zeitschaltuhr
 // Für durchgehende Sprachausgabe die Einstellung der Zeiten auf '' setzen. z.B. var startTimeSpeak = '';
 var startTimeSpeak = '6:45';// Zeiten mo-fr ab der Sprachausgaben ok sind. Nicht unter 6 Uhr gehen oder den Schedule ändern
 var startTimeSpeakWeekend = '9:00';// sa + so Bemerkung siehe oben
 var endTimeSpeak = '22:30'; // ab diesem Zeitpunkt gibt es keine Sprachausgabe
 
-// Automatikmodus auschalten
+// Schaltet den automatischen Versand von Pushnachrichten an/aus true/false
 var autoMode = true;
-//Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
+//true: Manuell ausgelöste Pushnachrichten ignorieren die Zeitschaltuhr für Sprachausgaben
 var forcedSpeak = true;
-// keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
+// DWD: keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
 var windForceDetailsSpeak = false;
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
@@ -596,7 +596,7 @@ if ( MODE === 'DWD') {
         if (path[a]) r+=path[a]+'\.';
     }
     r +='.*\.object$';
-    on(/^javascript\.0\.UWZ\..*\.object$/, onChange);
+    on(new RegExp(r), onChange);
 }
 
 function onChange(dp) {
