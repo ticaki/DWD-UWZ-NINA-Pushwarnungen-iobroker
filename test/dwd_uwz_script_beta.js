@@ -1,4 +1,4 @@
-//Version 0.92.2
+//Version 0.92.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -580,7 +580,7 @@ const stateAlert = // Änderungen auch in SetAlertState() anpassen
     {"name":'end',"default":null,"type":{ read: true, write: false, role: "value.datetime",type: "string", name:''}},
 ]
 {
-    let stateAlertId = mainStatePath+'alert.';
+    let stateAlertId = mainStatePath+'alert.'+MODE.toLowerCase()+'.';
     let allStateExist = true;
     for (let b=0;b<warningTypesString.length;b++) {
         for (let a=0;a<stateAlert.length;a++)
