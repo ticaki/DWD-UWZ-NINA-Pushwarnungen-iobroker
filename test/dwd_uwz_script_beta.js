@@ -212,6 +212,7 @@ if (DEBUG) log('Variablen initialisiert. MODE: '+MODE+' modeFromState: '+modeFro
 if (modeFromState && typeof modeFromState === 'string' && (modeFromState!=MODE) && (modeFromState.toUpperCase() === DWD || modeFromState.toUpperCase() === UWZ)) {
     MODE=modeFromState.toUpperCase();
     if (DEBUG) log('MODE wurde geändert. MODE: '+MODE);
+    setState(configModeState, MODE, true);
 }
 
 function getModeState()
@@ -533,9 +534,17 @@ if (!extendedExists(configModeState)) {
     });
 } else {
     on({id:configModeState, change:'ne', ack:false}, function(obj){
-        if (obj.state.val && typeof obj.state.val === 'string' && (obj.state.val.toUpperCase() === DWD || obj.state.val.toUpperCase() === UWZ)) {
-            if (DEBUG) log('Modus wird geändert auf: '+obj.state.val);
-            restartScript();
+        if (obj.state.val && typeof obj.state.val === 'string'
+        && (obj.state.val.toUpperCase() === DWD || obj.state.val.toUpperCase() === UWZ)) {
+            //setState(configModeState, MODE,true)
+            if ( MODE != obj.state.val.toUpperCase() ) {
+                if (DEBUG) log('Modus wird geändert auf: '+obj.state.val);
+                restartScript();
+            } else {
+                setState(configModeState, MODE, true);
+            }
+        } else {
+            setState(configModeState, MODE, true);
         }
     });
     setState(configModeState, MODE, true);
@@ -627,7 +636,7 @@ for (var a=0;a<konstanten.length;a++){
             def: ((pushdienst&konstanten[a].value)!=0)
         });
     } else {
-        setConfigKonstanten(oid, getState(oid));
+        setConfigKonstanten(oid, getState(oid).val);
         subscribe({id: oid, change:'ne', ack: false},function(obj){
             setConfigKonstanten(obj.id, obj.state.val);
         })
@@ -838,7 +847,7 @@ function entferneDatenpunkt(beschreibung) {
             return getFormatDateSpeak(x);
         })
         if (!windForceDetailsSpeak) {
-            rueckgabe = rueckgabe.replace(/[0-9]+.m\/s..[0-9]+kn..Bft.[0-9]+/g, "");
+            rueckgabe = rueckgabe.replace(/\([0-9]+.m\/s..[0-9]+kn..Bft.[0-9]+../g, "");
         } else {
             rueckgabe = rueckgabe.replace(/kn/g, " Knoten");
             rueckgabe = rueckgabe.replace(/Bft/g, " Windstärke");
@@ -1020,7 +1029,8 @@ function getFormatDateSpeak(a) {
         case '12': m='Dezember';break;
         default: m='';
     }
-    b[0]+='.';
+  //  if (Number(b[0])<10) b[0]=b[0].slice(1,1);
+    b[0]=Number(b[0]).toString();
     b[1]=m; // setze Monatsname
     // entferne Jahr
     let c = b[2].split(' ');
