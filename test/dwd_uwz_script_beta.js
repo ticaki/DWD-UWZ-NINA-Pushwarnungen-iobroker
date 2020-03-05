@@ -1,4 +1,4 @@
-//Version 0.90.1
+//Version 0.92
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -22,18 +22,32 @@ Unterstützt:
 
 Funktionen:
 - Filter die Warnungen nach Gefahr (level) und Höhe
+- Umschalten über iobroker zwischen DWD und UWZ
+- Autorestart
 - Automatischer Versand und/oder manueller Nachrichtenversand
 - Zeitschaltuhr für Sprachausgabe
 - Datenpunkte mit der Startzeit, Endzeit und höchsten Warnlevel dieses Typs
 - Unterstützung für 0_userdata
 - Datenpunkthauptpfade sind konfigurierbar
 - Konfigurationsprüfung soweit möglich
+- Automodus und einzelne Pushdienste über iobroker schaltbar (hat nicht mit manuellem Versand zu tun)
+- Fingerweg vom .alive state :)
 
-/* ************************************************************************* */
-/* ************************************************************************* */
+/* ************************************************************************ */
+/*            Datenpfad konfigurieren                                       */
+/* ************************************************************************ */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/* ************************************************************************ */
+var mainStatePath = 'javascript.0.wetterwarnung.'; // abschließender Punkt . nicht vergessen
+/* ************************************************************************ */
+/*            Datenpfad konfigurieren ENDE                                  */
+/* ************************************************************************ */
+/* ************************************************************************ */
 /* NICHT EDITIEREN */
-/* ************************************************************************* */
-/* ************************************************************************* */
+/* ************************************************************************ */
+/* ************************************************************************ */
 var konstanten = [
     {"name":'telegram',"value":1},
     {"name":'pushover',"value":2},
@@ -52,9 +66,16 @@ const HOMETWO = konstanten[4].value;
 const ALEXA = konstanten[5].value;
 const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
-var pushdienst=0;
+var uPushdienst=0;
 var DWD = 'DWD';
 var UWZ = 'UWZ';
+var autoSendWarnings = true;
+const aliveState = mainStatePath+'alive';
+const configModeState = mainStatePath+'config.mode';
+var timeoutFromCreateState = null;
+if (extendedExists(aliveState)) {
+    setState(aliveState, true, true);
+}
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -63,46 +84,48 @@ var UWZ = 'UWZ';
 /* ************************************************************************* */
 /* ************************************************************************* */
 // MODE einstellen UWZ oder DWD. Für beides 2 Skripte anlegen
-var MODE = UWZ; // DWD oder UWZ
+var MODE = UWZ; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
 
-//StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
-var onClickMessageState = 'javascript.0.'+MODE+'_Script.'; // abschließender Punkt . nicht vergessen
-
-/* Konfiguration der zu nutzenden Ausgabe um //pushdienst+= PUSHOVER; zu aktivieren, bitte die // enfernen, also pushdienst+= PUSHOVER; */
-//pushdienst+= TELEGRAM;          // Auskommentieren zum aktivieren
-//pushdienst+= PUSHOVER;          // Auskommentieren zum aktivieren
-//pushdienst+= EMAIL;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
-//pushdienst+= SAYIT;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
-//pushdienst+= HOMETWO;           // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
-//pushdienst+= ALEXA;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
-//pushdienst+= STATE;             // Auskommentieren zum aktivieren. State befindet sich unter onClickMessageState.message
-//pushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
+/* Konfiguration der zu nutzenden Ausgabe um //uPushdienst+= PUSHOVER; zu aktivieren, bitte die // enfernen, also uPushdienst+= PUSHOVER; */
+//uPushdienst+= TELEGRAM;          // Auskommentieren zum aktivieren
+//uPushdienst+= PUSHOVER;          // Auskommentieren zum aktivieren
+//uPushdienst+= EMAIL;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
+//uPushdienst+= SAYIT;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
+//uPushdienst+= HOMETWO;           // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
+//uPushdienst+= ALEXA;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
+//uPushdienst+= STATE;             // Auskommentieren zum aktivieren. State befindet sich unter mainStatePath.message
+//uPushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
 
 /* ************************************************************************* */
 /*                 Beispiele zur weiteren Konfiguration                      */
 /* ************************************************************************* */
-// kein oder einen Eintrag möglich:
-//var senderEmailID = ["max@mustermann.de"];
+/*
+/* kein oder einen Eintrag möglich:
+/* var senderEmailID = ["max@mustermann.de"];
+/*
+/* kein oder mehrfach nach gleichem Muster [1,2,3] bzw. ['1','2','3'] Einträge
+/* '' ist das selbe wie "", jedoch nicht mischen.
+/*
+/* var empfaengerEmailID = ["max@musterman.de","max2@musterman.de"];
+/* var telegramUser = []; // leer
+/* var telegramUser = ['']; // leer
+/* var telegramUser = ['Hans']; // User mit Namen Hans
+/* var telegramUser = ['Hans','Gretel']; // User mit Namen Hans und User mit Namen Gretel
+/* var idSayIt = ["sayit.0.tts.text"];
+/* var sayItVolumen = [60]; // Zahl ohne ''
+/* var idSayIt = ["sayit.0.tts.text","sayit.1.tts.text"];
+/* var sayItVolumen = [60,30]; // mehrfach Zahl ohne ''
+/* var ioGoUser = ['max@musterman.de'];
+/* var idAlexaSerial =['G090RV32984110Y','G090RZ3345643XR'];
+/* var alexaVolumen = [40,30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
+/*
+/* ************************************************************************* */
+/*                          weitere Konfiguration                            */
+/* ************************************************************************* */
 
-// kein oder mehrfach nach gleichem Muster [1,2,3] bzw. ['1','2','3'] Einträge
-// '' ist das selbe wie "", jedoch nicht mischen.
-//var empfaengerEmailID = ["max@musterman.de","max2@musterman.de"];
-//var telegramUser = []; // leer
-//var telegramUser = ['']; // leer
-//var telegramUser = ['Hans']; // User mit Namen Hans
-//var telegramUser = ['Hans','Gretel']; // User mit Namen Hans und User mit Namen Gretel
-//var idSayIt = ["sayit.0.tts.text"];
-//var sayItVolumen = [60]; // Zahl ohne ''
-//var idSayIt = ["sayit.0.tts.text","sayit.1.tts.text"];
-//var sayItVolumen = [60,30]; // mehrfach Zahl ohne ''
-//var ioGoUser = ['max@musterman.de'];
-//var idAlexaSerial =['G090RV32984110Y','G090RZ3345643XR'];
-//var alexaVolumen = [40,30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
-/* ************************************************************************* */
-/*                                                                           */
-/* ************************************************************************* */
 
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
+/* Textbeispiel anstatt Entenhausen: 'Stadt/Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
 /* var regionName = ['UWZDE12345','Entenhausen'] */
 var regionName = [['','']];
 
@@ -112,7 +135,7 @@ var empfaengerEmailID = [""];// mit Empfänger Emailadresse füllen. Mehrere Emp
 
 /* Konfiguration Sprachausgabe über Home24-Mediaplayer */
 //var idMediaplayer = ["192.168.178.x:Port"];
-var idMediaplayer = ["192.168.178.68:50000"]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
+var idMediaplayer = [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
 
 /* Konfiguration Telegram */
 var telegramUser = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
@@ -130,12 +153,9 @@ var alexaVolumen = [20]; // Lautstärke die gleiche Anzahl an Einträgen wie bei
 //Konfiguration von ioGo
 var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
 
-
 // Filtereinstellungen
 const minlevel = 0 // Warnungen gleich oder unterhalb dieses Levels nicht senden;
-
-const warnlevel = 3 // Warnung oberhalb dieses Levels mit zusätzlichen Hinweisen versehen DWD 3 UWZ 8-12
-
+const warnlevel = 3 // Warnung oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
 const minhoehe = 1 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
 const maxhoehe = 12000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
@@ -144,12 +164,12 @@ const formatierungString = "TT.MM.YY SS:mm";
 
 // Sprachausgabe Zeiten
 // Für durchgehende Sprachausgabe die Einstellung der Zeiten auf '' setzen. z.B. var startTimeSpeak = '';
-var startTimeSpeak = '6:45';// Zeiten mo-fr ab der Sprachausgaben ok sind.
+var startTimeSpeak = '6:45';// Zeiten mo-fr ab der Sprachausgaben ok sind. Nicht unter 6 Uhr gehen oder den Schedule ändern
 var startTimeSpeakWeekend = '9:00';// sa + so Bemerkung siehe oben
 var endTimeSpeak = '22:30'; // ab diesem Zeitpunkt gibt es keine Sprachausgabe
 
-// Automatikmodus auschalten
-var autoMode = true;
+// Automatikmodus schalten geht über mainStatePath.config.auto.on
+//var autoSendWarnings = true;
 //Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
 var forcedSpeak = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
@@ -180,10 +200,56 @@ var emailInstanz='email';
 //Logausgabe
 var DEBUG = false;
 
+
 // Wandel Usereingabe in True/False um
-autoMode = !!autoMode;
+autoSendWarnings = !!autoSendWarnings;
 forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
+
+var modeFromState = getModeState();
+if (DEBUG) log('Variablen initialisiert. MODE: '+MODE+' modeFromState: '+modeFromState+' mainStatePath: '+mainStatePath);
+
+if (modeFromState && typeof modeFromState === 'string' && (modeFromState!=MODE) && (modeFromState.toUpperCase() === DWD || modeFromState.toUpperCase() === UWZ)) {
+    MODE=modeFromState.toUpperCase();
+    if (DEBUG) log('MODE wurde geändert. MODE: '+MODE);
+}
+
+function getModeState()
+{
+    if (extendedExists(configModeState)) {
+        return getState(configModeState).val;
+    }
+    return null;
+}
+
+// wenn alive schon false, starte das Skript neu
+onStop(function(callback){
+    if (extendedExists(aliveState)) {
+        if (!getState(aliveState).val) {
+            if (DEBUG) log('wird neugestartet!');
+            setState(aliveState, false, true, function(){
+                setTimeout(function(){
+                    startScript(scriptName);
+                    if (DEBUG) log('Neustart wurde ausgeführt');
+                },1000)
+            });
+        } else {
+            if (DEBUG) log('wurde beendet!');
+            setState(aliveState,false, true);
+        }
+    }
+    callback();
+},100)
+
+// stop das Skript und setzt den Alivestatus
+function restartScript() {
+    setTimeout(function(){
+        setState(aliveState, false, false, function(){
+            if (DEBUG) log('wird über killScript beendet.!');
+            stopScript(scriptName);
+        });
+    },500);
+}
 
 // Variable nicht konfigurierbar
 var SPEAK = ALEXA+HOMETWO+SAYIT;
@@ -198,6 +264,18 @@ var onClickCheckRun = false;
 var warnDatabase = {new:[],old:[]};
 var artikelMode = MODE == DWD?'des DWD' : 'der Unwetterzentrale';
 if (DEBUG) artikelMode = MODE == DWD?'des DWD(ALPHA)' : 'der Unwetterzentrale(ALPHA)';
+var pushdienst = uPushdienst;
+
+function buildHtmlEmail(mailMsg, headline, msg, color, last) {
+    if (!mailMsg) mailMsg='<table border="1" cellpadding="0" cellspacing="0" width="100%">';
+    if (headline) {
+      if (color) mailMsg+='<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"'+color+'\"><b>'+headline+'</b></td></tr>';
+      else mailMsg+='<tr><td style="padding: 5px 0 5px 0;"><b>'+headline+'</b></td></tr>';
+    }
+    if (msg) mailMsg+='<tr><td style="padding: 5px 0 20px 0;">'+msg+'</td></tr>';
+    if (last) mailMsg+='</table>';
+    return mailMsg;
+}
 
 // hash erzeugen
 String.prototype.hashCode = function() {
@@ -215,10 +293,18 @@ String.prototype.hashCode = function() {
 * Überprüfe Nutzerkonfiguration
 /* ************************************************************************* */
 
-if (MODE === undefined || !MODE || (MODE !== DWD && MODE !== UWZ)) {
+if (MODE === undefined || !MODE || (typeof MODE !== 'string') ) {
     let errorLog = 'Konfiguration enthält Fehler. var MODE = UWZ; oder var MODE = DWD; fehlt!';
     log(errorLog,'error');
     stopScript();
+} else if (MODE !== DWD && MODE !== UWZ) {
+    let mode = MODE;
+    MODE = MODE.toUpperCase();
+    if (MODE !== DWD && MODE !== UWZ) {
+        let errorLog = 'Konfiguration enthält Fehler. var MODE = '+mode+'; ist fehlerhaft! Nutze var MODE = UWZ; oder var MODE = DWD;';
+        log(errorLog,'error');
+        stopScript();
+    }
 }
 testValueTypeLog(pushdienst&(SPEAK+PUSH+ALLMSG), 'pushdienst', 'number', true);
 testValueTypeLog(uwzPath, 'uwzPath', 'string', true);
@@ -334,7 +420,7 @@ if ((pushdienst&EMAIL) != 0) {
     }
 }
 
-if(onClickMessageState[onClickMessageState.length-1] != '.') onClickMessageState += '.';
+if(mainStatePath[mainStatePath.length-1] != '.') mainStatePath += '.';
 
 /***************************************************************************************
 * function testValueTypeLog(test, teststring, typ, need=false)
@@ -415,7 +501,7 @@ InitDatabase();
 
 
 // State der Pushnachrichten über pushover/telegram spiegelt
-const mirrorMessageState = onClickMessageState+'message';
+const mirrorMessageState = mainStatePath+'message';
 if (!extendedExists(mirrorMessageState)) {
     createCustomState(mirrorMessageState,'', {
         read: true,
@@ -423,6 +509,57 @@ if (!extendedExists(mirrorMessageState)) {
         desc: "Beschreibung",
         type: "string",
     });
+}
+
+// MODE änderung über Datenpunkte
+if (!extendedExists(aliveState)) {
+    createCustomState(aliveState, false, {
+        read: true,
+        write: false,
+        desc: "Beschreibung",
+        type: "boolean",
+        def: false
+    });
+}
+
+// alive anzeige wird benutzt um einen Restart auszulösen;
+if (!extendedExists(configModeState)) {
+    createCustomState(configModeState,'', {
+        read: true,
+        write: true,
+        desc: "Modusauswahl DWD oder UWZ",
+        type: "string",
+        def: ''
+    });
+} else {
+    on({id:configModeState, change:'ne', ack:false}, function(obj){
+        if (obj.state.val && typeof obj.state.val === 'string' && (obj.state.val.toUpperCase() === DWD || obj.state.val.toUpperCase() === UWZ)) {
+            if (DEBUG) log('Modus wird geändert auf: '+obj.state.val);
+            restartScript();
+        }
+    });
+    setState(configModeState, MODE, true);
+}
+
+
+{
+    let id = mainStatePath+'config.auto.on';
+    if (!extendedExists(id)) {
+        createCustomState(id, true, {
+            read: true,
+            write: true,
+            desc: "Aktivere automatischen Push bei eintreffen der Warnungen.",
+            type: "boolean",
+            def: true
+        });
+    } else {
+        on({id:id, change:'ne', ack:false}, function(obj){
+            autoSendWarnings = obj.state.val;
+            setState(obj.id, autoSendWarnings, true);
+        });
+        autoSendWarnings = getState(id).val;
+        setState(id, autoSendWarnings, true);
+    }
 }
 
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
@@ -434,7 +571,7 @@ const stateAlert = // Änderungen auch in SetAlertState() anpassen
     {"name":'end',"default":null,"type":{ read: true, write: false, role: "value.datetime",type: "string", name:''}},
 ]
 {
-    let stateAlertId = onClickMessageState+'alert.';
+    let stateAlertId = mainStatePath+'alert.';
     let allStateExist = true;
     for (let b=0;b<warningTypesString.length;b++) {
         for (let a=0;a<stateAlert.length;a++)
@@ -452,8 +589,8 @@ const stateAlert = // Änderungen auch in SetAlertState() anpassen
 
 // Nachrichtenversand per Click States erzeugen und subscript
 for (var a=0;a<konstanten.length;a++){
-    if (!extendedExists(onClickMessageState+'Commands.'+konstanten[a].name)) {
-        createCustomState(onClickMessageState+'Commands.'+konstanten[a].name,false, {
+    if (!extendedExists(mainStatePath+'commands.'+konstanten[a].name)) {
+        createCustomState(mainStatePath+'commands.'+konstanten[a].name,false, {
             read: true,
             write: true,
             desc: "Beschreibung",
@@ -461,15 +598,14 @@ for (var a=0;a<konstanten.length;a++){
             role: "button",
             def: false
         });
-    }
-    if (extendedExists(onClickMessageState+'Commands.'+konstanten[a].name)){
-        subscribe({id: onClickMessageState+'Commands.'+konstanten[a].name},function(obj){
+    } else {
+        subscribe({id: mainStatePath+'commands.'+konstanten[a].name},function(obj){
             if (!obj.state.val) return;
             setState(obj.id,false,true);
             let b = obj.id.split('.');
             let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);})
             if (d == -1) {log('Fehler. State nicht in Konstanten enthalten','error'); return;}
-            if ((pushdienst & konstanten[d].value) == 0) return;
+            if ((uPushdienst & konstanten[d].value) == 0) return;
             let oldPushdienst = pushdienst;
             pushdienst = konstanten[d].value*1;
             warnDatabase.old = [];
@@ -481,6 +617,31 @@ for (var a=0;a<konstanten.length;a++){
             pushdienst = oldPushdienst;
         })
     }
+    let oid = mainStatePath+'config.auto.'+konstanten[a].name;
+    if (!extendedExists(oid)) {
+        createCustomState(oid,((pushdienst&konstanten[a].value)!=0), {
+            read: true,
+            write: true,
+            desc: "Schalte Autopushmöglichkeiten ein/aus",
+            type: "boolean",
+            def: ((pushdienst&konstanten[a].value)!=0)
+        });
+    } else {
+        setConfigKonstanten(oid, getState(oid));
+        subscribe({id: oid, change:'ne', ack: false},function(obj){
+            setConfigKonstanten(obj.id, obj.state.val);
+        })
+    }
+}
+// Hilfsfunktion
+function setConfigKonstanten(id, val){
+    let b = id.split('.');
+    let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);})
+    if (d == -1) {log('Fehler. State nicht in Konstanten enthalten','error'); return;}
+    let value = konstanten[d].value
+    if (val) pushdienst |= uPushdienst & value;
+    else pushdienst &= ~value;
+    setState(id,((pushdienst & value)!=0), true);
 }
 
 // Zeitsteuerung für SayIt & Alexa
@@ -533,14 +694,14 @@ function check() {
         }
         PushMsg = 'Alle Warnmeldungen '+artikelMode+' wurden aufgehoben';
         sendMessage(pushdienst&PUSH,'Wetterentwarnung',PushMsg,'','');
-        sendMessage(pushdienst&ALLMSG,'Wetterentwarnung '+artikelMode+'(iobroker)','','',PushMsg);
+        sendMessage(pushdienst&ALLMSG,'Wetterentwarnung '+artikelMode+'(iobroker)','','',buildHtmlEmail('',null,PushMsg,null,true));
 
         /* alle Sicherungen Wetterwarnung löschen */
         warnDatabase.old = cloneObj(warnDatabase.new);
         return;
     }
     let allEmailMsg='';
-    let allEmailMsgDelete='';
+    let allEmailMsgDelete='!';
     let speakMsgTemp=[];
 
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
@@ -553,7 +714,8 @@ function check() {
             let end = getFormatDate(warnDatabase.old[i].end);
 
             let pushmsg = "Die Wetterwarnung " +"'"+ headline+area+" gültig bis " + end + "Uhr'" + " wurde aufgehoben.";
-            allEmailMsgDelete+=pushmsg+'\n\n';
+            allEmailMsgDelete+=buildHtmlEmail(allEmailMsg,null,pushmsg+'\n','#00FF00',false);
+            //allEmailMsgDelete+=pushmsg+'\n\n';
             pushmsg += getStringWarnCount(warnDatabase.new.length);
             sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushmsg,'','');
 
@@ -571,14 +733,17 @@ function check() {
         let instruction = warnDatabase.new[i].instruction;
         let hash = warnDatabase.new[i].hash;
         let area = warnDatabase.new[i].areaID;
+        let color = warnDatabase.new[i].color;
         if(hash && warnDatabase.old.findIndex(function(j){return j.hash == hash;}) == -1 ) {
             let begin = getFormatDate(warnDatabase.new[i].start);
             let end = getFormatDate(warnDatabase.new[i].end);
-            let MeldungNew = headline + area + "\ngültig vom " + begin + " Uhr bis " + end + " Uhr\n" + description;
+            let MeldungNew =area + "\ngültig vom " + begin + " Uhr bis " + end + " Uhr\n" + description;
             if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+='\nHandlungsanweisungen: '+instruction;
 
             // Anzahl Meldungen erst am Ende zu email hinzufügen
-            allEmailMsg+=MeldungNew+'\n\n';
+            allEmailMsg+=buildHtmlEmail(allEmailMsg,headline,MeldungNew+'\n',color,false);
+            //allEmailMsg+=MeldungNew+'\n\n';
+            MeldungNew = headline + MeldungNew
             if (warnDatabase.new.length>1) MeldungNew += getStringWarnCount(warnDatabase.new.length);
             /* ab Level 4 zusätzlicher Hinweis */
             if (!gefahr) gefahr=level>warnlevel;
@@ -639,10 +804,11 @@ function check() {
             speakMsgTemp.shift();
         }
     }
-
+    allEmailMsgDelete=allEmailMsgDelete.slice(1);
     allEmailMsg+=allEmailMsgDelete;
     if ((pushdienst & ALLMSG)!=0 && allEmailMsg != '') {
-        allEmailMsg += getStringWarnCount(warnDatabase.new.length);
+        allEmailMsg = buildHtmlEmail(allEmailMsg,null,getStringWarnCount(warnDatabase.new.length),null,true);
+        //allEmailMsg += getStringWarnCount(warnDatabase.new.length);
         sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMode+"(iobroker)":"Wetterwarnungen "+artikelMode+"(iobroker)",'','',allEmailMsg);
     }
 
@@ -664,6 +830,13 @@ function entferneDatenpunkt(beschreibung) {
 
         rueckgabe = rueckgabe.replace(/\°C/g, "Grad");
         rueckgabe = rueckgabe.replace(/km\/h/g, "Kilometer pro Stunde");
+        rueckgabe = rueckgabe.replace(/l\/m/g, "Liter pro Quadratmeter");
+        rueckgabe = rueckgabe.replace(/\d{1,2}\.\d{1,2}\.\d{4}../gi, function(x){
+            return getFormatDateSpeak(x);
+        })
+        rueckgabe = rueckgabe.replace(/\d{1,2}\.\d{1,2}\.../gi, function(x){
+            return getFormatDateSpeak(x);
+        })
         if (!windForceDetailsSpeak) {
             rueckgabe = rueckgabe.replace(/[0-9]+.m\/s..[0-9]+kn..Bft.[0-9]+/g, "");
         } else {
@@ -718,7 +891,7 @@ function onChange(dp) {
     removeDatabaseDataID(dp.id);
     addDatabaseData(dp.id, dp.state.val, true);
     if(timer) clearTimeout(timer);
-    if (autoMode) timer = setTimeout(check, 10000);
+    if (autoSendWarnings) timer = setTimeout(check, 10000);
 }
 
 // entferne Eintrag aus der Database
@@ -783,12 +956,42 @@ function getDatabaseData(warn){
         result['end'] = warn.dtgEnd === undefined ? null : warn.dtgEnd*1000||null;
         result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['type'] = warn.type === undefined ? -1 : warn.type;
-        result['level'] = warn.severity === undefined ? -1 : warn.severity;
+        result['level'] = warn.payload.levelName === undefined ? -1 : getUWZLevel(warn.payload.levelName);
         result['headline'] = warn.type === undefined ? '' : 'Warnung ' +artikelMode+' vor '+warningTypesString[result.type];
         result['areaID'] = warn.areaID === undefined ? '' : warn.areaID;
+        result['color'] = getLevelColor(result.level);
     }
+    result['color'] = getLevelColor(result.level);
     result['id']='';
     result['hash'] = JSON.stringify(warn).hashCode();
+    return result;
+}
+
+function getLevelColor(level) {
+    var color = [
+        '#00ff00', // 0 - Grün
+        '#009b00', // 1 - Dunkelgrün
+        '#ffff00', // 2 - Gelb Wetterwarnungen (Stufe 1)
+        '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 2)
+        '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 3)
+        '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (Stufe 4)
+    ];
+    if (level>=0 && level<=5)
+        return color[level];
+    else
+        return 0x00ff00;
+}
+
+function getUWZLevel (warnName){
+    var result = -1; // -1 is an error!
+    var alert = warnName.split("_");
+    var colors = ["green","darkgreen","yellow","orange","red","violet"];
+
+    if (alert[0]=="notice") { result = 1; }
+    else if (alert[1] == "forewarn") { result = 2; }
+    else {
+        result = colors.indexOf(alert[2]);
+    }
     return result;
 }
 // Formatiere Date zu string
@@ -817,6 +1020,7 @@ function getFormatDateSpeak(a) {
         case '12': m='Dezember';break;
         default: m='';
     }
+    b[0]+='.';
     b[1]=m; // setze Monatsname
     // entferne Jahr
     let c = b[2].split(' ');
@@ -826,7 +1030,7 @@ function getFormatDateSpeak(a) {
 }
 // setzte die Alert States auf die höchste aktuelle Warnstufe
 function SetAlertState(){
-    let stateAlertid = onClickMessageState+'alert.';
+    let stateAlertid = mainStatePath+'alert.';
     for (let b=0;b<warningTypesString.length;b++)
     {
         let stateAlertIdFull = stateAlertid+warningTypesString[b]+'.';
@@ -912,12 +1116,23 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
     if (msgall &&(pushdienst & EMAIL)!=0) {
         if (empfaengerEmailID.length>0) {
             for (let a=0;a<empfaengerEmailID.length;a++) {
-                sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, text: msgall}:{to: empfaengerEmailID[a], subject: topic, text: msgall});
+                sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, html: msgall}:{to: empfaengerEmailID[a], subject: topic, html: msgall});
             }
         } else {
-            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, text: msgall});
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, html: msgall});
         }
     }
+}
+
+if ((pushdienst&TELEGRAM) != 0 ) {
+    on({id: telegramInstanz+'.communicate.request',change:"any",ack:false}, function(obj){
+        var msg = obj.state.val;
+        var user = msg.substring(1,msg.indexOf(']'));
+        msg = msg.substring(msg.indexOf(']')+1,msg.length);
+        if (msg.includes('Wetterwarnungen?')) {
+            setState(mainStatePath+'commands.'+konstanten[0].name,true);
+        }
+    });
 }
 
 // gibt aktuell die Alexa ID zurück
@@ -934,8 +1149,8 @@ function getRegionName(id) {
     if (!Array.isArray(regionName) || regionName.length==0) return '';
     for (let a=0; a<regionName.length;a++) {
         if (id.includes(regionName[a][0])) {
-          return ' für '+regionName[a][1];
-      }
+            return ' für '+regionName[a][1];
+        }
     }
     return '';
 }
@@ -967,13 +1182,17 @@ function createCustomState(id, def, type, callback = undefined) {
     if (!extendedExists(id)) {
         if (DEBUG) log('getCustomRoot: ' +getCustomRoot(id));
         if (DEBUG) log('getEndOfState: ' + getEndOfState(id));
-        if(def == null && type.type == 'string')
-        type.def = '';
-        else
-        type.def = def ;
+        if (def == null && type.type == 'string') type.def = '';
+        else type.def = def ;
         createUserStates(getCustomRoot(id),false,[
             [getEndOfState(id), type ],
         ], callback);
+        // Restart Skript nach dem States erzeugt wurden
+        // Nutze Timeout um erst am Ende aller CreateStates das Skript neuzustarten
+        if (timeoutFromCreateState) clearTimeout(timeoutFromCreateState);
+        timeoutFromCreateState = setTimeout(function(){
+            restartScript();
+        },400);
     }
 }
 
