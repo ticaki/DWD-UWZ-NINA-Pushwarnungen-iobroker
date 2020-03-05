@@ -1,4 +1,4 @@
-//Version 0.92
+//Version 0.92.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -710,7 +710,7 @@ function check() {
         return;
     }
     let allEmailMsg='';
-    let allEmailMsgDelete='!';
+    let allEmailMsgDelete='';
     let speakMsgTemp=[];
 
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
@@ -723,8 +723,7 @@ function check() {
             let end = getFormatDate(warnDatabase.old[i].end);
 
             let pushmsg = "Die Wetterwarnung " +"'"+ headline+area+" gültig bis " + end + "Uhr'" + " wurde aufgehoben.";
-            allEmailMsgDelete+=buildHtmlEmail(allEmailMsg,null,pushmsg+'\n','#00FF00',false);
-            //allEmailMsgDelete+=pushmsg+'\n\n';
+            allEmailMsgDelete+=pushmsg+'<br><br>';
             pushmsg += getStringWarnCount(warnDatabase.new.length);
             sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushmsg,'','');
 
@@ -747,10 +746,13 @@ function check() {
             let begin = getFormatDate(warnDatabase.new[i].start);
             let end = getFormatDate(warnDatabase.new[i].end);
             let MeldungNew =area + "\ngültig vom " + begin + " Uhr bis " + end + " Uhr\n" + description;
-            if (!!instruction && typeof instruction === 'string' && instruction.length > 2) MeldungNew+='\nHandlungsanweisungen: '+instruction;
-
+            let html = "gültig vom " + begin + " Uhr bis " + end + " Uhr<br>" + description;
+            if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
+                MeldungNew+='\nHandlungsanweisungen:\n '+instruction;
+                html+='<br>Handlungsanweisungen:<br>'+instruction;
+            }
             // Anzahl Meldungen erst am Ende zu email hinzufügen
-            allEmailMsg+=buildHtmlEmail(allEmailMsg,headline,MeldungNew+'\n',color,false);
+            allEmailMsg=buildHtmlEmail(allEmailMsg,headline+area,html,color,false);
             //allEmailMsg+=MeldungNew+'\n\n';
             MeldungNew = headline + MeldungNew
             if (warnDatabase.new.length>1) MeldungNew += getStringWarnCount(warnDatabase.new.length);
@@ -813,11 +815,9 @@ function check() {
             speakMsgTemp.shift();
         }
     }
-    allEmailMsgDelete=allEmailMsgDelete.slice(1);
-    allEmailMsg+=allEmailMsgDelete;
+    allEmailMsg= buildHtmlEmail(allEmailMsg, (allEmailMsgDelete?'Aufgehobene Warnungen':null),allEmailMsgDelete,'silver',false);
     if ((pushdienst & ALLMSG)!=0 && allEmailMsg != '') {
         allEmailMsg = buildHtmlEmail(allEmailMsg,null,getStringWarnCount(warnDatabase.new.length),null,true);
-        //allEmailMsg += getStringWarnCount(warnDatabase.new.length);
         sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMode+"(iobroker)":"Wetterwarnungen "+artikelMode+"(iobroker)",'','',allEmailMsg);
     }
 
@@ -921,7 +921,8 @@ function addDatabaseData(id, value, parse, old) {
     warn = getDatabaseData(warn);
     if (warn) {
         warn.id=id;
-        warn.areaID=getRegionName(id);
+        if (MODE == UWZ) warn.areaID=getRegionName(id);
+        else warn.areaID=' für ' + warn.areaID;
         warnDatabase.new.push(warn);
         if (old) warnDatabase.old.push(cloneObj(warn)); //
     }
@@ -948,7 +949,7 @@ function getDatabaseData(warn){
         result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.level === undefined ? -1 : warn.level;
-        result['areaID'] = '';//warn.regionName === undefined ? '' : warn.regionName;
+        result['areaID'] = warn.regionName === undefined ? '' : warn.regionName;
     } else if (MODE === UWZ) {
         if (
             warn.payload !== undefined
@@ -1139,7 +1140,7 @@ if ((pushdienst&TELEGRAM) != 0 ) {
         var msg = obj.state.val;
         var user = msg.substring(1,msg.indexOf(']'));
         msg = msg.substring(msg.indexOf(']')+1,msg.length);
-        if (msg.includes('Wetterwarnungen?')) {
+        if (msg.includes('Ww?')||msg.includes('Wetterwarnungen?')) {
             setState(mainStatePath+'commands.'+konstanten[0].name,true);
         }
     });
