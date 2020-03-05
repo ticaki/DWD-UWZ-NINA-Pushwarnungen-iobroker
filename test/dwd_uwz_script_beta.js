@@ -1,4 +1,4 @@
-//Version 0.90
+//Version 0.90.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -30,7 +30,10 @@ Funktionen:
 - Konfigurationsprüfung soweit möglich
 
 /* ************************************************************************* */
+/* ************************************************************************* */
 /* NICHT EDITIEREN */
+/* ************************************************************************* */
+/* ************************************************************************* */
 var konstanten = [
     {"name":'telegram',"value":1},
     {"name":'pushover',"value":2},
@@ -53,9 +56,15 @@ var pushdienst=0;
 var DWD = 'DWD';
 var UWZ = 'UWZ';
 /* ************************************************************************* */
+/* ************************************************************************* */
+/* ************************************************************************* */
 /*                       Konfiguration ab hier                               */
 /* ************************************************************************* */
+/* ************************************************************************* */
+/* ************************************************************************* */
+// MODE einstellen UWZ oder DWD. Für beides 2 Skripte anlegen
 var MODE = UWZ; // DWD oder UWZ
+
 //StatePfad um Mitteilungen auszulösen darunter werden jeweils Punkte für jede Ausgabemöglichkeit erstellt.
 var onClickMessageState = 'javascript.0.'+MODE+'_Script.'; // abschließender Punkt . nicht vergessen
 
@@ -70,7 +79,7 @@ var onClickMessageState = 'javascript.0.'+MODE+'_Script.'; // abschließender Pu
 //pushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
 
 /* ************************************************************************* */
-/*                       Beispiele zur Konfiguration                         */
+/*                 Beispiele zur weiteren Konfiguration                      */
 /* ************************************************************************* */
 // kein oder einen Eintrag möglich:
 //var senderEmailID = ["max@mustermann.de"];
@@ -96,6 +105,7 @@ var onClickMessageState = 'javascript.0.'+MODE+'_Script.'; // abschließender Pu
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
 /* var regionName = ['UWZDE12345','Entenhausen'] */
 var regionName = [['','']];
+
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
 var empfaengerEmailID = [""];// mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
@@ -151,7 +161,11 @@ var windForceDetailsSpeak = false;
 var uwzPath = 'javascript.0.UWZ';
 var dwdPath = 'dwd.0';
 
-
+var telegramInstanz='telegram.0';
+var pushoverInstanz='pushover.0';
+var ioGoInstanz='iogo.0';
+var alexaInstanz='alexa2.0';
+var emailInstanz='email';
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -176,8 +190,8 @@ var SPEAK = ALEXA+HOMETWO+SAYIT;
 var PUSH = TELEGRAM+PUSHOVER+IOGO+STATE;
 var ALLMSG = EMAIL;
 var placeHolder = 'XXXXPLACEHOLDERXXXX';
-var idAlexa = 'alexa2.0.Echo-Devices.'+placeHolder+'.Commands.announcement';
-var idAlexaVolumen = 'alexa2.0.Echo-Devices.'+placeHolder+'.Commands.speak-volume';
+var idAlexa = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.announcement';
+var idAlexaVolumen = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.speak-volume';
 var forceSpeak = false;
 var timer = null;
 var onClickCheckRun = false;
@@ -839,32 +853,32 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         if ((pushdienst & TELEGRAM)!=0) {
             if (telegramUser.length>0) {
                 for (let a=0;a<telegramUser.length;a++) {
-                    sendTo ("telegram.0", {user: telegramUser[a], text: msgsingle});
+                    sendTo (telegramInstanz, {user: telegramUser[a], text: msgsingle});
                 }
             }
             if (telegramChatId.length>0){
                 for (let a=0;a<telegramChatId.length;a++) {
-                    sendTo ("telegram.0", {ChatId: telegramChatId[a], text: msgsingle});
+                    sendTo (telegramInstanz, {ChatId: telegramChatId[a], text: msgsingle});
                 }
             }
             if(!(telegramUser.length>0||telegramChatId.length>0)) {
-                sendTo ("telegram.0", msgsingle);
+                sendTo (telegramInstanz, msgsingle);
             }
         }
         if ((pushdienst & PUSHOVER)!=0) {
-            sendTo("pushover.0", msgsingle);
+            sendTo(pushoverInstanz, msgsingle);
         }
         if ((pushdienst & IOGO)!=0) {
             if (ioGoUser.length>0) {
                 for (let a=0;a<ioGoUser.length;a++) {
-                    sendTo('iogo.0', "send", {
+                    sendTo(ioGoInstanz, "send", {
                         user:                   ioGoUser[a],
                         text:                   topic,
                         title:                  msgsingle
                     });
                 }
             } else {
-                sendTo('iogo.0', "send", {
+                sendTo(ioGoInstanz, "send", {
                     text:                   topic,
                     title:                  msgsingle
                 });
@@ -898,10 +912,10 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
     if (msgall &&(pushdienst & EMAIL)!=0) {
         if (empfaengerEmailID.length>0) {
             for (let a=0;a<empfaengerEmailID.length;a++) {
-                sendTo("email", senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, text: msgall}:{to: empfaengerEmailID[a], subject: topic, text: msgall});
+                sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, text: msgall}:{to: empfaengerEmailID[a], subject: topic, text: msgall});
             }
         } else {
-            sendTo("email", senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, text: msgall});
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, text: msgall});
         }
     }
 }

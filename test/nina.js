@@ -141,7 +141,11 @@ var windForceDetailsSpeak = false;
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
-
+var telegramInstanz='telegram.0';
+var pushoverInstanz='pushover.0';
+var ioGoInstanz='iogo.0';
+var alexaInstanz='alexa2.0';
+var emailInstanz='email';
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -154,7 +158,7 @@ var windForceDetailsSpeak = false;
 
 
 //Logausgabe
-var DEBUG = true;
+var DEBUG = false;
 
 // Wandel Usereingabe in True/False um
 autoMode = !!autoMode;
@@ -165,11 +169,9 @@ windForceDetailsSpeak = !!windForceDetailsSpeak;
 var SPEAK = ALEXA+HOMETWO+SAYIT;
 var PUSH = TELEGRAM+PUSHOVER+IOGO+STATE;
 var ALLMSG = EMAIL;
-var DWD = 'DWD';
-var UWZ = 'UWZ';
 var placeHolder = 'XXXXPLACEHOLDERXXXX';
-var idAlexa = 'alexa2.0.Echo-Devices.'+placeHolder+'.Commands.announcement';
-var idAlexaVolumen = 'alexa2.0.Echo-Devices.'+placeHolder+'.Commands.speak-volume';
+var idAlexa = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.announcement';
+var idAlexaVolumen = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.speak-volume';
 var forceSpeak = false;
 var timer = null;
 var onClickCheckRun = false;
@@ -698,32 +700,32 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         if ((pushdienst & TELEGRAM)!=0) {
             if (telegramUser.length>0) {
                 for (let a=0;a<telegramUser.length;a++) {
-                    sendTo ("telegram.0", {user: telegramUser[a], text: msgsingle});
+                    sendTo (telegramInstanz, {user: telegramUser[a], text: msgsingle});
                 }
             }
             if (telegramChatId.length>0){
                 for (let a=0;a<telegramChatId.length;a++) {
-                    sendTo ("telegram.0", {ChatId: telegramChatId[a], text: msgsingle});
+                    sendTo (telegramInstanz, {ChatId: telegramChatId[a], text: msgsingle});
                 }
             }
             if(!(telegramUser.length>0||telegramChatId.length>0)) {
-                sendTo ("telegram.0", msgsingle);
+                sendTo (telegramInstanz, msgsingle);
             }
         }
         if ((pushdienst & PUSHOVER)!=0) {
-            sendTo("pushover.0", msgsingle);
+            sendTo(pushoverInstanz, msgsingle);
         }
         if ((pushdienst & IOGO)!=0) {
             if (ioGoUser.length>0) {
                 for (let a=0;a<ioGoUser.length;a++) {
-                    sendTo('iogo.0', "send", {
+                    sendTo(ioGoInstanz, "send", {
                         user:                   ioGoUser[a],
                         text:                   topic,
                         title:                  msgsingle
                     });
                 }
             } else {
-                sendTo('iogo.0', "send", {
+                sendTo(ioGoInstanz, "send", {
                     text:                   topic,
                     title:                  msgsingle
                 });
@@ -754,10 +756,10 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
     if (msgall &&(pushdienst & EMAIL)!=0) {
         if (empfaengerEmailID.length>0) {
             for (let a=0;a<empfaengerEmailID.length;a++) {
-                sendTo("email", senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, text: msgall}:{to: empfaengerEmailID[a], subject: topic, text: msgall});
+                sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, text: msgall}:{to: empfaengerEmailID[a], subject: topic, text: msgall});
             }
         } else {
-            sendTo("email", senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, text: msgall});
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, text: msgall});
         }
     }
 }
