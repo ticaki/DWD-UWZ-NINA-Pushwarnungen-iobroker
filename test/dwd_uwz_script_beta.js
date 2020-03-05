@@ -1,4 +1,4 @@
-//Version 0.92.3
+//Version 0.92.4
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -1041,7 +1041,7 @@ function getFormatDateSpeak(a) {
 }
 // setzte die Alert States auf die höchste aktuelle Warnstufe
 function SetAlertState(){
-    let stateAlertid = mainStatePath+'alert.';
+    let stateAlertid = mainStatePath+'alert.'+MODE.toLowerCase()+'.';
     for (let b=0;b<warningTypesString.length;b++)
     {
         let stateAlertIdFull = stateAlertid+warningTypesString[b]+'.';
