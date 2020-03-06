@@ -1,4 +1,4 @@
-//Version 0.93.6
+//Version 0.93.8
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -300,14 +300,14 @@ function checkMode(modeFromState) {
 if (MODE === undefined || !MODE || (typeof MODE !== 'string') ) {
     let errorLog = 'Konfiguration enthält Fehler. var MODE = UWZ; oder var MODE = DWD; fehlt!';
     log(errorLog,'error');
-    stopScript();
+    stopScript(scriptName);
 } else if (!MODE.includes(DWD) && !MODE.includes(UWZ)) {
     let mode = MODE;
     MODE = MODE.toUpperCase();
     if (!MODE.includes(DWD) && !MODE.includes(UWZ)) {
         let errorLog = 'Konfiguration enthält Fehler. var MODE = '+mode+'; ist fehlerhaft! Nutze var MODE = UWZ; oder var MODE = DWD; oder var MODE = \'DWDUWZ\';';
         log(errorLog,'error');
-        stopScript();
+        stopScript(scriptName);
     }
 }
 testValueTypeLog(pushdienst&(SPEAK+PUSH+ALLMSG), 'pushdienst', 'number', true);
@@ -324,7 +324,7 @@ if (!Array.isArray(regionName[0])) {
         if (Array.isArray(regionName) && regionName[a].length!=0) {
             if (regionName[a].length!=2 ) {
                 log('Konfiguration enthält Fehler. var regionName - Eintrag: '+(b)+' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']','error');
-                stopScript();
+                stopScript(scriptName);
             } else {
                 if (!regionName[a][0] && !regionName[a][1] ) regionName.splice(a--,1)
                 else {
@@ -364,12 +364,12 @@ if ((pushdienst&ALEXA) != 0) {
     testValueTypeLog(idAlexaSerial,'idAlexaSerial','array');
     if (idAlexaSerial.length==0) {
         log('Keine Alexa/Echoseriennummer eingetragen. Überpüfen!','error');
-        stopScript();
+        stopScript(scriptName);
     }
     for (let a=0;a<idAlexaSerial.length;a++) {
         if (!extendedExists(getFullId(idAlexa,idAlexaSerial[a]))) {
             log('Alexa-Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen!','error');
-            stopScript();
+            stopScript(scriptName);
         }
     }
 }
@@ -381,14 +381,14 @@ if ((pushdienst&SAYIT) != 0) {
             !extendedExists(idSayIt[a])
         ) {
             log('SayIt-Konfiguration ist fehlerhaft. Überpüfen!','error');
-            stopScript();
+            stopScript(scriptName);
         }
     }
 }
 if ((pushdienst&EMAIL) != 0) {
     if (senderEmailID.length>1) {
         log('eMail-Konfiguration ist fehlerhaft. Nur 1 Eintrag in senderEmailID erlaubt!','error');
-        stopScript();
+        stopScript(scriptName);
     }
 }
 
@@ -405,13 +405,13 @@ function testValueTypeLog(test, teststring, typ, need=false) {
     if (test === undefined) {
         let errorLog = 'Konfiguration enthält Fehler. Der/Ein Wert von var '+teststring+' ist undefiniert oder fehlt!';
         log(errorLog,'error');
-        stopScript();
+        stopScript(scriptName);
     }
     if (typ == 'array') {
         if (!test || !Array.isArray(test)) {
             let errorLog = 'Konfiguration enthält Fehler. Der/Ein Wert von var '+teststring+' ist kein Array. Es fehlen wohl die umschließenden []!';
             log(errorLog,'error');
-            stopScript();
+            stopScript(scriptName);
         }
     } else if ( typeof test !== typ ) {
         let errorLog = 'Konfiguration enthält Fehler. Ändere '+teststring+' = [';
@@ -421,11 +421,11 @@ function testValueTypeLog(test, teststring, typ, need=false) {
             errorLog+='\''+test+'\'];//('+typeof test+') in '+teststring+' = ['+test+'];//('+typ+')';
         }
         log(errorLog, 'error');
-        stopScript();
+        stopScript(scriptName);
     }
     if (need && !test) {
         log('Konfiguration enthält Fehler. Der Wert von var '+teststring+' wird benötigt, ist jedoch nicht konfiguriert!','error');
-        stopScript();
+        stopScript(scriptName);
     }
 }
 
@@ -650,7 +650,7 @@ function check() {
         let headline = warnDatabase.old[i].headline;
         let hash = warnDatabase.old[i].hash;
         let area = warnDatabase.old[i].areaID;
-        let mode = warnDatabase.old[i].areaID;
+        let mode = warnDatabase.old[i].mode;
         if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
             collectMode+=mode;
             let end = getFormatDate(warnDatabase.old[i].end);
@@ -746,7 +746,7 @@ function check() {
             a+=uSpeakSpeakPerCharHomeTwo*speakMsgTemp[0].length+2000;
             b+=uSpeakSpeakPerCharSayIt*speakMsgTemp[0].length+2000;
             c+=uSpeakSpeakPerCharAlexa*speakMsgTemp[0].length+2000;
-            if (DEBUG) log(speakMsgTemp[0].length);
+            if (DEBUG) log(speakMsgTemp[0].length.toString());
             speakMsgTemp.shift();
         }
     }
@@ -1182,7 +1182,7 @@ function getCustomRoot(id){
     let sRoot = id.split('.');
     if (!Array.isArray(sRoot)) {
         log('Fehler: '+id+' ist fehlerhaft. Es fehlt ein . ','error');
-        stopScript();
+        stopScript(scriptName);
     }
     if(sRoot[0]==='0_userdata') sRoot = '0_userdata.0';
     else sRoot = 'javascript.'+ id.split('.')[1];
