@@ -1,4 +1,4 @@
-//Version 0.94.1
+//Version 0.94.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -338,38 +338,73 @@ if (!Array.isArray(regionName[0])) {
     }
 }
 {
-    let testValueArray = [
-        [senderEmailID ,'senderEmailID','string',true],
-        [empfaengerEmailID ,'empfaengerEmailID','string',true],
-        [idMediaplayer ,'idMediaplayer','string',true],
-        [idAlexaSerial ,'idAlexaSerial','string',true],
-        [telegramUser ,'telegramUser','string',true],
-        [idSayIt ,'idSayIt','string',true],
-        [ioGoUser ,'ioGoUser','string',true],
-        [telegramChatId ,'telegramChatId','string',true],
-        [sayItVolumen,'sayItVolumen','number', false],
-        [alexaVolumen,'alexaVolumen','number', false]
-    ]
-    for (let i=0;a<testValueArray.length;a++) {
-        for (let a=0;a<testValueArray[i][0].length;a++) {
-            if (!testValueArray[i][0][a] && testValueArray[i][3]) testValueArray[i][0].splice(a--,1);
-            else if (!testValueArray[i][3] && testValueArray[i][0][a] === undefined) testValueArray[i][0][a]=0;
-            else {
-                testValueTypeLog(testValueArray[i][0][a],testValueArray[i][1],testValueArray[i][2]);
-            }
+    for (let a=0;a<senderEmailID.length;a++) {
+        if (!senderEmailID[a]) senderEmailID.splice(a--,1);
+        else {
+            testValueTypeLog(senderEmailID[a],'senderEmailID','string');
         }
     }
-}
-if ((pushdienst&ALEXA) != 0) {
-    testValueTypeLog(idAlexaSerial,'idAlexaSerial','array');
-    if (idAlexaSerial.length==0) {
-        log('Keine Alexa/Echoseriennummer eingetragen. Überpüfen!','error');
-        stopScript(scriptName);
+    for (let a=0;a<empfaengerEmailID.length;a++) {
+        if (!empfaengerEmailID[a]) empfaengerEmailID.splice(a--,1);
+        else {
+            testValueTypeLog(empfaengerEmailID[a],'empfaengerEmailID','string');
+        }
     }
     for (let a=0;a<idAlexaSerial.length;a++) {
-        if (!extendedExists(getFullId(idAlexa,idAlexaSerial[a]))) {
-            log('Alexa-Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen!','error');
+        if (!idAlexaSerial[a]) idAlexaSerial.splice(a--,1);
+        else {
+            testValueTypeLog(idAlexaSerial[a],'idAlexaSerial','string');
+        }
+    }
+    for (let a=0;a<idMediaplayer.length;a++) {
+        if (!idMediaplayer[a]) idMediaplayer.splice(a--,1);
+        else {
+            testValueTypeLog(idMediaplayer[a],'idMediaplayer','string');
+        }
+    }
+    for (let a=0;a<telegramUser.length;a++) {
+        if (!telegramUser[a]) telegramUser.splice(a--,1);
+        else {
+            testValueTypeLog(telegramUser[a],'telegramUser','string');
+        }
+    }
+    for (let a=0;a<idSayIt.length;a++) {
+        if (!idSayIt[a]) idSayIt.splice(a--,1);
+        else {
+            testValueTypeLog(idSayIt[a],'idSayIt','string');
+        }
+    }
+    for (let a=0;a<ioGoUser.length;a++) {
+        if (!ioGoUser[a]) ioGoUser.splice(a--,1);
+        else {
+            testValueTypeLog(ioGoUser[a],'ioGoUser','string');
+        }
+    }
+    for (let a=0;a<telegramChatId.length;a++) {
+        if (!telegramChatId[a]) telegramChatId.splice(a--,1);
+        else {
+            testValueTypeLog(telegramChatId[a],'telegramChatId','string');
+        }
+    }
+    for (let a=0;a<sayItVolumen.length;a++) {
+        if (sayItVolumen[a] === undefined) sayItVolumen[a]=0;
+        else testValueTypeLog(sayItVolumen[a],'sayItVolumen','number');
+    }
+    for (let a=0;a<alexaVolumen.length;a++) {
+        if (alexaVolumen[a] === undefined) alexaVolumen[a]=0;
+        else testValueTypeLog(alexaVolumen[a],'alexaVolumen','number');
+    }
+    if ((pushdienst&ALEXA) != 0) {
+        testValueTypeLog(idAlexaSerial,'idAlexaSerial','array');
+        if (idAlexaSerial.length==0) {
+            log('Keine Alexa/Echoseriennummer eingetragen. Überpüfen!','error');
             stopScript(scriptName);
+        }
+        for (let a=0;a<idAlexaSerial.length;a++) {
+            if (!extendedExists(getFullId(idAlexa,idAlexaSerial[a]))) {
+                log('Alexa-Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen!','error');
+                stopScript(scriptName);
+            }
         }
     }
 }
@@ -626,15 +661,17 @@ function check() {
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
         for (let a=0;a<warnDatabase.old.length;a++) collectMode+=warnDatabase.old[a].mode;
-        let PushMsg = 'Achtung' + '  .  ' + 'Alle Warnmeldungen'+artikelMode(collectMode, true)+'wurden aufgehoben';
+        let pushMsg = 'Achtung' + '  .  ' + 'Alle Warnmeldungen'+artikelMode(collectMode, true)+'wurden aufgehoben';
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
-            sendMessage(pushdienst&SPEAK,'','',PushMsg,'');
+            sendMessage(pushdienst&SPEAK,'','',pushMsg,'');
+            if (DEBUG) log('Sprache:'+pushMsg);
         }
-        PushMsg = 'Alle Warnmeldungen'+artikelMode(collectMode)+'wurden aufgehoben';
-        sendMessage(pushdienst&PUSH,'Wetterentwarnung',PushMsg,'','');
-        sendMessage(pushdienst&ALLMSG,'Wetterentwarnung'+artikelMode(collectMode)+'(iobroker)','','',buildHtmlEmail('',null,PushMsg,null,true));
+        pushMsg = 'Alle Warnmeldungen'+artikelMode(collectMode)+'wurden aufgehoben';
+        if (DEBUG) log('text:'+pushMsg);
+        sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushMsg,'','');
+        sendMessage(pushdienst&ALLMSG,'Wetterentwarnung'+artikelMode(collectMode)+'(iobroker)','','',buildHtmlEmail('',null,pushMsg,null,true));
 
         /* alle Sicherungen Wetterwarnung löschen */
         warnDatabase.old = cloneObj(warnDatabase.new);
@@ -654,14 +691,15 @@ function check() {
         if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
             collectMode+=mode;
             let end = getFormatDate(warnDatabase.old[i].end);
-            let pushmsg = "Die Wetterwarnung"+artikelMode(mode)+"'"+ headline+area+" gültig bis " + end + "Uhr'" + " wurde aufgehoben.";
-            emailHtmlClear+=pushmsg+'<br><br>';
-            pushmsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushmsg,'','');
-
+            let pushMsg = "Die Wetterwarnung"+artikelMode(mode)+"'"+ headline+area+" gültig bis " + end + "Uhr'" + " wurde aufgehoben.";
+            emailHtmlClear+=pushMsg+'<br><br>';
+            pushMsg += getStringWarnCount(null, warnDatabase.new.length);
+            sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushMsg,'','');
+            if (DEBUG) log('text:'+pushMsg);
             /* Sprache: Wetterentwarnungen */
-            pushmsg = headline +artikelMode(mode,true)+ area + ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr wurde aufgehoben' + '  .  ';
-            speakMsgTemp.push(pushmsg);
+            pushMsg = headline +artikelMode(mode,true)+ area + ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr wurde aufgehoben' + '  .  ';
+            speakMsgTemp.push(pushMsg);
+            if (DEBUG) log('Sprache:'+pushMsg);
         }
     }
     let gefahr = false;
@@ -697,12 +735,14 @@ function check() {
             pushMsg = headline + artikelMode(mode) + pushMsg + instPush;
             if (warnDatabase.new.length>1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
             sendMessage(pushdienst&PUSH,topic,pushMsg,'','');
+            if (DEBUG) log('text:'+pushMsg);
             /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
             var replaceDescription0 = replaceTokenForSpeak(description);
             topic = ((level>warnlevel)?'Achtung Unwetter ':'');
             sTime = " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. ";
             pushMsg = topic + headline+ artikelMode(mode,true)+area + sTime + replaceDescription0 + instPush;
             speakMsgTemp.push(pushMsg);
+            if (DEBUG) log('Sprache:'+pushMsg);
         }
     }
     /* Bereich für Sprachausgabe */
