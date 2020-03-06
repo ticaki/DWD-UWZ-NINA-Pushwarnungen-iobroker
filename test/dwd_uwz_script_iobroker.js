@@ -1,4 +1,4 @@
-//Version 0.93.4
+//Version 0.93.6
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -622,19 +622,19 @@ function check() {
 
     warnDatabase.new.sort(function(a,b) {return a.level==b.level?b.begin-a.begin:b.level-a.level;})
     setAlertState();
-    var gCheckMode = '';
+    var collectMode = '';
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
-        for (let a=0;warnDatabase.old.length;a++) gCheckMode+=warnDatabase.old.mode;
-        let PushMsg = 'Achtung' + '  .  ' + 'Alle Warnmeldungen'+artikelMode(gCheckMode, true)+'wurden aufgehoben';
+        for (let a=0;warnDatabase.old.length;a++) collectMode+=warnDatabase.old[a].mode;
+        let PushMsg = 'Achtung' + '  .  ' + 'Alle Warnmeldungen'+artikelMode(collectMode, true)+'wurden aufgehoben';
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
             sendMessage(pushdienst&SPEAK,'','',PushMsg,'');
         }
-        PushMsg = 'Alle Warnmeldungen'+artikelMode(gCheckMode)+'wurden aufgehoben';
+        PushMsg = 'Alle Warnmeldungen'+artikelMode(collectMode)+'wurden aufgehoben';
         sendMessage(pushdienst&PUSH,'Wetterentwarnung',PushMsg,'','');
-        sendMessage(pushdienst&ALLMSG,'Wetterentwarnung'+artikelMode(gCheckMode)+'(iobroker)','','',buildHtmlEmail('',null,PushMsg,null,true));
+        sendMessage(pushdienst&ALLMSG,'Wetterentwarnung'+artikelMode(collectMode)+'(iobroker)','','',buildHtmlEmail('',null,PushMsg,null,true));
 
         /* alle Sicherungen Wetterwarnung löschen */
         warnDatabase.old = cloneObj(warnDatabase.new);
@@ -643,7 +643,7 @@ function check() {
     let emailHtmlWarn='';
     let emailHtmlClear='';
     let speakMsgTemp=[];
-    gCheckMode='';
+    collectMode='';
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
         let description = warnDatabase.old[i].description;
@@ -652,7 +652,7 @@ function check() {
         let area = warnDatabase.old[i].areaID;
         let mode = warnDatabase.old[i].areaID;
         if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
-            gCheckMode+=mode;
+            collectMode+=mode;
             let end = getFormatDate(warnDatabase.old[i].end);
             let pushmsg = "Die Wetterwarnung"+artikelMode(mode)+"'"+ headline+area+" gültig bis " + end + "Uhr'" + " wurde aufgehoben.";
             emailHtmlClear+=pushmsg+'<br><br>';
@@ -677,7 +677,7 @@ function check() {
         let color = warnDatabase.new[i].color;
         let mode = warnDatabase.new[i].mode;
         if(hash && warnDatabase.old.findIndex(function(j){return j.hash == hash;}) == -1 ) {
-            gCheckMode+=mode;
+            collectMode+=mode;
             count++;
             if (!gefahr) gefahr=level>warnlevel;
             let begin = getFormatDate(warnDatabase.new[i].start);
@@ -753,7 +753,7 @@ function check() {
     emailHtmlWarn= buildHtmlEmail(emailHtmlWarn, (emailHtmlClear?'Aufgehobene Warnungen':null),emailHtmlClear,'silver',false);
     if ((pushdienst & ALLMSG)!=0 && emailHtmlWarn != '') {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,null,getStringWarnCount(null, warnDatabase.new.length),null,true);
-        sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMode(gCheckMode)+"(iobroker)":"Wetterwarnungen "+artikelMode(gCheckMode)+"(iobroker)",'','',emailHtmlWarn);
+        sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMode(collectMode)+"(iobroker)":"Wetterwarnungen "+artikelMode(collectMode)+"(iobroker)",'','',emailHtmlWarn);
     }
 
     /* Neue Werte sichern */
