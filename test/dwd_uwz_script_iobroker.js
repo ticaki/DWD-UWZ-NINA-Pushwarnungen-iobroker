@@ -42,6 +42,12 @@ Kleinkram:
 - Alexa und SayIt mit Lautstärkeeinstellung. Alexagruppen unterstützen keine Lautstärke trotzdem konfigurieren.
 - Zusätzliche Hervorhebung konfigurierbar über warnlevel (im Betreff/Ansage)
 
+Dank an:
+- Mic für die createUserStates() Funktionen
+- CruziX der diese eingebaut hat.
+- crunchip, sigi234, Latzi fürs Testen und Ideen
+- die ursprünglichen Authoren s.o.
+
 /* ************************************************************************ */
 /*            Datenpfad konfigurieren                                       */
 /* ************************************************************************ */
@@ -49,7 +55,9 @@ Kleinkram:
 /*            0_userdata. möglich                                           */
 /*                                                                          */
 /* ************************************************************************ */
-var mainStatePath = 'javascript.0.wetterwarnung.'; // abschließender Punkt . nicht vergessen
+
+var mainStatePath = 'javascript.0.wetterwarnung.';
+
 /* ************************************************************************ */
 /*            Datenpfad konfigurieren ENDE                                  */
 /* ************************************************************************ */
@@ -78,10 +86,8 @@ const IOGO = konstanten[7].value;
 var uPushdienst=0;
 var DWD = 'DWD';
 var UWZ = 'UWZ';
-var autoSendWarnings = true;
+if(mainStatePath[mainStatePath.length-1] != '.') mainStatePath += '.';
 const aliveState = mainStatePath+'alive';
-const configModeState = mainStatePath+'config.mode';
-var timeoutFromCreateState = null;
 if (extendedExists(aliveState)) {
     setState(aliveState, true, true);
 }
@@ -136,44 +142,44 @@ var MODE = DWD; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad ü
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
 /* Textbeispiel anstatt Entenhausen: 'Stadt/Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
 /* var regionName = ['UWZDE12345','Entenhausen'] */
-var regionName          = [['','']];
+var regionName          =   [['','']];
 
 /* Einstellungen zur Emailbenachrichtigung*/
-var senderEmailID       = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
-var empfaengerEmailID   = [""];// mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
+var senderEmailID       =   [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
+var empfaengerEmailID   =   [""];// mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
 
 /* Konfiguration Sprachausgabe über Home24-Mediaplayer */
 //var idMediaplayer = ["192.168.178.x:Port"];
-var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
+var idMediaplayer       =   [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
 
 /* Konfiguration Telegram */
-var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
-var telegramChatId      = [''];
+var telegramUser        =   ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
+var telegramChatId      =   [''];
 
 /* Konfiguration Sprachausgabe über SayIt */
-var idSayIt             = [""]; // mehrfach Einträge möglich
-var sayItVolumen        = [60]; // gleiche Anzahl wie idSayIt
+var idSayIt             =   [""]; // mehrfach Einträge möglich
+var sayItVolumen        =   [60]; // gleiche Anzahl wie idSayIt
 
 /* Konfiguration Sprachausgabe über Alexa
 /* mehrere Einträge möglich, bei mir ging nur der Echo, 2 dots 2.Gen reagieren nicht auf announcement. */
-var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y','G090RV32984110Y']
-var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
+var idAlexaSerial       =   ['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y','G090RV32984110Y']
+var alexaVolumen        =   [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 
 //Konfiguration von ioGo
-var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
+var ioGoUser            =   ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
 
 // Filtereinstellungen
-const minlevel          =    1 // Warnungen unterhalb dieses Levels nicht senden;
-const warnlevel         =    3 // Warnung oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
-const minhoehe          =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
-const maxhoehe          =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+const minlevel          =   1 // Warnungen unterhalb dieses Levels nicht senden;
+const warnlevel         =   3 // Warnung oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+const minhoehe          =   0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
+const maxhoehe          =   5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
 // Filtere Meldungen selben Typs & Datenquelle, die von einer zeitlich längeren Meldung mit gleichem oder höherem Level überdeckt werden.
 // gilt nicht für Warnung mit höherem Level als warnlevel. Ab 4 wirds beim DWD gefährlich
-const uFilterDuplicate = true; // weshalb? hatte 2 Meldungen alles gleich nur die Uhrzeit ->  von 0:00 - 14:00 und von 6:00 - 14:00
+const uFilterDuplicate  =   true; // weshalb? hatte 2 Meldungen alles gleich nur die Uhrzeit ->  von 0:00 - 14:00 und von 6:00 - 14:00
 
 //Formatierungsstring für Datum/Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
-const formatierungString =  "TT.MM.YY SS:mm";
+const formatierungString=   "TT.MM.YY SS:mm";
 
 // Sprachausgabe Zeiten
 // Für durchgehende Sprachausgabe die Einstellung der Zeiten auf '' setzen. z.B. var startTimeSpeak = '';
@@ -182,22 +188,22 @@ var startTimeSpeakWeekend = '9:00';// sa + so Bemerkung siehe oben
 var endTimeSpeak          = '22:30'; // ab diesem Zeitpunkt gibt es keine Sprachausgabe
 
 // Automatikmodus schalten geht über mainStatePath.config.auto.on
-//var autoSendWarnings = true;
+
 //Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
-var forcedSpeak             = true;
+var forcedSpeak           = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
-var windForceDetailsSpeak   = false;
+var windForceDetailsSpeak = false;
 
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
 // Die Geschwindigkeit gibt an wie lange das Skript wartet bevor es eine neue Nachricht an die Sprachausgabe sendet.
-var uSpeakSpeakPerCharAlexa =   86; // Vorlese Geschwindigkeit pro Zeichen in ms
+var uSpeakSpeakPerCharAlexa   = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharHomeTwo = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
-var uSpeakSpeakPerCharSayIt =   85; // Vorlese Geschwindigkeit pro Zeichen in ms
+var uSpeakSpeakPerCharSayIt   = 85; // Vorlese Geschwindigkeit pro Zeichen in ms
 
-var uwzPath = 'javascript.0.UWZ';
-var dwdPath = 'dwd.0';
+var uwzPath=            'javascript.0.UWZ';
+var dwdPath=            'dwd.0';
 
 var telegramInstanz=    'telegram.0';
 var pushoverInstanz=    'pushover.0';
@@ -216,17 +222,9 @@ var emailInstanz=       'email';
 //Logausgabe
 var DEBUG = false;
 
-// Wandel Usereingabe in True/False um
-autoSendWarnings = !!autoSendWarnings;
+// Wandel Usereingabe in sauberes True/False um
 forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
-var subDWDhandler = null;
-var subUWZhandler = null;
-
-var modeFromState = getModeState();
-if (DEBUG) log('Variablen initialisiert. MODE: '+MODE+' modeFromState: '+modeFromState+' mainStatePath: '+mainStatePath);
-checkMode(modeFromState);
-dataSubscribe();
 
 // Variable nicht konfigurierbar
 var SPEAK = ALEXA+HOMETWO+SAYIT;
@@ -235,11 +233,18 @@ var ALLMSG = EMAIL;
 var placeHolder = 'XXXXPLACEHOLDERXXXX';
 var idAlexa = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.announcement';
 var idAlexaVolumen = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.speak-volume';
+var autoSendWarnings = true;
 var forceSpeak = false;
 var timer = null;
 var onClickCheckRun = false;
 var warnDatabase = {new:[],old:[]};
 var pushdienst = uPushdienst;
+var subDWDhandler = null;
+var subUWZhandler = null;
+var timeoutFromCreateState = null;
+const configModeState = mainStatePath+'config.mode';
+const mirrorMessageState = mainStatePath+'message';
+
 // Warning types
 var warningTypesString = {};
 warningTypesString[DWD] = [
@@ -283,6 +288,11 @@ String.prototype.hashCode = function() {
     }
     return hash;
 };
+
+var modeFromState = getModeState();
+if (DEBUG) log('Variablen initialisiert. MODE: '+MODE+' modeFromState: '+modeFromState+' mainStatePath: '+mainStatePath);
+checkMode(modeFromState);
+dataSubscribe();
 
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration
@@ -427,7 +437,7 @@ if ((pushdienst&EMAIL) != 0) {
     }
 }
 
-if(mainStatePath[mainStatePath.length-1] != '.') mainStatePath += '.';
+
 
 /***************************************************************************************
 * function testValueTypeLog(test, teststring, typ, need=false)
@@ -472,7 +482,7 @@ function testValueTypeLog(test, teststring, typ, need=false) {
 InitDatabase();
 
 // State der Pushnachrichten über pushover/telegram spiegelt
-const mirrorMessageState = mainStatePath+'message';
+
 if (!extendedExists(mirrorMessageState)) {
     createCustomState(mirrorMessageState,'', {read: true, write: false, desc: "Beschreibung", type: "string",});
 }
