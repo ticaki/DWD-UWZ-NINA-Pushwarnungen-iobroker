@@ -1,4 +1,4 @@
-//Version 0.93.8
+//Version 0.94.0
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -660,7 +660,7 @@ function check() {
             sendMessage(pushdienst&PUSH,'Wetterentwarnung',pushmsg,'','');
 
             /* Sprache: Wetterentwarnungen */
-            pushmsg = headline +artikelMode(mode,true)+ + area + ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr wurde aufgehoben' + '  .  ';
+            pushmsg = headline +artikelMode(mode,true)+ area + ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr wurde aufgehoben' + '  .  ';
             speakMsgTemp.push(pushmsg);
         }
     }
@@ -701,8 +701,7 @@ function check() {
             var replaceDescription0 = replaceTokenForSpeak(description);
             topic = ((level>warnlevel)?'Achtung Unwetter ':'');
             sTime = " gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. ";
-            pushMsg = topic + headline+ artikelMode(mode,true) + sTime + replaceDescription0 + '  .  ';
-            pushMsg+=' '+instPush+' '+instruction;
+            pushMsg = topic + headline+ artikelMode(mode,true)+area + sTime + replaceDescription0 + instPush;
             speakMsgTemp.push(pushMsg);
         }
     }
@@ -811,7 +810,7 @@ function onChangeUWZ(dp){
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
     removeDatabaseDataID(dp.id);
-    addDatabaseData(dp.id, dp.state.val, mode, true);
+    addDatabaseData(dp.id, dp.state.val, mode, false);
     if(timer) clearTimeout(timer);
     if (autoSendWarnings) timer = setTimeout(check, 10000);
 }
@@ -884,7 +883,7 @@ function getDatabaseData(warn, mode){
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
-    result['hash'] = JSON.stringify(warn).hashCode();
+    result['hash'] = JSON.stringify(result).hashCode();
     return result;
 }
 
