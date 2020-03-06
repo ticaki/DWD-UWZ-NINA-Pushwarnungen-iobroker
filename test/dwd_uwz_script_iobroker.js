@@ -1,4 +1,4 @@
-//Version 0.94.2
+//Version 0.94.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -642,7 +642,11 @@ function convertStringToDate(s) {
 function check() {
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend||!startTimeSpeak||!endTimeSpeak);
     setWeekend();
-
+    let DebugMail ='';
+    if (DEBUG) {
+      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new', JSON.stringify(warnDatabase.new),null,false);
+      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old', JSON.stringify(warnDatabase.old),null,false);
+    }
     if (uFilterDuplicate) {
         for(let a=0;a<warnDatabase.new.length;a++) {
             let w = warnDatabase.new[a];
@@ -667,6 +671,12 @@ function check() {
     warnDatabase.new.sort(function(a,b) {return a.level==b.level?b.begin-a.begin:b.level-a.level;})
     setAlertState();
     var collectMode = '';
+    if (DEBUG) {
+      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new', JSON.stringify(warnDatabase.new),null,false);
+      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old', JSON.stringify(warnDatabase.old),null,false);
+      DebugMail = buildHtmlEmail(DebugMail,'pushdienst', pushdienst,null,true);
+      sendMessage(uPushdienst&EMAIL, 'Debug Check() '+scriptName, '','',DebugMail);
+    }
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
         for (let a=0;a<warnDatabase.old.length;a++) collectMode+=warnDatabase.old[a].mode;
@@ -798,8 +808,8 @@ function check() {
             speakMsgTemp.shift();
         }
     }
-    emailHtmlWarn= buildHtmlEmail(emailHtmlWarn, (emailHtmlClear?'Aufgehobene Warnungen':null),emailHtmlClear,'silver',false);
-    if ((pushdienst & ALLMSG)!=0 && emailHtmlWarn != '') {
+    if ((pushdienst & ALLMSG)!=0 && (emailHtmlWarn+emailHtmlClear)) {
+        emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear?'Aufgehobene Warnungen':null),emailHtmlClear,'silver',false);
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,null,getStringWarnCount(null, warnDatabase.new.length),null,true);
         sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMode(collectMode)+"(iobroker)":"Wetterwarnungen "+artikelMode(collectMode)+"(iobroker)",'','',emailHtmlWarn);
     }
@@ -1158,7 +1168,7 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         }
     }
     if (msgall &&(pushdienst & EMAIL)!=0) {
-        let nMsg = msgall[0].toUpperCase())+msgall.substring(1);
+        let nMsg = msgall[0].toUpperCase()+msgall.substring(1);
         let nTopic = topic+':';
         if (empfaengerEmailID.length>0) {
             for (let a=0;a<empfaengerEmailID.length;a++) {
