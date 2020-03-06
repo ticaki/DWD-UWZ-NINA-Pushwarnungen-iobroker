@@ -1,4 +1,4 @@
-//Version 0.94.0
+//Version 0.94.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -625,7 +625,7 @@ function check() {
     var collectMode = '';
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
-        for (let a=0;warnDatabase.old.length;a++) collectMode+=warnDatabase.old[a].mode;
+        for (let a=0;a<warnDatabase.old.length;a++) collectMode+=warnDatabase.old[a].mode;
         let PushMsg = 'Achtung' + '  .  ' + 'Alle Warnmeldungen'+artikelMode(collectMode, true)+'wurden aufgehoben';
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
