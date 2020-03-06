@@ -8,7 +8,7 @@
 /*             höchstes Warnlevel pro Warnungstyp is als State vorhanden     */
 /*     mit freundlicher Unterstützung von Paul53 (Tausend Dank nochmals)     */
 /*                    Stand: 13022017    PrinzEisenherz1                     */
-/*                    Stand: 03032020    ticaki                              */
+/*                    Stand: 06032020    ticaki                              */
 /*                                                                           */
 /*                                                                           */
 /* ************************************************************************* */
@@ -21,23 +21,32 @@ Unterstützt:
 - Wetterentwarnung
 
 Funktionen:
-- Filter die Warnungen nach Gefahr (level) und Höhe
-- Umschalten über iobroker zwischen DWD und UWZ
-- Autorestart
+- Filter die Warnungen nach doppelt, Gefahr(level) und Höhe
+- Umschalten über iobroker zwischen DWD und UWZ oder beides
+- Autorestart bei Datenpunkterstellung
 - Automatischer Versand und/oder manueller Nachrichtenversand
 - Zeitschaltuhr für Sprachausgabe
-- Datenpunkte mit der Startzeit, Endzeit und höchsten Warnlevel dieses Typs
+- Datenpunkte mit der Startzeit, Endzeit, Type, Schlagzeile, Beschreibung, Farbe für Level(bgcolor) und höchstem Warnlevel dieses Typs
 - Unterstützung für 0_userdata
-- Datenpunkthauptpfade sind konfigurierbar
+- Datenpunkthauptpfade sind konfigurierbar incl. 0_userdata
 - Konfigurationsprüfung soweit möglich
 - Automodus und einzelne Pushdienste über iobroker schaltbar (hat nicht mit manuellem Versand zu tun)
+- Optimierte Sprachausgabe
 - Fingerweg vom .alive state :)
+
+Kleinkram:
+- Sprachausgabe: Sturmdetails werden ausgefiltert oder korrekt ausgesprochen (konfigurierbar)
+- Sprachausgabe: Pause zwischen dem Absenden der einzelnen Warnungen an die Wiedergabeeinheit konfigurierbar.
+- Manuelle Sprachnachrichten können die Zeitschaltuhr missachten. (konfigurierbar)
+- Multi-User/Device bei fast allen Pushdiensten verfügbar (außer Datenpunkt & pushover)
+- Alexa und SayIt mit Lautstärkeeinstellung. Alexagruppen unterstützen keine Lautstärke trotzdem konfigurieren.
+- Zusätzliche Hervorhebung konfigurierbar über warnlevel (im Betreff/Ansage)
 
 /* ************************************************************************ */
 /*            Datenpfad konfigurieren                                       */
 /* ************************************************************************ */
 /*                                                                          */
-/*                                                                          */
+/*            0_userdata. möglich                                           */
 /*                                                                          */
 /* ************************************************************************ */
 var mainStatePath = 'javascript.0.wetterwarnung.'; // abschließender Punkt . nicht vergessen
@@ -1025,7 +1034,7 @@ function setAlertState(){
                     AlertIndex=c;
                 }
             }
-            if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertIndex) {
+            if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertLevel) {
                 setState(stateAlertIdFull+stateAlert[0].name,AlertLevel);
                 setState(stateAlertIdFull+stateAlert[1].name,b);
                 setState(stateAlertIdFull+stateAlert[2].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start),formatierungString):''));
