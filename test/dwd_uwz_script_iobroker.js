@@ -927,12 +927,12 @@ function getDatabaseData(warn, mode){
 }
 
 function artikelMode(mode, speak=false) {
-    let r = '';
-    if (mode.includes(DWD)) r+=(DEBUG ? ' des DWD(ALPHA) ' : ' des DWD ');
+    let r = ' ';
+    if (mode.includes(DWD)) r+=(DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
     if (mode.includes(UWZ)) {
-        if (r) r+='und';
-        if (speak) r+= (DEBUG ? ' der Unwetterzentrale(ALPHA) ' : ' der Unwetterzentrale(ALPHA) ');
-        else r+= (DEBUG ? ' der UWZ(ALPHA) ' : ' der UWZ ');
+        if (r.lenght > 1) r+='und';
+        if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale(ALPHA) ');
+        else r+= (DEBUG ? 'der UWZ(ALPHA) ' : 'der UWZ ');
     }
     return r;
 }
@@ -1049,10 +1049,10 @@ function getRegionName(id) {
     if (!Array.isArray(regionName) || regionName.length==0) return '';
     for (let a=0; a<regionName.length;a++) {
         if (id.includes(regionName[a][0])) {
-            return ' für '+regionName[a][1];
+            return 'für '+regionName[a][1];
         }
     }
-    return ' ';
+    return '';
 }
 
 // setzte die Alert States auf die höchste aktuelle Warnstufe
@@ -1148,12 +1148,18 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         }
     }
     if (msgall &&(pushdienst & EMAIL)!=0) {
+        let nMsg = msgall[0].toUpperCase())+msgall.substring(1);
+        let nTopic = topic+':';
         if (empfaengerEmailID.length>0) {
             for (let a=0;a<empfaengerEmailID.length;a++) {
-                sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, html: msgall}:{to: empfaengerEmailID[a], subject: topic, html: msgall});
+                sendTo(emailInstanz, senderEmailID[0]? {
+                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: nTopic, html: nMsg
+                }:{
+                    to: empfaengerEmailID[a], subject: nTopic, html: nMsg
+                });
             }
         } else {
-            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msgall}:{subject: topic, html: msgall});
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: nTopic, text: nMsg}:{subject: nTopic, html: nMsg});
         }
     }
 }
