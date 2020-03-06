@@ -1,4 +1,4 @@
-//Version 0.94.3
+//Version 0.94.4
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -951,7 +951,7 @@ function artikelMode(mode, speak=false) {
     if (mode.includes(DWD)) r+=(DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
     if (mode.includes(UWZ)) {
         if (r.lenght > 1) r+='und';
-        if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale(ALPHA) ');
+        if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale ');
         else r+= (DEBUG ? 'der UWZ(ALPHA) ' : 'der UWZ ');
     }
     return r;
