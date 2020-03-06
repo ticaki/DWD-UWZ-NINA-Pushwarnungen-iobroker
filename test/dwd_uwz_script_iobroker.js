@@ -575,14 +575,13 @@ for (var a=0;a<konstanten.length;a++){
     }
     let oid = mainStatePath+'config.auto.'+konstanten[a].name;
     if (!extendedExists(oid)) {
-        createCustomState(oid,((pushdienst&konstanten[a].value)!=0), {read: true,write: true,desc: "Schalte Autopushmöglichkeiten ein/aus",type: "boolean",def: ((pushdienst&konstanten[a].value)!=0)
-    });
-} else {
-    setConfigKonstanten(oid, getState(oid).val);
-    subscribe({id: oid, change:'ne', ack: false},function(obj){
-        setConfigKonstanten(obj.id, obj.state.val);
-    })
-}
+        createCustomState(oid,((pushdienst&konstanten[a].value)!=0), {read: true,write: true,desc: "Schalte Autopushmöglichkeiten ein/aus",type: "boolean",def: ((pushdienst&konstanten[a].value)!=0)});
+    } else {
+        setConfigKonstanten(oid, getState(oid).val);
+        subscribe({id: oid, change:'ne', ack: false},function(obj){
+            setConfigKonstanten(obj.id, obj.state.val);
+        })
+    }
 }
 
 // Hilfsfunktion
@@ -1053,7 +1052,7 @@ function getRegionName(id) {
             return ' für '+regionName[a][1];
         }
     }
-    return '';
+    return ' ';
 }
 
 // setzte die Alert States auf die höchste aktuelle Warnstufe
