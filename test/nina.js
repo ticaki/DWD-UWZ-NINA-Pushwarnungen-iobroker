@@ -632,7 +632,7 @@ function addDatabaseData(id, identifier, old) {
 // Wandelt den Datensatz in ein internes Format um
 function getDatabaseData(id,identifier){
     let result={};
-    result['mode'] = DWD;
+    result['mode'] = NINA;
     result['description'] = getCustomState(id+'.'+jNinaID.description,'');
     result['headline'] = getCustomState(id+'.'+jNinaID.headline,'');
     result['start'] = getDateObject(getCustomState(id+'.'+jNinaID.start,null));
