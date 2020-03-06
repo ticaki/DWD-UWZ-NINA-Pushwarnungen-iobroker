@@ -1,4 +1,4 @@
-//Version 0.93
+//Version 0.93.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -205,11 +205,13 @@ var DEBUG = false;
 autoSendWarnings = !!autoSendWarnings;
 forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
+var subDWDhandler = null;
+var subUWZhandler = null;
 
 var modeFromState = getModeState();
 if (DEBUG) log('Variablen initialisiert. MODE: '+MODE+' modeFromState: '+modeFromState+' mainStatePath: '+mainStatePath);
 checkMode(modeFromState);
-
+dataSubscribe();
 
 function getModeState()
 {
@@ -292,6 +294,7 @@ function checkMode(modeFromState) {
     if (modeFromState && typeof modeFromState === 'string' && (modeFromState!=MODE) && (modeFromState.toUpperCase().includes(DWD) || modeFromState.toUpperCase().includes(UWZ))) {
         MODE=modeFromState.toUpperCase();
         if (DEBUG) log('MODE wurde geändert. MODE: '+MODE);
+        dataSubscribe();
         setState(configModeState, MODE, true);
     }
 }
@@ -898,6 +901,8 @@ function InitDatabase(){
     }
 }
 // setzt on() für DWD oder UWZ
+function dataSubscribe(){
+  if (subDWDhandler) unsubscribe(subDWDhandler);
 if ( MODE.includes(DWD)) {
     let path = dwdPath.split('.');
     let r = '';
@@ -905,8 +910,9 @@ if ( MODE.includes(DWD)) {
         if (path[a]) r+=path[a]+'\.';
     }
     r +='.*\.object$';
-    on(new RegExp(r), onChangeDWD);
+    subDWDhandler = subscribe(new RegExp(r), onChangeDWD);
 }
+if (subUWZhandler) unsubscribe(subUWZhandler);
 if (MODE.includes(UWZ)) {
     let path = uwzPath.split('.');
     let r = '';
@@ -914,7 +920,8 @@ if (MODE.includes(UWZ)) {
         if (path[a]) r+=path[a]+'\.';
     }
     r +='.*\.object$';
-    on(new RegExp(r), onChangeUWZ);
+    subUWZhandler = subscribe(new RegExp(r), onChangeUWZ);
+}
 }
 
 function onChangeDWD(dp){
