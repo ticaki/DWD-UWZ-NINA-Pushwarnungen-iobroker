@@ -1,4 +1,4 @@
-//Version 0.94.4
+//Version 0.94.5
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -950,8 +950,8 @@ function artikelMode(mode, speak=false) {
     let r = ' ';
     if (mode.includes(DWD)) r+=(DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
     if (mode.includes(UWZ)) {
-        if (r.lenght > 1) r+='und';
-        if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale ');
+        if (r.length > 1) r+='und';
+        if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale(ALPHA) ');
         else r+= (DEBUG ? 'der UWZ(ALPHA) ' : 'der UWZ ');
     }
     return r;
@@ -1129,6 +1129,7 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         if ((pushdienst & IOGO)!=0) {
             if (ioGoUser.length>0) {
                 for (let a=0;a<ioGoUser.length;a++) {
+                    if (DEBUG )log('ioGoInstanz:'ioGoInstanz ' ioGoUser'+a+1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
                     sendTo(ioGoInstanz, "send", {
                         user:                   ioGoUser[a],
                         text:                   topic,
