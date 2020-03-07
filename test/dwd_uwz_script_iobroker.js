@@ -1,4 +1,4 @@
-//Version 0.94.6
+//Version 0.94.7
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -644,8 +644,8 @@ function check() {
     setWeekend();
     let DebugMail ='';
     if (DEBUG) {
-      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new', JSON.stringify(warnDatabase.new),null,false);
-      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old', JSON.stringify(warnDatabase.old),null,false);
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new', JSON.stringify(warnDatabase.new),null,false);
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old', JSON.stringify(warnDatabase.old),null,false);
     }
     if (uFilterDuplicate) {
         for(let a=0;a<warnDatabase.new.length;a++) {
@@ -672,10 +672,10 @@ function check() {
     setAlertState();
     var collectMode = '';
     if (DEBUG) {
-      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new', JSON.stringify(warnDatabase.new),null,false);
-      DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old', JSON.stringify(warnDatabase.old),null,false);
-      DebugMail = buildHtmlEmail(DebugMail,'pushdienst', pushdienst,null,true);
-      sendMessage(uPushdienst&EMAIL, 'Debug Check() '+scriptName, '','',DebugMail);
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new', JSON.stringify(warnDatabase.new),null,false);
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old', JSON.stringify(warnDatabase.old),null,false);
+        DebugMail = buildHtmlEmail(DebugMail,'pushdienst', pushdienst,null,true);
+        sendMessage(uPushdienst&EMAIL, 'Debug Check() '+scriptName, '','',DebugMail);
     }
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
@@ -921,12 +921,11 @@ function getDatabaseData(warn, mode){
         result['areaID'] = warn.regionName === undefined ? '' : warn.regionName;
     } else if (mode === UWZ) {
         if (
-            warn.payload !== undefined
-            && (
-                warn.payload.altMin>maxhoehe
-                || (warn.payload.altMax && warn.payload.altMax<minhoehe)
-                || warn.level < minlevel
-            )
+            warn.payload === undefined
+            || warn.payload.altMin>maxhoehe
+            || (warn.payload.altMax && warn.payload.altMax<minhoehe)
+            || warn.level < minlevel
+
         ) return null;
 
         result['mode'] = UWZ;
