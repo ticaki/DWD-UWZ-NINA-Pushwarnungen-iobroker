@@ -1,4 +1,4 @@
-//Version 0.94.7
+//Version 0.94.8
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -656,12 +656,12 @@ function check() {
                 if (w.mode !== w2.mode || w.type !== w2.type || w.level > warnlevel || w2.level > warnlevel) continue;
                 if (w.start >= w2.start && w.end <= w2.end && w.level<= w2.level) {
                     let i = warnDatabase.old.findIndex(function(j){return w.hash === j.hash});
-                    warnDatabase.old.splice(i,1);
+                    if (i!=-1) warnDatabase.old.splice(i,1);
                     warnDatabase.new.splice(a--,1);
                     break;
                 } else if (w.start <= w2.start && w.end >= w2.end && w.level>= w2.level) {
                     let i = warnDatabase.old.findIndex(function(j){return w2.hash === j.hash});
-                    warnDatabase.old.splice(i,1);
+                    if (i!=-1) warnDatabase.old.splice(i,1);
                     warnDatabase.new.splice(b--,1);
                     break;
                 }
