@@ -1,4 +1,4 @@
-//Version 0.94.5
+//Version 0.94.6
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -1129,7 +1129,7 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
         if ((pushdienst & IOGO)!=0) {
             if (ioGoUser.length>0) {
                 for (let a=0;a<ioGoUser.length;a++) {
-                    if (DEBUG )log('ioGoInstanz:'ioGoInstanz ' ioGoUser'+a+1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
+                    if (DEBUG )log('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a+1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
                     sendTo(ioGoInstanz, "send", {
                         user:                   ioGoUser[a],
                         text:                   topic,
