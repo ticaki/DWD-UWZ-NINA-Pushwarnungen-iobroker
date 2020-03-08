@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.1
+//Version 0.95.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -199,6 +199,8 @@ var windForceDetailsSpeak   = false;
 var uSpeakSpeakPerCharAlexa   = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharHomeTwo = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharSayIt   = 85; // Vorlese Geschwindigkeit pro Zeichen in ms
+
+var uAutoNinaFilterList       = ['CAP@hochwasserzentralen.de']; // filter diesen Sender raus außer Warnlevel ist über warnlevel
 
 var uwzPath=            'javascript.0.UWZ';
 var dwdPath=            'dwd.0';
@@ -1217,8 +1219,23 @@ function addDatabaseData(id, value, mode, old) {
         warn = getDatabaseData(value.info[a], mode);
         if (warn) {
             warn.id=id;
-            if (mode == UWZ) warn.areaID=getRegionName(id);
-            else if (mode == DWD) warn.areaID=' für ' + warn.areaID;
+            if (mode == UWZ) {
+                warn.areaID=getRegionName(id);
+                warn.hash = JSON.stringify(warn).hashCode();
+            }
+            else if (mode == DWD) {
+                warn.areaID=' für ' + warn.areaID;
+                warn.hash = JSON.stringify(warn).hashCode();
+            }
+            else if (mode == NINA) {
+                warn.identifier = value.identifier === undefined ? '' : value.identifier;
+                warn.sender = value.sender === undefined ? '' : value.sender;
+                warn.hash = JSON.stringify(warn).hashCode();
+                if (uAutoNinaFilterList.indexOf(warn.sender) != -1 && warn.level <= warnlevel) {
+                    old = true;
+                    myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList');
+                }
+            }
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
         }
@@ -1269,16 +1286,17 @@ function getDatabaseData(warn, mode){
         let web='';
         web = warn.web === undefined || !warn.web? '' : '<br>'+warn.web+'<br>';
         result['mode'] = NINA;
-        result['identifier'] = warn.identifier === undefined ? '' : warn.identifier;
+        //result['identifier'] = warn.identifier === undefined ? '' : warn.identifier;
+        //result['sender'] = warn.sender === undefined ? '' : warn.sender;
         result['description'] = warn.description === undefined ? '' : removeHtml(warn.description);
         result['start'] = warn.effective === undefined ? null : getDateObject(warn.effective).getTime()||null;
         result['end'] = warn.expires === undefined ? null : getDateObject(warn.expires).getTime()||null;
         result['instruction'] = warn.instruction === undefined ? '' : removeHtml(warn.instruction);
-        result['type'] = warn.type === undefined ? -1 : warn.type;
         result['typename'] = warn.event === undefined ? '' : removeHtml(warn.event);
-        result['urgency'] = warn.urgency === undefined ? '' : warn.urgency;
+        result['type'] = result.typename.hashCode();
+        //result['urgency'] = warn.urgency === undefined ? '' : warn.urgency;
         result['severity'] = warn.severity === undefined ? '' : warn.severity;
-        result['certainty'] = warn.certainty === undefined ? '' : warn.certainty;
+        //result['certainty'] = warn.certainty === undefined ? '' : warn.certainty;
         result['headline'] = warn.headline === undefined ? '' : removeHtml(warn.headline);
         result['areaID'] = warn.area === undefined || warn.area[0].areaDesc === undefined? '' : removeHtml(warn.area[0].areaDesc);
         result['level'] = warn.severity === undefined ? -1 : (ninaLevel.indexOf(warn.severity)+1);
@@ -1291,7 +1309,7 @@ function getDatabaseData(warn, mode){
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
-    result['hash'] = JSON.stringify(result).hashCode();
+    result['hash'] = 0;
     myLog('result: ' + JSON.stringify(result));
     return result;
     // Gibt Farben für die level zurück
