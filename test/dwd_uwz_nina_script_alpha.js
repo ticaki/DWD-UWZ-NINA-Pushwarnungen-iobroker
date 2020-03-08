@@ -223,8 +223,8 @@ var DEBUG = false;
 var DEBUGSENDEMAIL = false;
 
 
-// MODE einstellen über Datenpunkte, das hier hat keine Auswirkungen
-var MODE = DWD+UWZ;
+// MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
+var MODE = DWD+UWZ; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
 
 
 // Wandel Usereingabe in sauberes True/False um
@@ -511,8 +511,8 @@ function testValueTypeLog(test, teststring, typ, need=false) {
 
     // MODE änderung über Datenpunkte Boolean
     for (let a=0;a<MODES.length;a++) {
-        let mode = MODES[a].text.toLowerCase();
-        let id = mainStatePath+'config.'+mode;
+        let tok = MODES[a].text.toLowerCase();
+        let id = mainStatePath+'config.'+tok;
         if (!extendedExists(id)) {
             let mi = !!(MODE&MODES[a].mode);
             createCustomState(id, mi, {read: true,write: true,desc: "Aktivere "+mode.toUpperCase()+'.',type: "boolean",def: mi});
@@ -520,7 +520,7 @@ function testValueTypeLog(test, teststring, typ, need=false) {
             on({id:id, change:'ne', ack:false}, function(obj){
                 let arr = obj.id.split('.');
                 let tok = arr[arr.length-1].toUpperCase();
-                let mode = (MODE&MODES[MODES.findIndex(function(j){return j.text=tok})].mode);
+                let mode = (MODE|MODES[MODES.findIndex(function(j){return j.text==tok})].mode);
                 let oldMode = MODE;
                 if (obj.state.val) oldMode|=mode;
                 else oldMode&=~mode;
@@ -788,7 +788,7 @@ function check() {
         }
         if (DEBUG) log('all all:'+pushMsg);
         sendMessage(getAutoPushFlags(collectMode)&PUSH,(collectMode&NINA?'Entwarnungen':'Wetterentwarnung'),pushMsg,'','');
-        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,(collectMode&NINA?'Entwarnungen ':'Wetterentwarnung ')+artikelMode(collectMode)+ '(iobroker)', '', '', buildHtmlEmail('', null, pushMsg, null, true));
+        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,(collectMode&NINA?'Entwarnungen':'Wetterentwarnung')+artikelMode(collectMode)+ '(iobroker)', '', '', buildHtmlEmail('', null, pushMsg, null, true));
 
         /* alle Sicherungen Wetterwarnung löschen */
         warnDatabase.old = warnDatabase.new;
@@ -936,7 +936,7 @@ function check() {
     if ((getAutoPushFlags(collectMode) & ALLMSG)!=0 && (emailHtmlWarn+emailHtmlClear)) {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear?'Aufgehobene Warnungen':null),emailHtmlClear,'silver',false);
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,null,getStringWarnCount(null, warnDatabase.new.length),null,true);
-        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,(gefahr?"Wichtige Warnungen ":"Warnungen ")+ artikelMode(collectMode) + "(iobroker)", '', '', emailHtmlWarn);
+        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,(gefahr?"Wichtige Warnungen":"Warnungen")+ artikelMode(collectMode) + "(iobroker)", '', '', emailHtmlWarn);
     }
 
     /* Neue Werte sichern */
