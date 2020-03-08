@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.0
+//Version 0.95.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -561,11 +561,11 @@ function changeMode(modeFromState) {
 
 // setzte alle MODE Datenpunkte
 function setConfigModeStates(mode) {
-    setState(configModeState, (mode&DWD?'DWD':'')+(mode&UWZ?'UWZ':'')+(mode&NINA?'NINA':''), true);
+    if (extendedExists(configModeState)) setState(configModeState, (mode&DWD?'DWD':'')+(mode&UWZ?'UWZ':'')+(mode&NINA?'NINA':''), true);
     for (let a=0;a<MODES.length;a++) {
         let t = MODES[a].text.toLowerCase();
         let id = mainStatePath+'config.'+t;
-        setState(id,!!(mode&MODES[a].mode),true);
+        if (extendedExists(id)) setState(id,!!(mode&MODES[a].mode),true);
     }
 }
 
@@ -678,14 +678,16 @@ function setAlertState(){
                     AlertIndex=c;
                 }
             }
-            if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertLevel) {
-                setState(stateAlertIdFull+stateAlert[0].name,AlertLevel);
-                setState(stateAlertIdFull+stateAlert[1].name,b);
-                setState(stateAlertIdFull+stateAlert[2].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start),formatierungString):''));
-                setState(stateAlertIdFull+stateAlert[3].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].end),formatierungString):''));
-                setState(stateAlertIdFull+stateAlert[4].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].headline:''));
-                setState(stateAlertIdFull+stateAlert[5].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].description:''));
-                setState(stateAlertIdFull+stateAlert[6].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].color:''));
+            if (extendedExists(stateAlertIdFull+stateAlert[0].name)) {
+                if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertLevel) {
+                    setState(stateAlertIdFull+stateAlert[0].name,AlertLevel);
+                    setState(stateAlertIdFull+stateAlert[1].name,b);
+                    setState(stateAlertIdFull+stateAlert[2].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start),formatierungString):''));
+                    setState(stateAlertIdFull+stateAlert[3].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].end),formatierungString):''));
+                    setState(stateAlertIdFull+stateAlert[4].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].headline:''));
+                    setState(stateAlertIdFull+stateAlert[5].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].description:''));
+                    setState(stateAlertIdFull+stateAlert[6].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].color:''));
+                }
             }
         }
     }
@@ -1722,9 +1724,9 @@ function createUserStates(where, force, statesToCreate, callback = undefined) {
 // Klone das Objekt
 function cloneObj(j) {
     if (Array.isArray(j)) {
-    var arr = [j.length];
-    for (let a=0;a<j.length;a++) arr[a]=j[a];
-    return arr;
+        var arr = [j.length];
+        for (let a=0;a<j.length;a++) arr[a]=j[a];
+        return arr;
     }
     return JSON.parse(JSON.stringify(j));
 }
