@@ -812,7 +812,7 @@ function check() {
     if ((pushdienst & ALLMSG)!=0 && (emailHtmlWarn+emailHtmlClear)) {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear?'Aufgehobene Warnungen':null),emailHtmlClear,'silver',false);
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,null,getStringWarnCount(null, warnDatabase.new.length),null,true);
-        sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen "+artikelMode(collectMode)+"(iobroker)":"Wetterwarnungen "+artikelMode(collectMode)+"(iobroker)",'','',emailHtmlWarn);
+        sendMessage(pushdienst&ALLMSG,gefahr?"Wichtige Wetterwarnungen"+artikelMode(collectMode)+"(iobroker)":"Wetterwarnungen"+artikelMode(collectMode)+"(iobroker)",'','',emailHtmlWarn);
     }
 
     /* Neue Werte sichern */
