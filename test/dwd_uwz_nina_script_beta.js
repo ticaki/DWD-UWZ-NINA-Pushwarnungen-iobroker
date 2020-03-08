@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.2
+//Version 0.95.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -799,6 +799,7 @@ function checkWarningsMain() {
                     || w.level > warnlevel
                     || w2.level > warnlevel
                 ) continue;
+                if (w.hash == w2.hash) {warnDatabase.new.splice(b--,1); continue;}
                 if (w.start >= w2.start && w.end <= w2.end && w.level<= w2.level) {
                     let i = warnDatabase.old.findIndex(function(j){return w.hash === j.hash});
                     if (i!=-1) warnDatabase.old.splice(i,1);
@@ -823,6 +824,8 @@ function checkWarningsMain() {
                 }
             }
         }
+    } else {
+        removeDuplicateHash();
     }
     let oarr=[];
     let narr=[];
@@ -836,6 +839,7 @@ function checkWarningsMain() {
                 || w.level > warnlevel
                 || w2.level > warnlevel
             ) continue;
+            if (warnDatabase.old.findIndex(function(j,i){return w.mode === w2.mode && w.type !== w2.type && j.hash == w2.hash && i!=b;}) != -1) {warnDatabase.old.splice(b--,1); continue;}
             // w==w2 das erste Vorkommen wird überspungen.
             let dup = warnDatabase.old.findIndex(function(j){return j.hash==w.hash});
             if (dup == b) continue;
