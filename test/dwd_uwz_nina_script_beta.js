@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.4
+//Version 0.95.5
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -787,8 +787,7 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new.length', warnDatabase.new.length.toString(),null,false);
         DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old.length', warnDatabase.old.length.toString(),null,false);
     }
-    // Sicher entfernen
-    removeDuplicateHash();
+    // Option nicht ausreichend getestet.
     if (uFilterDuplicate) {
         let dn = new Date();
         for(let a=0;a<warnDatabase.new.length;a++) {
@@ -802,32 +801,30 @@ function checkWarningsMain() {
                     || w2.level > warnlevel
                 ) continue;
                 if (w.start >= w2.start && w.end <= w2.end && w.level<= w2.level) {
-                    let i = warnDatabase.old.findIndex(function(j){return w.hash === j.hash});
+                    let i = getIndexOfHash(warnDatabase.old,w.hash);
                     if (i!=-1) warnDatabase.old.splice(i,1);
                     warnDatabase.new.splice(a--,1);
                     break;
                 } else if (w.start <= w2.start && w.end >= w2.end && w.level>= w2.level) {
-                    let i = warnDatabase.old.findIndex(function(j){return w2.hash === j.hash});
+                    let i = getIndexOfHash(warnDatabase.old,w2.hash);
                     if (i!=-1) warnDatabase.old.splice(i,1);
                     warnDatabase.new.splice(b--,1);
-                    break;
                     // w endet vor w2 && w2 startet bevor w endet && w hat kleiner gleiches level wie w2 -> lösche w
                     // Hochwassermeldungen werden laufend aufgehoben und durch neue erstzt;
                 } else if (w.end < w2.end && w2.start < w.end  && w.level <= w2.level) {
-                    let i = warnDatabase.old.findIndex(function(j){return w.hash === j.hash});
+                    let i = getIndexOfHash(warnDatabase.old,w.hash);
                     if (i!=-1) warnDatabase.old.splice(i,1);
                     warnDatabase.new.splice(a--,1);
+                    break;
                     // siehe oben nur umgedreht
                 } else if (w2.end < w.end && w.start < w2.end  && w2.level <= w.level) {
-                    let i = warnDatabase.old.findIndex(function(j){return w2.hash === j.hash});
+                    let i = getIndexOfHash(warnDatabase.old,w2.hash);
                     if (i!=-1) warnDatabase.old.splice(i,1);
                     warnDatabase.new.splice(b--,1);
                 }
             }
         }
     }
-    let oarr=[];
-    let narr=[];
     for(let a=0;a<warnDatabase.new.length;a++) {
         let w = warnDatabase.new[a];
         for(let b=0;b<warnDatabase.old.length;b++) {
@@ -837,13 +834,11 @@ function checkWarningsMain() {
                 || w.type !== w2.type
                 || w.level > warnlevel
                 || w2.level > warnlevel
+                || w.hash == w2.hash
             ) continue;
-            // w==w2 das erste Vorkommen wird überspungen.
-            let dup = warnDatabase.old.findIndex(function(j){return j.hash==w.hash});
-            if (dup == b) continue;
             // w endet vor/gleich w2 && w2 startet bevor/gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
-            if (w2.end <= w.end && w.start <= w2.end  && w2.level <= w.level) {
-                let i = warnDatabase.new.findIndex(function(j){return (j.hash==w2.hash)});
+            if (w2.end <= w.end && w.start <= w2.end  && w2.level <= w.level ) {
+                let i = getIndexOfHash(warnDatabase.new,w2.hash);
                 if (i != -1) warnDatabase.new.splice(a--,1);
                 warnDatabase.old.splice(b--,1);
             }
@@ -891,7 +886,7 @@ function checkWarningsMain() {
         let hash = warnDatabase.old[i].hash;
         let area = warnDatabase.old[i].areaID;
         let mode = warnDatabase.old[i].mode;
-        if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
+        if(description && headline && getIndexOfHash(warnDatabase.new,hash) == -1 ) {
             myLog('json old:'+JSON.stringify(warnDatabase.old[i]));
             collectMode|=mode;
             let end = getFormatDate(warnDatabase.old[i].end);
@@ -928,29 +923,26 @@ function checkWarningsMain() {
         let area = warnDatabase.new[i].areaID;
         let color = warnDatabase.new[i].color;
         let mode = warnDatabase.new[i].mode;
-        if(hash && warnDatabase.old.findIndex(function(j){return j.hash == hash;}) == -1 ) {
+        if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
             myLog('json old:'+JSON.stringify(warnDatabase.new[i]));
             collectMode|=mode;
             count++;
             if (!gefahr) gefahr=level>warnlevel;
-            let begin = getFormatDate(warnDatabase.new[i].start);
-            let end = getFormatDate(warnDatabase.new[i].end)
-            let sTime =' ';
-            let bt = (begin && end);
-            if (bt) sTime= "gültig vom " + begin + " Uhr bis " + end + " Uhr";
+            let begin = getFormatDate(warnDatabase.new[i].start), end = getFormatDate(warnDatabase.new[i].end)
+            let sTime =' ',bt = (begin && end);
+            if (begin || end) sTime= "gültig "; if (begin) sTime+= "vom " + begin + " Uhr"; if (bt) sTime+=" ";if (end) sTime+="bis " + end + " Uhr";
             let pushMsg =area + (bt?"\n"+sTime:'')+"\n" + description;
-            let html ='';
+            let html ='', instPush = '';
             if (warnDatabase.new[i].html != undefined) html=sTime+ "<br>" +warnDatabase.new[i].html.description;
             else html=(bt?sTime + '<br>':'') +description;
-            let instPush = '';
             if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
                 instPush+='\nHandlungsanweisungen:\n '+instruction;
                 if (warnDatabase.new[i].html != undefined) html+='<br>Handlungsanweisungen:<br>'+warnDatabase.new[i].html.instruction;
                 else html+='<br>Handlungsanweisungen:<br>'+instruction;
             }
             // Anzahl Meldungen erst am Ende zu email hinzufügen
-            if (warnDatabase.new[i].html != undefined) emailHtmlWarn=buildHtmlEmail(emailHtmlWarn,warnDatabase.new[i].html.headline+artikelMode(mode)+area,html,color,false);
-            else emailHtmlWarn=buildHtmlEmail(emailHtmlWarn,headline+artikelMode(mode)+area,html,color,false);
+            if (warnDatabase.new[i].html != undefined) emailHtmlWarn=buildHtmlEmail(emailHtmlWarn,warnDatabase.new[i].html.headline+artikelMode(mode)+area+':',html,color,false);
+            else emailHtmlWarn=buildHtmlEmail(emailHtmlWarn,headline+artikelMode(mode)+area+':',html,color,false);
             /* ab Level 4 zusätzlicher Hinweis */
             let topic = '';
             if ( mode !== NINA ) {
@@ -1101,13 +1093,12 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
     }
     if (msgall &&(pushdienst & EMAIL)!=0) {
         let nMsg = msgall[0].toUpperCase()+msgall.substring(1);
-        let nTopic = topic+':';
         if (empfaengerEmailID.length>0) {
             for (let a=0;a<empfaengerEmailID.length;a++) {
                 sendTo(emailInstanz, senderEmailID[0]? {
                     from: senderEmailID[0], to: empfaengerEmailID[a], subject: nTopic, html: nMsg
                 }:{
-                    to: empfaengerEmailID[a], subject: nTopic, html: nMsg
+                    to: empfaengerEmailID[a], subject: topic, html: nMsg
                 });
             }
         } else {
@@ -1149,24 +1140,25 @@ function dataSubscribe(){
 }
 
 function onChangeDWD(dp){
-    myLog('onchange DWD');
+    myLog('onchange DWD id:'+dp.id);
     onChange(dp,DWD);
 }
 function onChangeUWZ(dp){
-    myLog('onchange UWZ');
+    myLog('onchange UWZ id:'+dp.id);
     onChange(dp,UWZ);
 }
 function onChangeNina(dp){
-    myLog('onchange NINA');
+    myLog('onchange NINA '+dp.id);
     onChange(dp,NINA);
 }
 
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
-    removeDatabaseDataID(dp.id);
-    addDatabaseData(dp.id, dp.state.val, mode, false);
-    if(timer) clearTimeout(timer);
-    if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
+    if ( addDatabaseData(dp.id, dp.state.val, mode, false) ) {
+        myLog('Neuer Datensatz - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
+        if (timer) clearTimeout(timer);
+        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
+    }
 }
 
 /* *************************************************************************
@@ -1212,6 +1204,8 @@ function InitDatabase(first){
 // für Objekt zur Database hinzu
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
+    let change = false;
+    let newVal = true;
     if (value && value != {} && value !== undefined && value != '{}') value=JSON.parse(value);
     else return null;
     myLog('ID + JSON:'+ id + ' '+JSON.stringify(value));
@@ -1224,24 +1218,38 @@ function addDatabaseData(id, value, mode, old) {
             if (mode == UWZ) {
                 warn.areaID=getRegionName(id);
                 warn.hash = JSON.stringify(warn).hashCode();
+                removeDatabaseDataID(id);
             }
             else if (mode == DWD) {
                 warn.areaID=' für ' + warn.areaID;
                 warn.hash = JSON.stringify(warn).hashCode();
+                removeDatabaseDataID(id);
             }
             else if (mode == NINA) {
                 warn.identifier = value.identifier === undefined ? '' : value.identifier;
                 warn.sender = value.sender === undefined ? '' : value.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
+                if (getIndexOfHash(warnDatabase.new, warn.hash, mode, id) != -1) newVal = false;
+                else removeDatabaseDataID(id);
                 if (uAutoNinaFilterList.indexOf(warn.sender) != -1 && warn.level <= warnlevel) {
-                    old = true;
-                    myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList');
+                    // Füge eintrag nur zur warnDatabase.old hinzu, wenn er dort nicht existiert
+                    old = (getIndexOfHash(warnDatabase.old, warn.hash, warn.mode) == -1);
+                    myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - Ist in gesendet:'+!old);
                 }
             }
-            warnDatabase.new.push(warn);
+            if (newVal) warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
+            change = newVal || old;
         }
     }
+    return change;
+}
+
+function getIndexOfHash(db, hash, mode, id) {
+    if ( id === undefined && mode === undefined ) return db.findIndex(function(j){ return j.hash === hash;});
+    else if ( id === undefined  ) return db.findIndex(function(j){ return j.hash === hash && j.mode == mode;});
+    else if ( mode === undefined ) return db.findIndex(function(j){ return j.hash === hash && j.id == id;});
+    else return db.findIndex(function(j){ return j.hash === hash && j.mode == mode && j.id == id;});
 }
 
 // Wandelt den Datensatz in ein internes Format um
@@ -1271,7 +1279,6 @@ function getDatabaseData(warn, mode){
             || warn.level < minlevel
 
         ) {myLog('Übergebenens Json UWZ verworfen');return null;}
-
         result['mode'] = UWZ;
         result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
         result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart*1000||null;
@@ -1345,15 +1352,16 @@ function getDatabaseData(warn, mode){
 function removeHtml(a) {
     let b = a.replace(/<br\/>/ig,'\n');
     b = b.replace(/(&nbsp;|<([^>]+)>)/ig,'');
-    myLog('removeHtml:'+a+' after: '+b);
+    myLog('removeHtml: '+a+' after: '+b);
     return b;
 }
 
-// Überprüfe wegen Nina-Adapter häufig die DB ob Einträge obj.ids gelöscht wurden.
+// Überprüfe wegen Nina-Adapter häufig die DB ob obj.ids gelöscht wurden.
 schedule('*/1 * * * *', function(){
     let c = false;
     for (let a=0; a<warnDatabase.new.length;a++) {
         if (!extendedExists(warnDatabase.new[a].id)) {
+            myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' remove entry.')
             warnDatabase.new.splice(a--,1);
             c=true;
         }
