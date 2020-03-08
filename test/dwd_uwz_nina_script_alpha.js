@@ -1,5 +1,5 @@
-//Version 0.94.8 dwd_uwz_script_iobroker.js Änderungen eingeplegt
-//Version 0.94.5 aktuelle Version dieses Scripts
+//Version 0.94.8 Ursprüngliches Skript
+//Version 0.95.0
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -9,7 +9,7 @@
 /*             höchstes Warnlevel pro Warnungstyp is als State vorhanden     */
 /*     mit freundlicher Unterstützung von Paul53 (Tausend Dank nochmals)     */
 /*                    Stand: 13022017    PrinzEisenherz1                     */
-/*                    Stand: 06032020    ticaki                              */
+/*                    Stand: 08032020    ticaki                              */
 /*                                                                           */
 /*                                                                           */
 /* ************************************************************************* */
@@ -17,13 +17,13 @@
 /*
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
-- DWD-Adapter & Unwetterzentrale-Script
+- DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter V0.0.22
 - Wetterwarnung
 - Wetterentwarnung
 
 Funktionen:
 - Filter die Warnungen nach doppelt, Gefahr(level) und Höhe
-- Umschalten über iobroker zwischen DWD, UWZ under Nina über string oder schalter
+- Umschalten über iobroker zwischen DWD/UWZ/NINA
 - Autorestart bei Datenpunkterstellung
 - Automatischer Versand und/oder manueller Nachrichtenversand
 - Zeitschaltuhr für Sprachausgabe
@@ -85,10 +85,10 @@ const ALEXA = konstanten[5].value;
 const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
 var uPushdienst=0;
-var DWD = 1;
-var UWZ = 2;
-var NINA = 4;
-var MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}];
+const DWD = 1;
+const UWZ = 2;
+const NINA = 4;
+const MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}];
 if(mainStatePath[mainStatePath.length-1] != '.') mainStatePath += '.';
 const aliveState = mainStatePath+'alive';
 if (extendedExists(aliveState)) {
@@ -224,7 +224,8 @@ var DEBUGSENDEMAIL = false;
 
 
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
-var MODE = DWD+UWZ; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
+// nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
+var MODE = 0; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
 
 
 // Wandel Usereingabe in sauberes True/False um
@@ -286,6 +287,18 @@ warningTypesString[UWZ] = [
     "Bodenfrost"
 ];
 
+// State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
+const stateAlert = // Änderungen auch in setAlertState() anpassen
+[
+    {"name":'level',"default":-1,"type":{ read: true, write: false, type: "number",name:''}},
+    {"name":'type',"default":-1,"type":{ read: true, write: false, type: "number",name:''}},
+    {"name":'begin',"default":null,"type":{ read: true, write: false, role: "value.datetime", type: "string", name:''}},
+    {"name":'end',"default":null,"type":{ read: true, write: false, role: "value.datetime", type: "string", name:''}},
+    {"name":'headline',"default":'',"type":{ read: true, write: false, type: "string", name:''}},
+    {"name":'description',"default":'',"type":{ read: true, write: false, type: "string", name:''}},
+    {"name":'color',"default":'',"type":{ read: true, write: false, type: "string", name:''}},
+]
+
 // hash erzeugen
 String.prototype.hashCode = function() {
     var hash = 0, i, chr;
@@ -302,17 +315,6 @@ String.prototype.hashCode = function() {
 * Überprüfe Nutzerkonfiguration
 /* ************************************************************************* */
 
-function changeMode(modeFromState) {
-    setConfigModeStates(modeFromState);
-    if (MODE != modeFromState || firstRun) {
-        firstRun = false;
-        MODE=modeFromState;
-        if (DEBUG) log('MODE wurde geändert. MODE: '+MODE);
-        InitDatabase();
-        dataSubscribe();
-        setAlertState();
-    }
-}
 
 testValueTypeLog(uPushdienst&(SPEAK+PUSH+ALLMSG), 'uPushdienst', 'number', true);
 testValueTypeLog(uwzPath, 'uwzPath', 'string', true);
@@ -471,8 +473,23 @@ function testValueTypeLog(test, teststring, typ, need=false) {
 
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration ENDE
+/* *************************************************************************
+* Erstellung von Datenpunkten
+* Trigger aktivieren und Datenpflege für eigene Datenpunkte
 /* ************************************************************************* */
 
+function changeMode(modeFromState) {
+    setConfigModeStates(modeFromState);
+    if (MODE != modeFromState || firstRun) {
+        MODE=modeFromState;
+        myLog('MODE wurde geändert. MODE: '+MODE + ' firstRun:'+firstRun);
+        InitDatabase(firstRun);
+        dataSubscribe();
+        setAlertState();
+        if (autoSendWarnings && !firstRun) checkWarningsMain();
+        firstRun = false;
+    }
+}
 {
 
     // State der Pushnachrichten über pushover/telegram spiegelt
@@ -497,7 +514,7 @@ function testValueTypeLog(test, teststring, typ, need=false) {
                 mode |= obj.state.val.toUpperCase().includes('UWZ')?UWZ:0;
                 mode |= obj.state.val.toUpperCase().includes('NINA')?NINA:0;
                 if ( MODE != mode ) {
-                    if (DEBUG) log('Modus wird geändert auf: '+obj.state.val);
+                    myLog('Modus wird geändert von: '+mode+ ' String:' +obj.state.val);
                     changeMode(mode);
                 } else {
                     changeMode(MODE);
@@ -506,7 +523,6 @@ function testValueTypeLog(test, teststring, typ, need=false) {
                 changeMode(MODE);
             }
         });
-        changeMode(MODE);
     }
 
     // MODE änderung über Datenpunkte Boolean
@@ -515,22 +531,20 @@ function testValueTypeLog(test, teststring, typ, need=false) {
         let id = mainStatePath+'config.'+tok;
         if (!extendedExists(id)) {
             let mi = !!(MODE&MODES[a].mode);
-            createCustomState(id, mi, {read: true,write: true,desc: "Aktivere "+mode.toUpperCase()+'.',type: "boolean",def: mi});
+            createCustomState(id, mi, {read: true,write: true,desc: "Aktivere "+tok.toUpperCase()+'.',type: "boolean",def: mi});
         } else {
             on({id:id, change:'ne', ack:false}, function(obj){
                 let arr = obj.id.split('.');
                 let tok = arr[arr.length-1].toUpperCase();
-                let mode = (MODE|MODES[MODES.findIndex(function(j){return j.text==tok})].mode);
+                let mode = MODES[MODES.findIndex(function(j){return j.text==tok})].mode;
                 let oldMode = MODE;
                 if (obj.state.val) oldMode|=mode;
                 else oldMode&=~mode;
-                if (DEBUG) log('Modus wird geändert auf: '+MODE);
+                myLog('Modus wird geändert von: '+MODE);
                 changeMode(oldMode);
             });
-            let oldMode = MODE;
-            if (getState(id).val) oldMode|=MODES[a].mode;
-            else oldMode&=~MODES[a].mode;
-            changeMode(oldMode);
+            if (getState(id).val) MODE|=MODES[a].mode;
+            else MODE&=~MODES[a].mode;
         }
     }
     //Initialisierung falls oben nicht geschehen
@@ -540,10 +554,6 @@ function testValueTypeLog(test, teststring, typ, need=false) {
     if (!extendedExists(id)) {
         createCustomState(id, true, {read: true,write: true,desc: "Aktivere automatischen Push bei eintreffen der Warnungen.",type: "boolean",def: true});
     } else {
-        on({id:id, change:'ne', ack:false}, function(obj){
-            autoSendWarnings = obj.state.val;
-            setState(obj.id, autoSendWarnings, true);
-        });
         autoSendWarnings = getState(id).val;
         setState(id, autoSendWarnings, true);
     }
@@ -559,17 +569,7 @@ function setConfigModeStates(mode) {
     }
 }
 
-// State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
-const stateAlert = // Änderungen auch in setAlertState() anpassen
-[
-    {"name":'level',"default":-1,"type":{ read: true, write: false, type: "number",name:''}},
-    {"name":'type',"default":-1,"type":{ read: true, write: false, type: "number",name:''}},
-    {"name":'begin',"default":null,"type":{ read: true, write: false, role: "value.datetime", type: "string", name:''}},
-    {"name":'end',"default":null,"type":{ read: true, write: false, role: "value.datetime", type: "string", name:''}},
-    {"name":'headline',"default":'',"type":{ read: true, write: false, type: "string", name:''}},
-    {"name":'description',"default":'',"type":{ read: true, write: false, type: "string", name:''}},
-    {"name":'color',"default":'',"type":{ read: true, write: false, type: "string", name:''}},
-]
+
 {
     let allStateExist = true;
     let mode = [MODES[0],MODES[1]];
@@ -594,23 +594,6 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
 for (var a=0;a<konstanten.length;a++){
     if (!extendedExists(mainStatePath+'commands.'+konstanten[a].name)) {
         createCustomState(mainStatePath+'commands.'+konstanten[a].name,false, {read: true,write: true,desc: "Beschreibung",type: "boolean",role: "button",def: false});
-    } else {
-        subscribe({id: mainStatePath+'commands.'+konstanten[a].name},function(obj){
-            if (!obj.state.val) return;
-            setState(obj.id,false,true);
-            let b = obj.id.split('.');
-            let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);})
-            if (d == -1) {log('Fehler. State nicht in Konstanten enthalten','error'); return;}
-            warnDatabase.old = [];
-            let oPd = uPushdienst;
-            uPushdienst &=konstanten[d].value;
-            forceSpeak = forcedSpeak;
-            onClickCheckRun = true;
-            check();
-            onClickCheckRun = false;
-            forceSpeak = false;
-            uPushdienst = oPd
-        })
     }
     for (let x=0;x<MODES.length;x++)
     {
@@ -619,19 +602,43 @@ for (var a=0;a<konstanten.length;a++){
             createCustomState(oid,((uPushdienst&konstanten[a].value)!=0), {read: true,write: true,desc: "Schalte Autopushmöglichkeiten ein/aus",type: "boolean",def: ((uPushdienst&konstanten[a].value)!=0)});
         } else {
             setConfigKonstanten(oid, getState(oid).val);
-            subscribe({id: oid, change:'ne', ack: false},function(obj){
-                setConfigKonstanten(obj.id, obj.state.val);
-            })
         }
     }
 }
+// on() für alles unter config.auto
+subscribe({id: new RegExp(getRegEx(mainStatePath+'config.auto','^')+'.*'), change:'ne', ack: false},function(obj){
+    if (obj.id == mainStatePath+'config.auto.on') {
+        myLog('trigger: ' + obj.id + ' Value:' + obj.state.val);
+        autoSendWarnings = !!obj.state.val;
+        setState(obj.id, autoSendWarnings, true);
+    } else {
+        myLog('else trigger: ' + obj.id + ' Value:' + obj.state.val);
+        setConfigKonstanten(obj.id, obj.state.val);
+    }
+});
+subscribe({id: new RegExp(getRegEx(mainStatePath+'commands','^')+'.*')},function(obj){
+    if (!obj.state.val) return;
+    setState(obj.id,false,true);
+    let b = obj.id.split('.');
+    let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);})
+    if (d == -1) return;
+    warnDatabase.old = [];
+    let oPd = uPushdienst;
+    uPushdienst &=konstanten[d].value;
+    forceSpeak = forcedSpeak;
+    onClickCheckRun = true;
+    checkWarningsMain();
+    onClickCheckRun = false;
+    forceSpeak = false;
+    uPushdienst = oPd
+});
 
-// Hilfsfunktion
+// Hilfsfunktion zu on()
 function setConfigKonstanten(id, val){
     let b = id.split('.');
     let m = b[b.length-2];
     let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);});
-    if (d == -1) {log('Fehler. State nicht in Konstanten enthalten','error'); return;}
+    if (d == -1) return;
     let value = konstanten[d].value
     let tp=0;
     switch (m) {
@@ -648,11 +655,49 @@ function setConfigKonstanten(id, val){
             break;
         }
         default: {
-            log('unbekannter Mode:'+m+'in setConfigKonstanten', error);
+            log('unbekannter Mode:'+m+'in setConfigKonstanten', 'error');
         }
     }
-    setState(id,((uPushdienst & value)!=0), true);
+    setState(id, val, true);
 }
+
+// setzte die Alert States auf die höchste aktuelle Warnstufe
+function setAlertState(){
+    let mode=[MODES[0],MODES[1]];
+    for (let a=0;a<2;a++) {
+        if (!(MODE&mode[a].mode)) continue;
+        let stateAlertid = mainStatePath+'alert.'+mode[a].text.toLowerCase()+'.';
+        for (let b=0;b<warningTypesString[mode[a].mode].length;b++)
+        {
+            let stateAlertIdFull = stateAlertid+warningTypesString[mode[a].mode][b]+'.';
+            let AlertLevel = -1;
+            let AlertIndex = -1;
+            for (let c=0;c<warnDatabase.new.length;c++) {
+                if (warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
+                    AlertLevel=warnDatabase.new[c].level;
+                    AlertIndex=c;
+                }
+            }
+            if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertLevel) {
+                setState(stateAlertIdFull+stateAlert[0].name,AlertLevel);
+                setState(stateAlertIdFull+stateAlert[1].name,b);
+                setState(stateAlertIdFull+stateAlert[2].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start),formatierungString):''));
+                setState(stateAlertIdFull+stateAlert[3].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].end),formatierungString):''));
+                setState(stateAlertIdFull+stateAlert[4].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].headline:''));
+                setState(stateAlertIdFull+stateAlert[5].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].description:''));
+                setState(stateAlertIdFull+stateAlert[6].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].color:''));
+            }
+        }
+    }
+}
+/* *************************************************************************
+* Erstellung von Datenpunkten ENDE
+* Trigger aktivieren und Datenpflege für eigene Datenpunkte ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Hilfsfunktion für Flags Bearbeitung Pushdienste & MODE
+/* ************************************************************************* */
+
 
 function getAutoPushFlags(mode) {
     if (onClickCheckRun) return uPushdienst;
@@ -668,6 +713,24 @@ function getNewFlags(g, f, b) {
     else g &= ~f;
     return g;
 }
+
+function getModeState()
+{
+    if (extendedExists(configModeState)) {
+        let value = getState(configModeState).val;
+        let mode = 0;
+        mode |= value.toUpperCase().includes('DWD')?DWD:0;
+        mode |= value.toUpperCase().includes('UWZ')?UWZ:0;
+        mode |= value.toUpperCase().includes('NINA')?NINA:0;
+        return mode;
+    }
+    return null;
+}
+/* *************************************************************************
+* Hilfsfunktion für Flags bearbeitung Pushdienste ENDE
+/* *************************************************************************
+* Zeitschaltuhr
+/* ************************************************************************* */
 
 // Zeitsteuerung für SayIt & Alexa
 var START = new Date();
@@ -701,15 +764,24 @@ function convertStringToDate(s) {
     d.setSeconds(0);
     return d;
 }
+/* *************************************************************************
+* Zeitschaltuhr ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Hauptfunktion zur Auswahl der Warnungen zum Versenden und Aufbereiten der
+* Nachrichten
+/* ************************************************************************* */
 
 // Hauptfunktion entscheiden was wohin gesendet wird
-function check() {
+function checkWarningsMain() {
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend||!startTimeSpeak||!endTimeSpeak);
     setWeekend();
     let DebugMail ='';
     if (DEBUGSENDEMAIL) {
-        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new.length', warnDatabase.new.length,null,false);
-        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old.length', warnDatabase.old.length,null,false);
+        for (a=0;a<warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a],null,false));
+        for (a=0;a<warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a],null,false));
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new.length', warnDatabase.new.length.toString(),null,false);
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old.length', warnDatabase.old.length.toString(),null,false);
     }
     if (uFilterDuplicate) {
         let dn = new Date();
@@ -747,35 +819,43 @@ function check() {
                 }
             }
         }
-        for(let a=0;a<warnDatabase.new.length;a++) {
-            let w = warnDatabase.new[a];
-            for(let b=0;b<warnDatabase.old.length;b++) {
-                let w2 = warnDatabase.old[b];
-                if (
-                    w.mode !== w2.mode
-                    || w.type !== w2.type
-                    || w.level > warnlevel
-                    || w2.level > warnlevel
-                ) continue;
-                // w endet vor w2 && w2 startet bevor w endet && w hat kleiner gleiches level wie w2 -> lösche w
-                // Hochwassermeldungen werden laufend aufgehoben und durch neue erstzt;
-                // siehe oben nur umgedreht
-                if (w2.end < w.end && w.start < w2.end  && w2.level <= w.level) {
-                    warnDatabase.old.splice(b--,1);
-                }
+    }
+    let oarr=[];
+    let narr=[];
+    for(let a=0;a<warnDatabase.new.length;a++) {
+        let w = warnDatabase.new[a];
+        for(let b=0;b<warnDatabase.old.length;b++) {
+            let w2 = warnDatabase.old[b];
+            if (
+                w.mode !== w2.mode
+                || w.type !== w2.type
+                || w.level > warnlevel
+                || w2.level > warnlevel
+            ) continue;
+            // w==w2 das erste Vorkommen wird überspungen.
+            let dup = warnDatabase.old.findIndex(function(j){return j.hash==w.hash});
+            if (dup == b) continue;
+            // w endet vor/gleich w2 && w2 startet bevor/gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
+            if (w2.end <= w.end && w.start <= w2.end  && w2.level <= w.level) {
+                let i = warnDatabase.new.findIndex(function(j){return (j.hash==w2.hash)});
+                if (i != -1) warnDatabase.new.splice(a--,1);
+                warnDatabase.old.splice(b--,1);
             }
         }
     }
+
 
     warnDatabase.new.sort(function(a,b) {return a.level==b.level?b.begin-a.begin:b.level-a.level;})
     setAlertState();
     var collectMode = 0;
     if (DEBUGSENDEMAIL) {
         let a;
-        DebugMail = buildHtmlEmail(DebugMail,'uPushdienst', uPushdienst,null,true);
-        for (a=0;a<warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]),null,false);
-        for (a=0;a<warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]),null,false);
-        sendMessage(uPushdienst&EMAIL, 'Debug Check() '+scriptName, '','',DebugMail);
+        DebugMail = buildHtmlEmail(DebugMail,'uPushdienst', uPushdienst,null,false);
+        for (a=0;a<warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a],null,false));
+        for (a=0;a<warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a],null,false));
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new.length', warnDatabase.new.length.toString(),null,false);
+        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old.length', warnDatabase.old.length.toString(),null,true);
+        sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, '','',DebugMail);
     }
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
@@ -786,18 +866,18 @@ function check() {
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
             sendMessage(getAutoPushFlags(collectMode)&SPEAK,'','',pushMsg,'');
         }
-        if (DEBUG) log('all all:'+pushMsg);
-        sendMessage(getAutoPushFlags(collectMode)&PUSH,(collectMode&NINA?'Entwarnungen':'Wetterentwarnung'),pushMsg,'','');
-        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,(collectMode&NINA?'Entwarnungen':'Wetterentwarnung')+artikelMode(collectMode)+ '(iobroker)', '', '', buildHtmlEmail('', null, pushMsg, null, true));
+        myLog('all all:'+pushMsg);
+        sendMessage(getAutoPushFlags(collectMode)&PUSH,((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'),pushMsg,'','');
+        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung')+artikelMode(collectMode)+ '(iobroker)', '', '', buildHtmlEmail('', pushMsg, null, 'silver', true));
 
         /* alle Sicherungen Wetterwarnung löschen */
-        warnDatabase.old = warnDatabase.new;
+        warnDatabase.old = cloneObj(warnDatabase.new);
         return;
     }
     let emailHtmlWarn='';
     let emailHtmlClear='';
     let speakMsgTemp=[];
-    collectMode='';
+    collectMode=0;
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
         let description = warnDatabase.old[i].description;
@@ -806,7 +886,7 @@ function check() {
         let area = warnDatabase.old[i].areaID;
         let mode = warnDatabase.old[i].mode;
         if(description && headline && warnDatabase.new.findIndex(function(j){return j.hash == hash;}) == -1 ) {
-            if (DEBUG) log('json old:'+JSON.stringify(warnDatabase.old[i]));
+            myLog('json old:'+JSON.stringify(warnDatabase.old[i]));
             collectMode|=mode;
             let end = getFormatDate(warnDatabase.old[i].end);
             // Text Entwarnungen
@@ -822,12 +902,12 @@ function check() {
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
             sendMessage(getAutoPushFlags(mode)&PUSH,(mode==NINA?'Entwarnung':'Wetterentwarnung'),pushMsg,'','');
-            if (DEBUG) log('text old:'+pushMsg);
+            myLog('text old:'+pushMsg);
 
             /* Sprache: Wetterentwarnungen */
             pushMsg = headline +artikelMode(mode,true)+ area + (end?' gültig bis ' + getFormatDateSpeak(end) + ' Uhr':'')+' wurde aufgehoben' + '  .  ';
             speakMsgTemp.push([pushMsg,mode]);
-            if (DEBUG) log('Sprache old:'+pushMsg);
+            myLog('Sprache old:'+pushMsg);
         }
     }
     let gefahr = false;
@@ -843,7 +923,7 @@ function check() {
         let color = warnDatabase.new[i].color;
         let mode = warnDatabase.new[i].mode;
         if(hash && warnDatabase.old.findIndex(function(j){return j.hash == hash;}) == -1 ) {
-            if (DEBUG) log('json old:'+JSON.stringify(warnDatabase.new[i]));
+            myLog('json old:'+JSON.stringify(warnDatabase.new[i]));
             collectMode|=mode;
             count++;
             if (!gefahr) gefahr=level>warnlevel;
@@ -875,7 +955,7 @@ function check() {
             pushMsg = headline + artikelMode(mode) + pushMsg + instPush;
             if (warnDatabase.new.length>1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
             sendMessage(getAutoPushFlags(mode)&PUSH,topic,pushMsg,'','');
-            if (DEBUG) log('text new:'+pushMsg);
+            myLog('text new:'+pushMsg);
             /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
             var replaceDescription0 = replaceTokenForSpeak(description);
             if ( mode !== NINA ) {
@@ -886,7 +966,7 @@ function check() {
             if (bt) sTime = "gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. ";
             pushMsg = topic + headline+ artikelMode(mode,true)+area + sTime + replaceDescription0 + instPush;
             speakMsgTemp.push([pushMsg,mode]);
-            if (DEBUG) log('Sprache new:'+pushMsg);
+            myLog('Sprache new:'+pushMsg);
         }
     }
     /* Bereich für Sprachausgabe */
@@ -929,7 +1009,7 @@ function check() {
             a+=uSpeakSpeakPerCharHomeTwo*speakMsgTemp[0].length+2000;
             b+=uSpeakSpeakPerCharSayIt*speakMsgTemp[0].length+2000;
             c+=uSpeakSpeakPerCharAlexa*speakMsgTemp[0].length+2000;
-            if (DEBUG) log(speakMsgTemp[0].length.toString());
+            myLog('Länge der auszugebenen Sprachnachricht: ' + speakMsgTemp[0].length.toString()+' Nachricht:'+speakMsgTemp[0]);
             speakMsgTemp.shift();
         }
     }
@@ -940,78 +1020,125 @@ function check() {
     }
 
     /* Neue Werte sichern */
-    warnDatabase.old = warnDatabase.new;
+    warnDatabase.old = cloneObj(warnDatabase.new);
 }
+/* *************************************************************************
+* Hauptfunktion zur Auswahl der Warnungen zum Versenden und Aufbereiten der
+* Nachrichten ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Senden der Nachricht über die verschiedenen Möglichkeiten
+/* ************************************************************************* */
 
-// Erstes befüllen der Database
-function InitDatabase(){
-    warnDatabase={new:[],old:[]};
-    if ( MODE&DWD) {
-        var idAll = $('state[state.id='+dwdPath+'.*.object]');
-        for (let a=0;a<idAll.length;a++) {
-            let id = idAll[a];
-            addDatabaseData(id, getState(id).val, DWD, true);
+//Versende die Warnungen über die Schienen
+function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
+    if (msgsingle) {
+        if ((pushdienst & TELEGRAM)!=0) {
+            if (telegramUser.length>0) {
+                for (let a=0;a<telegramUser.length;a++) {
+                    sendTo (telegramInstanz, {user: telegramUser[a], text: msgsingle});
+                }
+            }
+            if (telegramChatId.length>0){
+                for (let a=0;a<telegramChatId.length;a++) {
+                    sendTo (telegramInstanz, {ChatId: telegramChatId[a], text: msgsingle});
+                }
+            }
+            if(!(telegramUser.length>0||telegramChatId.length>0)) {
+                sendTo (telegramInstanz, msgsingle);
+            }
+        }
+        if ((pushdienst & PUSHOVER)!=0) {
+            sendTo(pushoverInstanz, msgsingle);
+        }
+        if ((pushdienst & IOGO)!=0) {
+            if (ioGoUser.length>0) {
+                for (let a=0;a<ioGoUser.length;a++) {
+                    myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a+1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
+                    sendTo(ioGoInstanz, "send", {
+                        user:                   ioGoUser[a],
+                        text:                   topic,
+                        title:                  msgsingle
+                    });
+                }
+            } else {
+                sendTo(ioGoInstanz, "send", {
+                    text:                   topic,
+                    title:                  msgsingle
+                });
+            }
+        }
+        if ((pushdienst & STATE)!=0 ) {
+            setState(mirrorMessageState,msgsingle,true);
         }
     }
-    if ( MODE&UWZ) {
-        var idAll = $('state[state.id='+uwzPath+'.*.object]');
-        for (let a=0;a<idAll.length;a++) {
-            let id = idAll[a];
-            addDatabaseData(id, getState(id).val, UWZ, true);
+    if(msgspeak){
+        if((pushdienst & HOMETWO)!=0 ){
+            for(let a=0;a<idMediaplayer.length;a++) {
+                var Url2 = "http://" + idMediaplayer[a] + "/track=4fachgong.mp3|tts=" + msgspeak;
+                myLog('Url2 :' + Url2);
+                request(Url2);
+            }
+        }
+        if ((pushdienst & SAYIT)!=0) {
+            for(let a=0;a<idSayIt.length;a++) {
+                setState(idSayIt[a], sayItVolumen[a] + ";" + msgspeak);
+            }
+        }
+        if ((pushdienst & ALEXA)!=0) {
+            for(let a=0;a<idAlexaSerial.length;a++) {
+                // Wenn auf Gruppe keine Lautstärken regelung möglich
+                if (extendedExists(getFullId(idAlexaVolumen,idAlexaSerial[a]))) setState(getFullId(idAlexaVolumen,idAlexaSerial[a]), alexaVolumen[a]);
+                setState(getFullId(idAlexa,idAlexaSerial[a]), msgspeak);
+            }
         }
     }
-    if ( MODE&NINA) {
-        var idAll = $('state[state.id='+ninaPath+'.*.rawJson]');
-        if (DEBUG) log('nina idAll: '+JSON.stringify(idAll));
-        for (let a=0;a<idAll.length;a++) {
-            let id = idAll[a];
-            if (DEBUG) log('nina rawJsonId: '+id);
-            addDatabaseData(id, getState(id).val, NINA, true);
+    if (msgall &&(pushdienst & EMAIL)!=0) {
+        let nMsg = msgall[0].toUpperCase()+msgall.substring(1);
+        let nTopic = topic+':';
+        if (empfaengerEmailID.length>0) {
+            for (let a=0;a<empfaengerEmailID.length;a++) {
+                sendTo(emailInstanz, senderEmailID[0]? {
+                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: nTopic, html: nMsg
+                }:{
+                    to: empfaengerEmailID[a], subject: nTopic, html: nMsg
+                });
+            }
+        } else {
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: nTopic, text: nMsg}:{subject: nTopic, html: nMsg});
         }
     }
 }
+/* *************************************************************************
+* Senden der Nachricht über die verschiedenen Möglichkeiten
+*                           ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Datenquelle Trigger
+/* ************************************************************************* */
+
 // setzt on() für DWD oder UWZ
 function dataSubscribe(){
     if (subDWDhandler) unsubscribe(subDWDhandler);
     if ( MODE&DWD) {
-        let path = dwdPath.split('.');
-        let r = '^';
-        for (let a=0;a<path.length;a++) {
-            if (path[a]) r+=path[a]+'\.';
-        }
+        let r = getRegEx(dwdPath,'^');
         r +='.*\.object$';
-        if (DEBUG)log('subscribe path:'+r);
+        myLog('subscribe path:'+r);
         subDWDhandler = subscribe({id:new RegExp(r), change:'ne'}, onChangeDWD);
     }
     if (subUWZhandler) unsubscribe(subUWZhandler);
     if (MODE&UWZ) {
-        let path = uwzPath.split('.');
-        let r = '^';
-        for (let a=0;a<path.length;a++) {
-            if (path[a]) r+=path[a]+'\.';
-        }
+        let r = getRegEx(uwzPath,'^');
         r +='.*\.object$';
-        if (DEBUG)log('subscribe path:'+r);
+        myLog('subscribe path:'+r);
         subUWZhandler = subscribe({id:new RegExp(r), change:'ne'}, onChangeUWZ);
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
     if (MODE&NINA) {
-        let path = ninaPath.split('.');
-        if (ninaPath[ninaPath.length-1] == '.') path.splice(path.length-1,1);
-        let r = '^';
-        for (let a=0;a<path.length;a++) {
-            if (path[a]) r+=path[a]+'\.';
-        }
+        let r = getRegEx(ninaPath,'^');
         r +='.*.rawJson$';
-        if (DEBUG)log('subscribe path:'+r);
+        myLog('subscribe path:'+r);
         subNINAhandler = subscribe({id:new RegExp(r), change:'ne'}, onChangeNina);
-    }
-}
-
-function myLog(msg, level){
-    if (DEBUG) {
-        if (level=== undefined) level = 'info';
-        log(msg,level);
     }
 }
 
@@ -1027,67 +1154,61 @@ function onChangeNina(dp){
     myLog('onchange NINA');
     onChange(dp,NINA);
 }
-schedule('*/1 * * * *', function(){
-    let c = false;
-    for (let a=0; a<warnDatabase.new.length;a++) {
-        if (!extendedExists(warnDatabase.new[a].id)) {
-            warnDatabase.new.splice(a--,1);
-            c=true;
-        }
-    }
-    if (c && autoSendWarnings) check();
-});
-/*function onChangeNina(dp){
-if (subDublicateNinaTimer) clearTimeout(subDublicateNinaTimer);
-subDublicateNinaTimer=setTimeout(function(){
-log('Nina changed!');
-var idAll = $('state[state.id='+ninaPath+'.*.rawJson]');
-if (DEBUG) log('nina idAll: '+JSON.stringify(idAll));
-for (let a=0;a<idAll.length;a++) {
-let id = idAll[a];
-if (DEBUG) log('nina rawJsonId: '+id);
-addDatabaseDataNina(id, getState(id).val, NINA, true);
-}
-if (idAll.length>0) removeDuplicateHash(NINA);
-},500);
-}*/
+
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
     removeDatabaseDataID(dp.id);
     addDatabaseData(dp.id, dp.state.val, mode, false);
     if(timer) clearTimeout(timer);
-    if (autoSendWarnings) timer = setTimeout(check, 10000);
+    if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
 }
 
-// entferne Eintrag aus der Database
-function removeDatabaseDataID(id) {
-    if (!id || (typeof id !== 'string')) return;
-    if (warnDatabase.new && warnDatabase.new.length > 0) {
-        let i=-2;
-        while (i!=-1) {
-            i = warnDatabase.new.findIndex(function(j){return j.id==id});
-            if (i!=-1) warnDatabase.new.splice(i,1);
-        }
-    }
-}
-function removeDuplicateHash(mode) {
-    if (!mode || (typeof mode !== 'string')) return;
-    if (warnDatabase.new && warnDatabase.new.length > 0) {
-        let i=-2;
-        while (i!=-1) {
-            i = warnDatabase.new.findIndex(function(j, i){return j.mode != mode || warnDatabase.new.findIndex(function(j2, i2){return i!=i && j.hash == j2.hash})!=-1});
-            if (i!=-1) warnDatabase.new.splice(i,1);
-        }
-    }
-}
+/* *************************************************************************
+* Datenquelle Trigger  ENDE
+/* ************************************************************************* */
 
+// Erstes befüllen der Database
+function InitDatabase(first){
+    if (first) warnDatabase={new:[],old:[]};
+    if ( MODE&DWD) {
+        var idAll = $('state[state.id='+dwdPath+'.*.object$]');
+        for (let a=0;a<idAll.length;a++) {
+            let id = idAll[a];
+            addDatabaseData(id, getState(id).val, DWD, first);
+        }
+    } else {
+        warnDatabase.new = warnDatabase.new.filter(function(j){return j.mode != DWD;});
+    }
+
+    if ( MODE&UWZ) {
+        var idAll = $('state[state.id='+uwzPath+'.*.object$]');
+        for (let a=0;a<idAll.length;a++) {
+            let id = idAll[a];
+            addDatabaseData(id, getState(id).val, UWZ, first);
+        }
+    } else {
+        warnDatabase.new = warnDatabase.new.filter(function(j){return j.mode != UWZ;});
+    }
+    if ( MODE&NINA) {
+        var idAll = $('state[state.id='+ninaPath+'.*.rawJson$]');
+        myLog('nina idAll: '+JSON.stringify(idAll));
+        for (let a=0;a<idAll.length;a++) {
+            let id = idAll[a];
+            myLog('nina rawJsonId: '+id);
+            addDatabaseData(id, getState(id).val, NINA, first);
+        }
+    } else {
+        warnDatabase.new = warnDatabase.new.filter(function(j){return j.mode != NINA;});
+    }
+    if (!first) removeDuplicateHash();
+}
 
 // für Objekt zur Database hinzu
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
     if (value && value != {} && value !== undefined && value != '{}') value=JSON.parse(value);
     else return null;
-    if (DEBUG) log('ID + JSON:'+ id + ' '+JSON.stringify(value));
+    myLog('ID + JSON:'+ id + ' '+JSON.stringify(value));
     if (mode != NINA) value['info']=[value];
     if (value.info === undefined || !Array.isArray(value.info)) return null;
     for (let a=0; a<value.info.length; a++) {
@@ -1111,7 +1232,7 @@ function getDatabaseData(warn, mode){
             warn.altitudeStart>maxhoehe
             || (warn.altitudeEnd && warn.altitudeEnd<minhoehe)
             || warn.level < minlevel
-        ) return null;
+        ) {myLog('Übergebenens Json DWD verworfen');return null;}
         result['mode'] = DWD;
         result['description'] = warn.description === undefined ? '' : warn.description;
         result['headline'] = warn.headline === undefined ? '' : warn.headline;
@@ -1128,7 +1249,7 @@ function getDatabaseData(warn, mode){
             || (warn.payload.altMax && warn.payload.altMax<minhoehe)
             || warn.level < minlevel
 
-        ) return null;
+        ) {myLog('Übergebenens Json UWZ verworfen');return null;}
 
         result['mode'] = UWZ;
         result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
@@ -1142,7 +1263,6 @@ function getDatabaseData(warn, mode){
         result['color'] = getLevelColor(result.level);
     } else if (mode === NINA) {
         // level 2,3,4
-        log(JSON.stringify(warn));
         let ninaLevel=['Minor','Severe','Extreme']
         let web='';
         web = warn.web === undefined || !warn.web? '' : '<br>'+warn.web+'<br>';
@@ -1165,30 +1285,110 @@ function getDatabaseData(warn, mode){
         result['html']['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['html']['headline'] = warn.headline === undefined ? '' : warn.headline;
         result['html']['description'] = warn.description === undefined ? '' : warn.description+web;
-        log(JSON.stringify(result));
+        myLog(JSON.stringify(result));
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
     result['hash'] = JSON.stringify(result).hashCode();
+    myLog('result: ' + JSON.stringify(result));
     return result;
+    // Gibt Farben für die level zurück
+    function getLevelColor(level) {
+        var color = [
+            '#00ff00', // 0 - Grün
+            '#009b00', // 1 - Dunkelgrün
+            '#ffff00', // 2 - Gelb Wetterwarnungen (Stufe 2)
+            '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
+            '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
+            '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+        ];
+        if (level>=0 && level<=5) return color[level];
+        return null;
+    }
+    function getUWZLevel (warnName){
+        var result = -1; // -1 is an error!
+        var alert = warnName.split("_");
+        var colors = {
+            color:["green","darkgreen","yellow","orange","red","violet"],
+            level:[0,0,1,2,3,4] // um 1 level reduziert, sond nicht mit DWD vergleichbar nach Erfahrungen
+        };
+        if (alert[0]=="notice") { result = 1; }
+        else if (alert[1] == "forewarn") { result = 1; }
+        else {
+            result = colors.level[colors.color.indexOf(alert[2])];
+        }
+        return result;
+    }
+}
+function removeHtml(a) {
+    let b = a.replace(/<br\/>/ig,'\n');
+    b = b.replace(/(&nbsp;|<([^>]+)>)/ig,'');
+    myLog('removeHtml:'+a+' after: '+b);
+    return b;
 }
 
-function removeHtml(a) {
-    log(a);
-    a = a.replace(/<br\/>/ig,'\n');
-    return a.replace(/(&nbsp;|<([^>]+)>)/ig,'');
+// Überprüfe wegen Nina-Adapter häufig die DB ob Einträge obj.ids gelöscht wurden.
+schedule('*/1 * * * *', function(){
+    let c = false;
+    for (let a=0; a<warnDatabase.new.length;a++) {
+        if (!extendedExists(warnDatabase.new[a].id)) {
+            warnDatabase.new.splice(a--,1);
+            c=true;
+        }
+    }
+    if (c && autoSendWarnings) checkWarningsMain();
+});
+
+// entferne Eintrag aus der Database
+function removeDatabaseDataID(id) {
+    if (!id || (typeof id !== 'string')) return;
+    if (warnDatabase.new && warnDatabase.new.length > 0) {
+        let i=-2;
+        while (i!=-1) {
+            i = warnDatabase.new.findIndex(function(j){return j.id==id});
+            if (i!=-1) warnDatabase.new.splice(i,1);
+        }
+    }
 }
+function removeDuplicateHash() {
+    if (warnDatabase.new && warnDatabase.new.length > 0) {
+        warnDatabase.new = warnDatabase.new.filter(function(j, i){
+            let b = (-1 == warnDatabase.new.findIndex(function(j2, i2){
+                return i>i2 && j.mode == j2.mode && j.hash == j2.hash;
+            }));
+            if (!b) myLog('new filtere:'+JSON.stringify(j));
+            return b;}
+        )
+    }
+    if (warnDatabase.old && warnDatabase.old.length > 0) {
+        warnDatabase.old = warnDatabase.old.filter(function(j, i){
+            let b = (-1 == warnDatabase.old.findIndex(function(j2, i2){
+                return i>i2 && j.mode == j2.mode && j.hash == j2.hash;
+            }));
+            if (!b) myLog('old filtere:'+JSON.stringify(j));
+            return b;}
+        )
+    }
+}
+
+
+/* *************************************************************************
+* Datenbank ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Aufbereitung von Texten für die verschiedenen Pushmöglichkeiten
+/* ************************************************************************* */
 
 function artikelMode(mode, speak=false) {
     let r = ' ';
     if (mode&DWD) r+=(DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
     if (mode&UWZ) {
-        if (r.length > 1) r+='und';
+        if (r.length > 1) r+='und ';
         if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale ');
         else r+= (DEBUG ? 'der UWZ(ALPHA) ' : 'der UWZ ');
     }
     if (mode&NINA) {
-        if (r.length > 1) r+='und';
+        if (r.length > 1) r+='und ';
         r+= (DEBUG ? 'von Nina(ALPHA) ' : 'von Nina ');
     }
     return r;
@@ -1238,31 +1438,6 @@ function replaceTokenForSpeak(beschreibung) {
     return rueckgabe;
 }
 
-function getLevelColor(level) {
-    var color = [
-        '#00ff00', // 0 - Grün
-        '#009b00', // 1 - Dunkelgrün
-        '#ffff00', // 2 - Gelb Wetterwarnungen (Stufe 1)
-        '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 2)
-        '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 3)
-        '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (Stufe 4)
-    ];
-    if (level>=0 && level<=5) return color[level];
-    return null;
-}
-
-function getUWZLevel (warnName){
-    var result = -1; // -1 is an error!
-    var alert = warnName.split("_");
-    var colors = ["green","darkgreen","yellow","orange","red","violet"];
-
-    if (alert[0]=="notice") { result = 1; }
-    else if (alert[1] == "forewarn") { result = 2; }
-    else {
-        result = colors.indexOf(alert[2]);
-    }
-    return result;
-}
 // Formatiere Date zu string
 function getFormatDate(a) {
     if (!a || !(typeof a === 'number')) return '';
@@ -1290,6 +1465,7 @@ function getFormatDateSpeak(a) {
         default: m='';
     }
     //  if (Number(b[0])<10) b[0]=b[0].slice(1,1);
+    // Das geht echt einfacher  *g*
     b[0]=Number(b[0]).toString();
     b[1]=m; // setze Monatsname
     // entferne Jahr
@@ -1309,116 +1485,12 @@ function getRegionName(id) {
     }
     return '';
 }
-
-// setzte die Alert States auf die höchste aktuelle Warnstufe
-function setAlertState(){
-    let mode=[MODES[0],MODES[1]];
-    for (let a=0;a<2;a++) {
-        if (!(MODE&mode[a])) continue;
-        let stateAlertid = mainStatePath+'alert.'+mode[a].text.toLowerCase()+'.';
-        for (let b=0;b<warningTypesString[mode[a].mode].length;b++)
-        {
-            let stateAlertIdFull = stateAlertid+warningTypesString[mode[a].mode][b]+'.';
-            let AlertLevel = -1;
-            let AlertIndex = -1;
-            for (let c=0;c<warnDatabase.new.length;c++) {
-                if (warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
-                    AlertLevel=warnDatabase.new[c].level;
-                    AlertIndex=c;
-                }
-            }
-            if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertLevel) {
-                setState(stateAlertIdFull+stateAlert[0].name,AlertLevel);
-                setState(stateAlertIdFull+stateAlert[1].name,b);
-                setState(stateAlertIdFull+stateAlert[2].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start),formatierungString):''));
-                setState(stateAlertIdFull+stateAlert[3].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].end),formatierungString):''));
-                setState(stateAlertIdFull+stateAlert[4].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].headline:''));
-                setState(stateAlertIdFull+stateAlert[5].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].description:''));
-                setState(stateAlertIdFull+stateAlert[6].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].color:''));
-            }
-        }
-    }
-}
-
-//Versende die Warnungen über die Schienen
-function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
-    if (msgsingle) {
-        if ((pushdienst & TELEGRAM)!=0) {
-            if (telegramUser.length>0) {
-                for (let a=0;a<telegramUser.length;a++) {
-                    sendTo (telegramInstanz, {user: telegramUser[a], text: msgsingle});
-                }
-            }
-            if (telegramChatId.length>0){
-                for (let a=0;a<telegramChatId.length;a++) {
-                    sendTo (telegramInstanz, {ChatId: telegramChatId[a], text: msgsingle});
-                }
-            }
-            if(!(telegramUser.length>0||telegramChatId.length>0)) {
-                sendTo (telegramInstanz, msgsingle);
-            }
-        }
-        if ((pushdienst & PUSHOVER)!=0) {
-            sendTo(pushoverInstanz, msgsingle);
-        }
-        if ((pushdienst & IOGO)!=0) {
-            if (ioGoUser.length>0) {
-                for (let a=0;a<ioGoUser.length;a++) {
-                    if (DEBUG )log('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a+1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
-                    sendTo(ioGoInstanz, "send", {
-                        user:                   ioGoUser[a],
-                        text:                   topic,
-                        title:                  msgsingle
-                    });
-                }
-            } else {
-                sendTo(ioGoInstanz, "send", {
-                    text:                   topic,
-                    title:                  msgsingle
-                });
-            }
-        }
-        if ((pushdienst & STATE)!=0 ) {
-            setState(mirrorMessageState,msgsingle,true);
-        }
-    }
-    if(msgspeak){
-        if((pushdienst & HOMETWO)!=0 ){
-            for(let a=0;a<idMediaplayer.length;a++) {
-                var Url2 = "http://" + idMediaplayer[a] + "/track=4fachgong.mp3|tts=" + msgspeak;
-                log('Url2 :' + Url2);
-                request(Url2);
-            }
-        }
-        if ((pushdienst & SAYIT)!=0) {
-            for(let a=0;a<idSayIt.length;a++) {
-                setState(idSayIt[a], sayItVolumen[a] + ";" + msgspeak);
-            }
-        }
-        if ((pushdienst & ALEXA)!=0) {
-            for(let a=0;a<idAlexaSerial.length;a++) {
-                // Wenn auf Gruppe keine Lautstärken regelung möglich
-                if (extendedExists(getFullId(idAlexaVolumen,idAlexaSerial[a]))) setState(getFullId(idAlexaVolumen,idAlexaSerial[a]), alexaVolumen[a]);
-                setState(getFullId(idAlexa,idAlexaSerial[a]), msgspeak);
-            }
-        }
-    }
-    if (msgall &&(pushdienst & EMAIL)!=0) {
-        let nMsg = msgall[0].toUpperCase()+msgall.substring(1);
-        let nTopic = topic+':';
-        if (empfaengerEmailID.length>0) {
-            for (let a=0;a<empfaengerEmailID.length;a++) {
-                sendTo(emailInstanz, senderEmailID[0]? {
-                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: nTopic, html: nMsg
-                }:{
-                    to: empfaengerEmailID[a], subject: nTopic, html: nMsg
-                });
-            }
-        } else {
-            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: nTopic, text: nMsg}:{subject: nTopic, html: nMsg});
-        }
-    }
-}
+/* *************************************************************************
+* Aufbereitung von Texten für die verschiedenen Pushmöglichkeiten ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Anfrage über Telegramm mit Ww? und WetterWarnungen?
+/* ************************************************************************* */
 
 if ((uPushdienst&TELEGRAM) != 0 ) {
     on({id: telegramInstanz+'.communicate.request',change:"any",ack:false}, function(obj){
@@ -1430,42 +1502,27 @@ if ((uPushdienst&TELEGRAM) != 0 ) {
         }
     });
 }
-
-// gibt aktuell die Alexa ID zurück
-function getFullId(a,b) {
-    return a.replace(placeHolder,b)
-}
-// Klone das Objekt
-function cloneObj(j) {
-    return JSON.parse(JSON.stringify(j));
-}
-
-function getModeState()
-{
-    if (extendedExists(configModeState)) {
-        let value = getState(configModeState).val;
-        let mode = 0;
-        mode |= value.toUpperCase().includes('DWD')?DWD:0;
-        mode |= value.toUpperCase().includes('UWZ')?UWZ:0;
-        mode |= value.toUpperCase().includes('NINA')?NINA:0;
-        return mode;
-    }
-    return null;
-}
+/* *************************************************************************
+* Anfrage über Telegramm mit Ww? und WetterWarnungen?
+*               ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Restartfunktion
+/* ************************************************************************* */
 
 // wenn alive schon false, starte das Skript neu
 onStop(function(callback){
     if (extendedExists(aliveState)) {
         if (!getState(aliveState).val) {
-            if (DEBUG) log('wird neugestartet!');
+            myLog('wird neugestartet!');
             setState(aliveState, false, true, function(){
                 setTimeout(function(){
                     startScript(scriptName);
-                    if (DEBUG) log('Neustart wurde ausgeführt');
+                    myLog('Neustart wurde ausgeführt');
                 },1000)
             });
         } else {
-            if (DEBUG) log('wurde beendet!');
+            myLog('wurde beendet!');
             setState(aliveState,false, true);
         }
     }
@@ -1476,11 +1533,18 @@ onStop(function(callback){
 function restartScript() {
     setTimeout(function(){
         setState(aliveState, false, false, function(){
-            if (DEBUG) log('Wird über restartScript() beendet.!');
+            myLog('Wird über restartScript() beendet.!');
             stopScript();
         });
     },200);
 }
+/* *************************************************************************
+* Restartfunktion
+*           ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Erstellung von States incl. 0_userdata & Zugehöriges
+/* ************************************************************************* */
 
 // gibt die ersten beiden Teile von ID zurück
 function getCustomRoot(id){
@@ -1507,8 +1571,8 @@ function extendedExists(id){
 // verhält sich wie createState()
 function createCustomState(id, def, type, callback = undefined) {
     if (!extendedExists(id)) {
-        if (DEBUG) log('getCustomRoot: ' +getCustomRoot(id));
-        if (DEBUG) log('getEndOfState: ' + getEndOfState(id));
+        myLog('getCustomRoot: ' +getCustomRoot(id));
+        myLog('getEndOfState: ' + getEndOfState(id));
         if (def == null && type.type == 'string') type.def = '';
         else type.def = def ;
         createUserStates(getCustomRoot(id),false,[
@@ -1648,3 +1712,43 @@ function createUserStates(where, force, statesToCreate, callback = undefined) {
         });
     }
 }
+/* *************************************************************************
+* Erstellung von States incl. 0_userdata & Zugehöriges
+*           ENDE
+/* ************************************************************************* */
+/* *************************************************************************
+* Hilffunktion sonstiges
+/* ************************************************************************* */
+// Klone das Objekt
+function cloneObj(j) {
+    if (Array.isArray(j)) {
+    var arr = [j.length];
+    for (let a=0;a<j.length;a++) arr[a]=j[a];
+    return arr;
+    }
+    return JSON.parse(JSON.stringify(j));
+}
+function myLog(msg, channel){
+    if (DEBUG) {
+        if (channel=== undefined) channel = 'info';
+        log(msg,channel);
+    }
+}
+// gibt aktuell die Alexa ID zurück
+function getFullId(a,b) {
+    return a.replace(placeHolder,b)
+}
+function getRegEx(value, firstChar) {
+    let path = value.split('.');
+    if (value[value.length-1] == '.') path.splice(path.length-1,1);
+    let r = '';
+    if (firstChar !== undefined) r+=firstChar;
+    for (let a=0;a<path.length;a++) {
+        if (path[a]) r+=path[a]+'\.';
+    }
+    return r;
+}
+/* *************************************************************************
+* Hilffunktion sonstiges
+*           ENDE
+/* ************************************************************************* */
