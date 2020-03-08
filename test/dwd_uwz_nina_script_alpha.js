@@ -515,7 +515,7 @@ function testValueTypeLog(test, teststring, typ, need=false) {
         let id = mainStatePath+'config.'+tok;
         if (!extendedExists(id)) {
             let mi = !!(MODE&MODES[a].mode);
-            createCustomState(id, mi, {read: true,write: true,desc: "Aktivere "+mode.toUpperCase()+'.',type: "boolean",def: mi});
+            createCustomState(id, mi, {read: true,write: true,desc: "Aktivere "+MODES[a].text.toUpperCase()+'.',type: "boolean",def: mi});
         } else {
             on({id:id, change:'ne', ack:false}, function(obj){
                 let arr = obj.id.split('.');
