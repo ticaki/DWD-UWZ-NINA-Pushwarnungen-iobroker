@@ -151,6 +151,11 @@ if (extendedExists(aliveState)) {
 /* var regionName = ['UWZDE12345', 'Entenhausen'] */
 var regionName          = [['','']];
 
+// für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren:
+var uGemeinde = '';
+var uLandkreis = '';
+
+
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID       = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
 var empfaengerEmailID   = [""]; // mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
@@ -1292,36 +1297,55 @@ function InitDatabase(first){
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
     let change = false;
-    // Sonderfall für Nina-Adapter
-    if ((mode & NINA) == 0) change = removeDatabaseDataID(id);
-    if (value && value != {} && value !== undefined && value != '{}') value = JSON.parse(value);
-    else return false ;
-    myLog('ID + JSON:'+ id + SPACE + JSON.stringify(value));
-    if (mode != NINA) value['info']=[value];
-    if (value.info === undefined || !Array.isArray(value.info)) return false;
-    for (let a = 0; a < value.info.length; a++) {
-        let newVal = true;
-        warn = getDatabaseData(value.info[a], mode);
-        if (warn) {
+    let jvalue = null;
+    myLog('addDatabaseData() ID + JSON:'+ id + SPACE + JSON.stringify(value));
+    if (value && value != {} && value !== undefined && value != '{}') jvalue = JSON.parse(value);
+    if (mode == UWZ) {
+        change = removeDatabaseDataID(id);
+        if (jvalue) {
+            warn = getDatabaseData(jvalue, mode);
             warn.id = id;
-            if (mode == UWZ) {
-                warn.areaID = getRegionName(id);
-                warn.hash = JSON.stringify(warn).hashCode();
-            }
-            else if (mode == DWD) {
-                warn.areaID=' für ' + warn.areaID;
-                warn.hash = JSON.stringify(warn).hashCode();
-            }
-            else if (mode == NINA) {
-                warn.identifier = value.identifier === undefined ? '' : value.identifier;
-                warn.sender = value.sender === undefined ? '' : value.sender;
-                warn.hash = JSON.stringify(warn).hashCode();
-                if (getIndexOfHash(warnDatabase.new, warn.hash, mode, id) != -1) newVal = false;
-                else change |= removeDatabaseDataID(id);
-            }
-            if (newVal) warnDatabase.new.push(warn);
+            warn.areaID = getRegionName(id);
+            warn.hash = JSON.stringify(warn).hashCode();
+            warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
+            change = true;
+        }
+    } else if (mode == DWD) {
+        change = removeDatabaseDataID(id);
+        if (jvalue) {
+            warn = getDatabaseData(jvalue, mode);
+            warn.id = id;
+            warn.areaID=' für ' + warn.areaID;
+            warn.hash = JSON.stringify(warn).hashCode();
+            warnDatabase.new.push(warn);
+            if (old) warnDatabase.old.push(warn);
+            change = true;
+        }
+    } else if (mode == NINA) {
+        if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return removeDatabaseDataID(id);
+        let tempArr = [];
+        for (let a = 0; a < jvalue.info.length; a++) {
+            warn = getDatabaseData(jvalue.info[a], mode);
+            if (warn) {
+                warn.id = id;
+                warn.identifier = jvalue.identifier === undefined ? '' : jvalue.identifier;
+                warn.sender = jvalue.sender === undefined ? '' : jvalue.sender;
+                warn.hash = JSON.stringify(warn).hashCode();
+                tempArr.push(warn);
+            }
+        }
+        if ( tempArr.length > 0) {
+            let newVal = true;
+            if (getIndexOfHash(warnDatabase.new, tempArr[0].hash, mode, id) != -1) newVal = false;
+            else change |= removeDatabaseDataID(id);
+            for (let a = 0; a < jvalue.info.length; a++) {
+                if (newVal) warnDatabase.new.push(warn);
+                if (old) warnDatabase.old.push(warn);
+            }
             change |= (newVal || old);
+        } else {
+            change |= removeDatabaseDataID(id);
         }
     }
     return change;
@@ -1403,7 +1427,7 @@ function getDatabaseData(warn, mode){
         result['severity'] = warn.severity === undefined ? '' : warn.severity;
         //result['certainty'] = warn.certainty === undefined ? '' : warn.certainty;
         result['headline'] = warn.headline === undefined ? '' : removeHtml(warn.headline);
-        result['areaID'] = warn.area === undefined || warn.area[0].areaDesc === undefined? '' : removeHtml(warn.area[0].areaDesc);
+        result['areaID'] = warn.area === undefined || warn.area === undefined? '' : getNinaArea(warn.area);
         result['level'] = warn.severity === undefined ? -1 : getNinaLevel(warn.severity, result.typename);
         result['color'] = getLevelColor(result.level);
         result['html'] = {};
@@ -1418,6 +1442,25 @@ function getDatabaseData(warn, mode){
     myLog('result: ' + JSON.stringify(result));
     return result;
 
+    function getNinaArea(value) {
+        let result = 'für ihre Region'
+        if (!value && !Array.isArray(value)) return result;
+        let region = '';
+        let lvl = 5;
+        len = 1000;
+        for (let a = 0; a < value.length; a++) {
+            area = value[a].areaDesc;
+            if ( area.includes(uGemeinde) && area.length - uGemeinde.length < len) {
+                region = area;
+                len = area.length - uGemeinde.length;
+                lvl=1;
+            } else { lvl > 2 && area.includes(uLandkreis) } {
+                lvl=2;
+                region = area;
+            }
+        }        
+        return region || result;
+    }
     // gibt Nina level zurück
     function getNinaLevel(str, type) {
         let ninaLevel=[
@@ -1481,8 +1524,9 @@ schedule('30 */5 * * * *', function(){
 });
 
 // entferne Eintrag aus der Database
-function removeDatabaseDataID(id) {
+function removeDatabaseDataID(id, multitimes) {
     if (!id || (typeof id !== 'string')) return false;
+    if (multitimes === undefined) multitimes = false;
     let change = false;
     if (warnDatabase.new && warnDatabase.new.length > 0) {
         let i=-2;
@@ -1492,6 +1536,7 @@ function removeDatabaseDataID(id) {
                 warnDatabase.new.splice(i, 1);
                 change = true;
             }
+            if (!multitimes) break;
         }
     }
     return change;
