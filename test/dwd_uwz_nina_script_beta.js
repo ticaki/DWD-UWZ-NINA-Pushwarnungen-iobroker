@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.7.1
+//Version 0.95.7.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -1673,7 +1673,7 @@ function getStringWarnCount(i, c) {
     return SPACE+'Insgesamt '+( i && !onClickCheckRun && c > 1?i+'/':'') + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
 }
 
-function getStringIgnoreCount(i, c) {
+function getStringIgnoreCount(c) {
     if (c == 0) return '';
     let r = SPACE;
     if (c == 1) r += 'Es wird eine Warnung ignoriert.';
