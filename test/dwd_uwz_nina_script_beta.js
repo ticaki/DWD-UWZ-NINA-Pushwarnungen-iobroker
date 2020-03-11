@@ -1150,14 +1150,15 @@ function checkWarningsMain() {
         for (let a = 0;a < warnDatabase.old.length;a++) collectMode|=warnDatabase.old[a].mode;
 
         let pushMsg = 'Alle Warnmeldungen'+getArtikelMode(collectMode)+'wurden aufgehoben.'+getStringIgnoreCount(ignoreWarningCount);
-
-        if (!collectMode || ignoreModes) {
-            if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
-        }
+        
+        // Einen Mode ermitteln der aktiv ist und der das Versenden erlauben würde.
+        if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
+       
+        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im '+(onClickCheckRun?'manuellen Modus':'Automatikmodus)+ gefunden!','warn');
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
-            sendMessage(getPushModeFlag(collectMode)&SPEAK, pushMsg);
+            sendMessage(getPushModeFlag(collectMode)&SPEAK, '', pushMsg);
         }
 
         myLog('all all:'+pushMsg+' PUSH'+(getPushModeFlag(collectMode)&PUSH).toString(2) + ' ALLMSG:'+(getPushModeFlag(collectMode)&ALLMSG).toString(2));
