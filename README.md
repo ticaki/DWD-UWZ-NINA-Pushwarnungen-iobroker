@@ -38,4 +38,5 @@ Dank an:
 
 
 Im Ordner Test finde ihr die Version an der aktuell gearbeitet wird. 
-Support: https://forum.iobroker.net/topic/30616/script-dwd-uwz-warnungen-als-pushnachrichten/197
+
+Support: https://forum.iobroker.net/topic/30616/script-dwd-uwz-warnungen-als-pushnachrichten/
