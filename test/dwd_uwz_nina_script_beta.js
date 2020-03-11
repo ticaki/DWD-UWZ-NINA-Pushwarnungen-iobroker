@@ -1300,7 +1300,7 @@ function onChange(dp, mode) {
     if ( addDatabaseData(dp.id, dp.state.val, mode, false) ) {
         myLog('Datenbank wurde geändert - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
         if (timer) clearTimeout(timer);
-        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
+        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
     }
 }
 
@@ -1379,7 +1379,8 @@ function addDatabaseData(id, value, mode, old) {
         // sammele die neuen Daten
         for (let a = 0; a < jvalue.info.length; a++) {
             warn = getDatabaseData(jvalue.info[a], mode);
-            if (warn) {
+            // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
+            if (warn && warn.end && new Date(warn.end) < new Date()) {
                 warn.identifier = jvalue.identifier === undefined ? '' : jvalue.identifier;
                 warn.sender = jvalue.sender === undefined ? '' : jvalue.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
@@ -1582,7 +1583,7 @@ function removeHtml(a) {
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
 // Folglich werden Entwarnung raus geschickt. Jetzt warten wir 5 * 6 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
-schedule('50 */10 * * * *', function(){
+schedule('20 */10 * * * *', function(){
     let c = false;
     for (let a = 0; a < warnDatabase.new.length;a++) {
         let w = warnDatabase.new[a];
@@ -1599,7 +1600,10 @@ schedule('50 */10 * * * *', function(){
             c = true;
         }
     }
-    if (c && autoSendWarnings) checkWarningsMain();
+    if (c && autoSendWarnings) {
+        if (timer) clearTimeout(timer);
+        checkWarningsMain();
+    }
 });
 
 // entferne Eintrag aus der Database
