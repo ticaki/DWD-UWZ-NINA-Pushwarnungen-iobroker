@@ -1,4 +1,5 @@
 # DWD-UWZ-Pushwarnungen-iobroker
+stable: dwd_uwz_script_iobroker.js
 
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
@@ -34,3 +35,7 @@ Dank an:
 - crunchip, sigi234, Latzi fürs Testen und Ideen
 - die ursprünglichen Authoren siehe Scriptheader
 - dwm für UWZ Script
+
+
+Im Ordner Test finde ihr die Version an der aktuell gearbeitet wird. 
+Support: https://forum.iobroker.net/topic/30616/script-dwd-uwz-warnungen-als-pushnachrichten/197
