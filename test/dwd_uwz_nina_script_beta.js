@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.7.6
+//Version 0.95.8
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -31,7 +31,7 @@ Funktionen:
 - Unterstützung für 0_userdata
 - Datenpunkthauptpfade sind konfigurierbar incl. 0_userdata
 - Konfigurationsprüfung soweit möglich
-- Automodus und einzelne Pushdienste über iobroker schaltbar (hat nicht mit manuellem Versand zu tun)
+- Automodus und einzelne Pushdienste über iobroker schaltbar, sowohl für Automodus als auch Manuell
 - Optimierte Sprachausgabe
 - Fingerweg vom .alive state :)
 
@@ -42,12 +42,15 @@ Kleinkram:
 - Multi-User/Device bei fast allen Pushdiensten verfügbar (außer Datenpunkt & pushover)
 - Alexa und SayIt mit Lautstärkeeinstellung. Alexagruppen unterstützen keine Lautstärke trotzdem konfigurieren.
 - Zusätzliche Hervorhebung konfigurierbar über attentionWarningLevel (im Betreff/Ansage)
+- Filter für Nina-sender
+- Namesbezeichner für Nina verfügbar, diese werden benötigt, falls in der Warnung Ort genannt wird, das auszugeben und damit die Bedeutung der Warnung hervorzuheben.
 
 Dank an:
 - Mic für die createUserStates() Funktionen
 - CruziX der diese eingebaut hat.
 - crunchip, sigi234, Latzi fürs Testen und Ideen
 - die ursprünglichen Authoren s.o.
+
 /* ************************************************************************
 * Änderungen ab Version 95.6
 - Sprachausgabe von Elementen die ingnoriert werden, wird immer unterdrückt.
@@ -258,7 +261,7 @@ windForceDetailsSpeak = !!windForceDetailsSpeak;
 
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
-const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
+const PUSH = TELEGRAM+PUSHOVER + IOGO + STATE;
 const ALLMSG = EMAIL;
 const ALLMODES= DWD|UWZ|NINA;
 const CANHTML = EMAIL;
@@ -935,15 +938,7 @@ function checkWarningsMain() {
         }
     }
 
-    if (DEBUGSENDEMAIL) {
-        let a;
-        DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null);
-        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
-        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
-        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
-        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
-        sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
-    }
+
 
     warnDatabase.new.sort(function(a, b) {return a.level == b.level?b.begin - a.begin:b.level - a.level;})
     var collectMode     = 0;
@@ -951,6 +946,7 @@ function checkWarningsMain() {
     let emailHtmlClear  = '';
     let speakMsgTemp    = [];
     collectMode         = 0;
+    let debugdata       = '';
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
         let entry       = warnDatabase.old[i];
@@ -961,7 +957,8 @@ function checkWarningsMain() {
         let mode        = entry.mode;
 
         if (isWarnIgnored(entry)) continue;
-        if(description && headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.old.length > ignoreWarningCount)) {
+        if (DEBUG) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.new, hash)+SPACE+(getPushModeFlag(mode)&PUSH).toString(2)+'<br';
+        if( headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.old.length > ignoreWarningCount)) {
             myLog('json old:'+JSON.stringify(entry));
             let prefix = ''
             let end = entry.end?getFormatDate(entry.end):null;
@@ -986,6 +983,7 @@ function checkWarningsMain() {
             myLog('Sprache old:'+pushMsg);
         }
     }
+    if (DEBUG) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-New Flags', debugdata, null);
     let gefahr = false;
     let count = 0;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
@@ -999,7 +997,8 @@ function checkWarningsMain() {
         let area        = entry.areaID;
         let color       = entry.color;
         let mode        = entry.mode;
-        let web         = entry.web ? [entry.web, entry.webname]:null;
+        let web         = entry.web ? [entry.web, entry.webname,entry.html.web]:null;
+        if (DEBUG) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.old, hash)+SPACE+(getPushModeFlag(mode)).toString(2)+SPACE+isWarnIgnored(entry)+'<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
             let todoBitmask = uPushdienst;
@@ -1026,7 +1025,7 @@ function checkWarningsMain() {
                     else de = description;
                     if ( html.instruction && html.instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
                     else if ( instruction && instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
-                    if (web) de+='<br><br>'+entry.html.web;
+                    if (web) de+='<br><br>'+web[2];
                 } else {
                     he = headline;
                     de = description;
@@ -1045,7 +1044,7 @@ function checkWarningsMain() {
                     topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
                 }
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
-                let b = getPushModeFlag(mode)&CANHTML&PUSH&~EMAIL;
+                let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
                 sendMessage( b, topic, html, web);
                 todoBitmask &= ~b & ~EMAIL ;
             }
@@ -1095,6 +1094,7 @@ function checkWarningsMain() {
             }
         }
     }
+    if (DEBUG) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
     /* Bereich für Sprachausgabe */
     if (speakMsgTemp.length > 0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(collectMode)&SPEAK) != 0 ) {
         let a = 100;
@@ -1165,7 +1165,15 @@ function checkWarningsMain() {
         sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
         sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
-
+    if (DEBUGSENDEMAIL) {
+        let a;
+        DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null);
+        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
+        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
+        sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
+    }
     setAlertState();
     /* Neue Werte sichern */
     warnDatabase.old = cloneObj(warnDatabase.new);
@@ -1366,6 +1374,7 @@ function addDatabaseData(id, value, mode, old) {
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
+            myLog('Added to database '+mode);
         }
     } else if (mode == DWD) {
         change = removeDatabaseDataID(id);
@@ -1377,20 +1386,25 @@ function addDatabaseData(id, value, mode, old) {
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
+            myLog('Added to database '+mode);
         }
     } else if (mode == NINA) {
         if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return removeDatabaseDataID(id);
         let tempArr = [];
+        let grouphash = 0;
         // sammele die neuen Daten
         for (let a = 0; a < jvalue.info.length; a++) {
             warn = getDatabaseData(jvalue.info[a], mode);
             // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
-            if (warn && warn.end && new Date(warn.end) < new Date()) {
+            if (warn && warn.end && new Date(warn.end) > new Date()) {
                 warn.identifier = jvalue.identifier === undefined ? '' : jvalue.identifier;
                 warn.sender = jvalue.sender === undefined ? '' : jvalue.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
                 warn.id = id;
+                if (!grouphash) grouphash = warn.hash;
+                warn.grouphash = grouphash;
                 tempArr.push(warn);
+                myLog('Added to tempdatabase');
             }
         }
         // Vergleiche vorhandene und neue Daten wenn hash = hash aktualisiere ID, wenn nicht und ID = ID lösche Eintrag und
@@ -1400,8 +1414,10 @@ function addDatabaseData(id, value, mode, old) {
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--,1);
+                        myLog('remove from tempdatabase because duplicate hash / update id');
                         break;
-                    } else if (tempArr[a].id == warnDatabase.new[b].id) {
+                    } else if (tempArr[a].id == warnDatabase.new[b].id && tempArr[a].grouphash != warnDatabase.new[b].grouphash ) {
+                        myLog('remove from tempdatabase because duplicate id and wrong grouphash:'+warnDatabase.new[b].headline);
                         warnDatabase.new.splice(b--,1);
                         change = true;
                     }
@@ -1415,6 +1431,7 @@ function addDatabaseData(id, value, mode, old) {
                 warn = tempArr[a];
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
+                myLog('Added to database '+mode+' tempindex:'+a);
             }
             change = true;
         }
@@ -1506,7 +1523,6 @@ function getDatabaseData(warn, mode){
         result['html']['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['html']['headline'] = warn.headline === undefined ? '' : warn.headline;
         result['html']['description'] = warn.description === undefined ? '' : warn.description;
-        myLog(JSON.stringify(result));
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
@@ -1525,16 +1541,34 @@ function getDatabaseData(warn, mode){
         let lvl = 5;
         let len = 1000;
         for (let a = 0; a < value.length; a++) {
-            let area = value[a].areaDesc;
-            if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
-                region = area;
-                len = area.length - uGemeinde.length;
-                lvl=1;
-            } else if ( lvl > 2 && area.includes(uLandkreis) ) {
-                lvl=2;
-                region = area;
+            if (value[a].areaDesc !== undefined) {
+                let area = value[a].areaDesc;
+                if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
+                    region = area;
+                    len = area.length - uGemeinde.length;
+                    lvl = 1;
+                } else if ( lvl > 2 && area.includes(uLandkreis) ) {
+                    lvl = 2;
+                    region = area;
+                }
+            }
+            if (value[a].geocode !== undefined) {
+                let newval = value[a].geocode;
+                for (let b = 0; b < newval.length; b++) {
+                    if (newval[b].valueName === undefined) continue;
+                    let area = newval[b].valueName;
+                    if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
+                        region = area;
+                        len = area.length - uGemeinde.length;
+                        lvl = 1;
+                    } else if ( lvl > 2 && area.includes(uLandkreis) ) {
+                        lvl = 2;
+                        region = area;
+                    }
+                }
             }
         }
+        if ( region ) region = 'für ' + region;
         return region || result;
     }
     // gibt Nina level zurück
