@@ -218,7 +218,7 @@ var uSpeakSpeakPerCharHomeTwo = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharSayIt   = 85; // Vorlese Geschwindigkeit pro Zeichen in ms
 
 // Automodus Filter um Warnungen unterhalb attentionWarningLevel von DWD, UWZ oder NINA zu unterdrücken
-// Sprachausgabe wird immer unterdrückt auch wenn Manuell ausgelöst.
+// Sprachausgabe bei auto und manuell unterdrückt.
 // Diese Warnungen sind vorhanden, sie werden nur in den benannten Fällen ausgeblendet.
 // Ist eine feste Vorgabe überschreibt alles andere
 var uFilterList               = 0;   // generelles Filter für den AutoModus ( = DWD + UWZ; oder = NINA; oder = 0;), außer Warnungslevel ist gleich/über attentionWarningLevel
@@ -232,7 +232,7 @@ var telegramInstanz=    'telegram.0';
 var pushoverInstanz=    'pushover.0';
 var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
-var emailInstanz=       'email';
+var emailInstanz=       'email.0';
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
