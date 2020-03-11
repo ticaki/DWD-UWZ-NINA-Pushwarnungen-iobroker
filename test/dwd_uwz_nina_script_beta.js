@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.5
+//Version 0.95.7
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -41,13 +41,25 @@ Kleinkram:
 - Manuelle Sprachnachrichten können die Zeitschaltuhr missachten. (konfigurierbar)
 - Multi-User/Device bei fast allen Pushdiensten verfügbar (außer Datenpunkt & pushover)
 - Alexa und SayIt mit Lautstärkeeinstellung. Alexagruppen unterstützen keine Lautstärke trotzdem konfigurieren.
-- Zusätzliche Hervorhebung konfigurierbar über warnlevel (im Betreff/Ansage)
+- Zusätzliche Hervorhebung konfigurierbar über attentionWarningLevel (im Betreff/Ansage)
 
 Dank an:
 - Mic für die createUserStates() Funktionen
 - CruziX der diese eingebaut hat.
 - crunchip, sigi234, Latzi fürs Testen und Ideen
 - die ursprünglichen Authoren s.o.
+/* ************************************************************************
+* Änderungen ab Version 95.6
+- Sprachausgabe von Elementen die ingnoriert werden, wird immer unterdrückt.
+- Telegramm(Buttom) & Email (eingefügt) "Hauptlinks" werden eingebettet soweit verfügbar
+- minlevel verändert - kleiner als wird gefiltert
+- warnlevel umbenannt -> attentionWarningLevel  gleich/größer wird besonders behandelt
+- Ninaverwaltung umgeschrieben
+- Event: Hochwasserinformation -2 level.(0-3) Wasserstandsmeldungen sind jetzt lvl 2 (gelb)
+- level geändert das DWD und NINA(DWD) identisch sind. (2-5)
+- Wenns Stats verschwinden, wird die dazugehörige Warnung nach ca. 100 Minuten oder nach dem Auslaufen gelöscht.
+
+/* ************************************************************************ */
 
 /* ************************************************************************ */
 /*            Datenpfad konfigurieren                                       */
@@ -84,12 +96,12 @@ const HOMETWO = konstanten[4].value;
 const ALEXA = konstanten[5].value;
 const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
-var uPushdienst=0;
+var uPushdienst = 0;
 const DWD = 1;
 const UWZ = 2;
 const NINA = 4;
 const MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}];
-if(mainStatePath[mainStatePath.length-1] != '.') mainStatePath += '.';
+if(mainStatePath[mainStatePath.length - 1] != '.') mainStatePath += '.';
 const aliveState = mainStatePath+'alive';
 if (extendedExists(aliveState)) {
     setState(aliveState, true, true);
@@ -118,41 +130,46 @@ if (extendedExists(aliveState)) {
 /* kein oder einen Eintrag möglich:
 /* var senderEmailID = ["max@mustermann.de"];
 /*
-/* kein oder mehrfach nach gleichem Muster [1,2,3] bzw. ['1','2','3'] Einträge
+/* kein oder mehrfach nach gleichem Muster [1, 2, 3] bzw. ['1', '2', '3'] Einträge
 /* '' ist das selbe wie "", jedoch nicht mischen.
 /*
 /* var empfaengerEmailID = ["max@musterman.de","max2@musterman.de"];
 /* var telegramUser = []; // leer
 /* var telegramUser = ['']; // leer
 /* var telegramUser = ['Hans']; // User mit Namen Hans
-/* var telegramUser = ['Hans','Gretel']; // User mit Namen Hans und User mit Namen Gretel
+/* var telegramUser = ['Hans', 'Gretel']; // User mit Namen Hans und User mit Namen Gretel
 /* var idSayIt = ["sayit.0.tts.text"];
 /* var sayItVolumen = [60]; // Zahl ohne ''
 /* var idSayIt = ["sayit.0.tts.text","sayit.1.tts.text"];
-/* var sayItVolumen = [60,30]; // mehrfach Zahl ohne ''
+/* var sayItVolumen = [60, 30]; // mehrfach Zahl ohne ''
 /* var ioGoUser = ['max@musterman.de'];
-/* var idAlexaSerial =['G090RV32984110Y','G090RZ3345643XR'];
-/* var alexaVolumen = [40,30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
+/* var idAlexaSerial =['G090RV32984110Y', 'G090RZ3345643XR'];
+/* var alexaVolumen = [40, 30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 /*
 /* ************************************************************************* */
 /*                          weitere Konfiguration                            */
 /* ************************************************************************* */
 
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
-/* Textbeispiel anstatt Entenhausen: 'Stadt/Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
-/* var regionName = ['UWZDE12345','Entenhausen'] */
+/* Textbeispiel anstatt Entenhausen: 'Stadt / Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
+/* var regionName = ['UWZDE12345', 'Entenhausen'] */
 var regionName          = [['','']];
+
+// für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren:
+var uGemeinde = '';
+var uLandkreis = '';
+
 
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID       = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
-var empfaengerEmailID   = [""];// mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
+var empfaengerEmailID   = [""]; // mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
 
-/* Konfiguration Sprachausgabe über Home24-Mediaplayer */
+/* Konfiguration Sprachausgabe über Home24 - Mediaplayer */
 //var idMediaplayer = ["192.168.178.x:Port"];
 var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
 
 /* Konfiguration Telegram */
-var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
+var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 var telegramChatId      = [''];
 
 /* Konfiguration Sprachausgabe über SayIt */
@@ -161,27 +178,27 @@ var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
 
 /* Konfiguration Sprachausgabe über Alexa
 /* mehrere Einträge möglich, bei mir ging nur der Echo, 2 dots 2.Gen reagieren nicht auf announcement. */
-var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y','G090RV32984110Y']
+var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y', 'G090RV32984110Y']
 var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 
 //Konfiguration von ioGo
-var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans','Gretel']; Nutzer vom Adapter übernehmen [];
+var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 
 // Filtereinstellungen
-const minlevel          =    1 // Warnungen gleich oder unterhalb dieses Levels nicht senden;
-const warnlevel         =    3 // Warnung oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
-const minhoehe          =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
-const maxhoehe          =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+const minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden;
+const attentionWarningLevel         =    4 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+const minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
+const maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
 //Filtere Meldungen selben Typs & Datenquelle, die von einer längeren Meldung mit gleichem oder höherem Level überdeckt werden.
-// gilt nicht für Warnung mit höherem Level als warnlevel. Ab 4 wirds beim DWD gefährlich
+// gilt nicht für Warnung mit gleichem oder höherem Level als attentionWarningLevel. Ab 4 wirds beim DWD gefährlich
 const uFilterDuplicate = true; // weshalb? hatte 2 Meldungen alles gleich nur die Uhrzeit ->  von 0:00 - 14:00 und von 6:00 - 14:00
-//Formatierungsstring für Datum/Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
+//Formatierungsstring für Datum / Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
 const formatierungString =  "TT.MM.YY SS:mm";
 
 // Sprachausgabe Zeiten
 // Für durchgehende Sprachausgabe die Einstellung der Zeiten auf '' setzen. z.B. var startTimeSpeak = '';
-var startTimeSpeak =        '6:45';// Zeiten mo-fr ab der Sprachausgaben ok sind. Nicht unter 6 Uhr gehen oder den Schedule ändern
+var startTimeSpeak =        '6:45';// Zeiten mo - fr ab der Sprachausgaben ok sind. Nicht unter 6 Uhr gehen oder den Schedule ändern
 var startTimeSpeakWeekend = '9:00';// sa + so Bemerkung siehe oben
 var endTimeSpeak =          '22:30'; // ab diesem Zeitpunkt gibt es keine Sprachausgabe
 
@@ -200,7 +217,12 @@ var uSpeakSpeakPerCharAlexa   = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharHomeTwo = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharSayIt   = 85; // Vorlese Geschwindigkeit pro Zeichen in ms
 
-var uAutoNinaFilterList       = ['CAP@hochwasserzentralen.de']; // filter diesen Sender raus außer Warnlevel ist über warnlevel
+// Automodus Filter um Warnungen unterhalb attentionWarningLevel von DWD, UWZ oder NINA zu unterdrücken
+// Sprachausgabe wird immer unterdrückt auch wenn Manuell ausgelöst.
+// Diese Warnungen sind vorhanden, sie werden nur in den benannten Fällen ausgeblendet.
+// Ist eine feste Vorgabe überschreibt alles andere
+var uFilterList               = 0;   // generelles Filter für den AutoModus ( = DWD + UWZ; oder = NINA; oder = 0;), außer Warnungslevel ist gleich/über attentionWarningLevel
+var uAutoNinaFilterList       = ['CAP@hochwasserzentralen.de']; //Nina only. Filter diesen Sender raus s.o. - mehrere ['abc','cde'];
 
 var uwzPath=            'javascript.0.UWZ';
 var dwdPath=            'dwd.0';
@@ -220,6 +242,7 @@ var emailInstanz=       'email';
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
+
 //Logausgabe
 var DEBUG = false;
 var DEBUGSENDEMAIL = false;
@@ -230,16 +253,23 @@ var DEBUGSENDEMAIL = false;
 var MODE = 0; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
 
 
-// Wandel Usereingabe in sauberes True/False um
+// Wandel Usereingabe in sauberes True / False um
 forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
 
 // Variable nicht konfigurierbar
-var SPEAK = ALEXA+HOMETWO+SAYIT;
-var PUSH = TELEGRAM+PUSHOVER+IOGO+STATE;
-var ALLMSG = EMAIL;
-var ALLMODES= [DWD,UWZ,NINA];
-var placeHolder = 'XXXXPLACEHOLDERXXXX';
+const SPEAK = ALEXA + HOMETWO + SAYIT;
+const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
+const ALLMSG = EMAIL;
+const ALLMODES= [DWD, UWZ, NINA];
+const CANHTML = EMAIL;
+const CANPLAIN = PUSH+EMAIL;
+const placeHolder = 'XXXXPLACEHOLDERXXXX';
+const configModeState = mainStatePath+'config.mode';
+const mirrorMessageState = mainStatePath+'message';
+const SPACE = ' ';
+const NEWLINE = '\n';
+
 var idAlexa = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.announcement';
 var idAlexaVolumen = alexaInstanz+'.Echo-Devices.'+placeHolder+'.Commands.speak-volume';
 var autoSendWarnings = true;
@@ -252,10 +282,9 @@ var subUWZhandler = null;
 var subNINAhandler = null;
 var subDublicateNinaTimer = null;
 var timeoutFromCreateState = null;
-var dwdpushdienst = uPushdienst, ninapushdienst = uPushdienst,uwzpushdienst = uPushdienst;
+var dwdpushdienst = uPushdienst, ninapushdienst = uPushdienst, uwzpushdienst = uPushdienst;
+let dwdManpushdienst = uPushdienst, ninaManpushdienst = uPushdienst, uwzManpushdienst = uPushdienst;
 var firstRun = true;;
-const configModeState = mainStatePath+'config.mode';
-const mirrorMessageState = mainStatePath+'message';
 
 // Warning types
 var warningTypesString = {};
@@ -318,7 +347,7 @@ String.prototype.hashCode = function() {
 /* ************************************************************************* */
 
 
-testValueTypeLog(uPushdienst&(SPEAK+PUSH+ALLMSG), 'uPushdienst', 'number', true);
+testValueTypeLog(uPushdienst&(SPEAK + PUSH + ALLMSG), 'uPushdienst', 'number', true);
 testValueTypeLog(uwzPath, 'uwzPath', 'string', true);
 testValueTypeLog(dwdPath, 'dwdPath', 'string', true);
 testValueTypeLog(ninaPath, 'ninaPath', 'string', true);
@@ -328,12 +357,12 @@ if (!Array.isArray(regionName[0])) {
 }
 {
     let b = 0;
-    for (var a=0;a<regionName.length;a++) {
+    for (var a = 0;a < regionName.length;a++) {
         b++;
-        if (Array.isArray(regionName) && regionName[a].length!=0) {
-            if (regionName[a].length!=2 ) {
-                log('Konfiguration enthält Fehler. var regionName - Eintrag: '+(b)+' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']','error');
-                stopScript();
+        if (Array.isArray(regionName) && regionName[a].length != 0) {
+            if (regionName[a].length != 2 ) {
+                log('Konfiguration enthält Fehler. var regionName - Eintrag: '+(b)+' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
+                stopScript(scriptName);
             } else {
                 if (!regionName[a][0] && !regionName[a][1] ) regionName.splice(a--,1)
                 else {
@@ -347,129 +376,129 @@ if (!Array.isArray(regionName[0])) {
     }
 }
 {
-    for (let a=0;a<senderEmailID.length;a++) {
+    for (let a = 0;a < senderEmailID.length;a++) {
         if (!senderEmailID[a]) senderEmailID.splice(a--,1);
         else {
-            testValueTypeLog(senderEmailID[a],'senderEmailID','string');
+            testValueTypeLog(senderEmailID[a],'senderEmailID', 'string');
         }
     }
-    for (let a=0;a<empfaengerEmailID.length;a++) {
+    for (let a = 0;a < empfaengerEmailID.length;a++) {
         if (!empfaengerEmailID[a]) empfaengerEmailID.splice(a--,1);
         else {
-            testValueTypeLog(empfaengerEmailID[a],'empfaengerEmailID','string');
+            testValueTypeLog(empfaengerEmailID[a],'empfaengerEmailID', 'string');
         }
     }
-    for (let a=0;a<idAlexaSerial.length;a++) {
+    for (let a = 0;a < idAlexaSerial.length;a++) {
         if (!idAlexaSerial[a]) idAlexaSerial.splice(a--,1);
         else {
-            testValueTypeLog(idAlexaSerial[a],'idAlexaSerial','string');
+            testValueTypeLog(idAlexaSerial[a],'idAlexaSerial', 'string');
         }
     }
-    for (let a=0;a<idMediaplayer.length;a++) {
+    for (let a = 0;a < idMediaplayer.length;a++) {
         if (!idMediaplayer[a]) idMediaplayer.splice(a--,1);
         else {
-            testValueTypeLog(idMediaplayer[a],'idMediaplayer','string');
+            testValueTypeLog(idMediaplayer[a],'idMediaplayer', 'string');
         }
     }
-    for (let a=0;a<telegramUser.length;a++) {
+    for (let a = 0;a < telegramUser.length;a++) {
         if (!telegramUser[a]) telegramUser.splice(a--,1);
         else {
-            testValueTypeLog(telegramUser[a],'telegramUser','string');
+            testValueTypeLog(telegramUser[a],'telegramUser', 'string');
         }
     }
-    for (let a=0;a<idSayIt.length;a++) {
+    for (let a = 0;a < idSayIt.length;a++) {
         if (!idSayIt[a]) idSayIt.splice(a--,1);
         else {
-            testValueTypeLog(idSayIt[a],'idSayIt','string');
+            testValueTypeLog(idSayIt[a],'idSayIt', 'string');
         }
     }
-    for (let a=0;a<ioGoUser.length;a++) {
+    for (let a = 0;a < ioGoUser.length;a++) {
         if (!ioGoUser[a]) ioGoUser.splice(a--,1);
         else {
-            testValueTypeLog(ioGoUser[a],'ioGoUser','string');
+            testValueTypeLog(ioGoUser[a],'ioGoUser', 'string');
         }
     }
-    for (let a=0;a<telegramChatId.length;a++) {
+    for (let a = 0;a < telegramChatId.length;a++) {
         if (!telegramChatId[a]) telegramChatId.splice(a--,1);
         else {
-            testValueTypeLog(telegramChatId[a],'telegramChatId','string');
+            testValueTypeLog(telegramChatId[a],'telegramChatId', 'string');
         }
     }
-    for (let a=0;a<sayItVolumen.length;a++) {
+    for (let a = 0;a < sayItVolumen.length;a++) {
         if (sayItVolumen[a] === undefined) sayItVolumen[a]=0;
-        else testValueTypeLog(sayItVolumen[a],'sayItVolumen','number');
+        else testValueTypeLog(sayItVolumen[a],'sayItVolumen', 'number');
     }
-    for (let a=0;a<alexaVolumen.length;a++) {
+    for (let a = 0;a < alexaVolumen.length;a++) {
         if (alexaVolumen[a] === undefined) alexaVolumen[a]=0;
-        else testValueTypeLog(alexaVolumen[a],'alexaVolumen','number');
+        else testValueTypeLog(alexaVolumen[a],'alexaVolumen', 'number');
     }
     if ((uPushdienst&ALEXA) != 0) {
-        testValueTypeLog(idAlexaSerial,'idAlexaSerial','array');
-        if (idAlexaSerial.length==0) {
-            log('Keine Alexa/Echoseriennummer eingetragen. Überpüfen!','error');
-            stopScript();
+        testValueTypeLog(idAlexaSerial, 'idAlexaSerial', 'array');
+        if (idAlexaSerial.length == 0) {
+            log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
+            stopScript(scriptName);
         }
-        for (let a=0;a<idAlexaSerial.length;a++) {
-            if (!extendedExists(getFullId(idAlexa,idAlexaSerial[a]))) {
-                log('Alexa-Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen!','error');
-                stopScript();
+        for (let a = 0;a < idAlexaSerial.length;a++) {
+            if (!extendedExists(replacePlaceholder(idAlexa, idAlexaSerial[a]))) {
+                log('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
+                stopScript(scriptName);
             }
         }
     }
 }
 
 if ((uPushdienst&SAYIT) != 0) {
-    testValueTypeLog(idSayIt,'idSayIt','array');
-    for (let a=0;a<idSayIt.length;a++) {
+    testValueTypeLog(idSayIt, 'idSayIt', 'array');
+    for (let a = 0;a < idSayIt.length;a++) {
         if (
             !extendedExists(idSayIt[a])
         ) {
-            log('SayIt-Konfiguration ist fehlerhaft. Überpüfen!','error');
-            stopScript();
+            log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
+            stopScript(scriptName);
         }
     }
 }
 if ((uPushdienst&EMAIL) != 0) {
-    if (senderEmailID.length>1) {
-        log('eMail-Konfiguration ist fehlerhaft. Nur 1 Eintrag in senderEmailID erlaubt!','error');
-        stopScript();
+    if (senderEmailID.length > 1) {
+        log('eMail - Konfiguration ist fehlerhaft. Nur 1 Eintrag in senderEmailID erlaubt!', 'error');
+        stopScript(scriptName);
     }
 }
 
 
 
 /***************************************************************************************
-* function testValueTypeLog(test, teststring, typ, need=false)
-* @param {any} test           Variable deren Typ/Inhalt getestet werden soll
+* function testValueTypeLog(test, teststring, typ, need = false)
+* @param {any} test           Variable deren Typ / Inhalt getestet werden soll
 * @param {string} teststring  Variable als String, wie er im Script steht
-* @param {string} typ         Soll-Type der Variable alles + 'array'
-* @param {boolean} need       Variable darf nicht null/leer sein
+* @param {string} typ         Soll - Type der Variable alles + 'array'
+* @param {boolean} need       Variable darf nicht null / leer sein
 /***************************************************************************************/
-function testValueTypeLog(test, teststring, typ, need=false) {
+function testValueTypeLog(test, teststring, typ, need = false) {
     if (test === undefined) {
-        let errorLog = 'Konfiguration enthält Fehler. Der/Ein Wert von var '+teststring+' ist undefiniert oder fehlt!';
-        log(errorLog,'error');
-        stopScript();
+        let errorLog = 'Konfiguration enthält Fehler. Der / Ein Wert von var '+teststring+' ist undefiniert oder fehlt!';
+        log(errorLog, 'error');
+        stopScript(scriptName);
     }
     if (typ == 'array') {
         if (!test || !Array.isArray(test)) {
-            let errorLog = 'Konfiguration enthält Fehler. Der/Ein Wert von var '+teststring+' ist kein Array. Es fehlen wohl die umschließenden []!';
-            log(errorLog,'error');
-            stopScript();
+            let errorLog = 'Konfiguration enthält Fehler. Der / Ein Wert von var '+teststring+' ist kein Array. Es fehlen wohl die umschließenden []!';
+            log(errorLog, 'error');
+            stopScript(scriptName);
         }
     } else if ( typeof test !== typ ) {
         let errorLog = 'Konfiguration enthält Fehler. Ändere '+teststring+' = [';
         if (typ == 'string') {
-            errorLog+=test+'];//('+typeof test+') in '+teststring+' = [\''+test+'\'];//('+typ+')';
+            errorLog += test+'];//('+typeof test+') in '+teststring+' = [\''+test+'\'];//('+typ+')';
         } else {
             errorLog+='\''+test+'\'];//('+typeof test+') in '+teststring+' = ['+test+'];//('+typ+')';
         }
         log(errorLog, 'error');
-        stopScript();
+        stopScript(scriptName);
     }
     if (need && !test) {
-        log('Konfiguration enthält Fehler. Der Wert von var '+teststring+' wird benötigt, ist jedoch nicht konfiguriert!','error');
-        stopScript();
+        log('Konfiguration enthält Fehler. Der Wert von var '+teststring+' wird benötigt, ist jedoch nicht konfiguriert!', 'error');
+        stopScript(scriptName);
     }
 }
 
@@ -481,9 +510,8 @@ function testValueTypeLog(test, teststring, typ, need=false) {
 /* ************************************************************************* */
 
 function changeMode(modeFromState) {
-    setConfigModeStates(modeFromState);
     if (MODE != modeFromState || firstRun) {
-        MODE=modeFromState;
+        MODE = modeFromState;
         myLog('MODE wurde geändert. MODE: '+MODE + ' firstRun:'+firstRun);
         InitDatabase(firstRun);
         dataSubscribe();
@@ -491,12 +519,13 @@ function changeMode(modeFromState) {
         if (autoSendWarnings && !firstRun) checkWarningsMain();
         firstRun = false;
     }
+    setConfigModeStates(modeFromState);
 }
 {
 
-    // State der Pushnachrichten über pushover/telegram spiegelt
+    // State der Pushnachrichten über pushover / telegram spiegelt
     if (!extendedExists(mirrorMessageState)) {
-        createCustomState(mirrorMessageState,'', {read: true, write: false, desc: "Beschreibung", type: "string",});
+        createCustomState(mirrorMessageState, '', {read: true, write: false, desc: "Beschreibung", type: "string",});
     }
 
     // MODE änderung über Datenpunkte string
@@ -505,16 +534,16 @@ function changeMode(modeFromState) {
     }
 
     if (!extendedExists(configModeState)) {
-        createCustomState(configModeState,'DWD', {read: true,write: true,desc: "Modusauswahl DWD oder UWZ",type: "string",def: ''});
+        createCustomState(configModeState, 'DWD', {read: true, write: true, desc: "Modusauswahl DWD oder UWZ",type: "string",def: ''});
     } else {
         on({id:configModeState, change:'ne', ack:false}, function(obj){
             if (obj.state.val && typeof obj.state.val === 'string'
             && (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ')|| obj.state.val.toUpperCase().includes('NINA'))) {
-                //setState(configModeState, MODE,true)
-                let mode=0;
-                mode |= obj.state.val.toUpperCase().includes('DWD')?DWD:0;
-                mode |= obj.state.val.toUpperCase().includes('UWZ')?UWZ:0;
-                mode |= obj.state.val.toUpperCase().includes('NINA')?NINA:0;
+                //setState(configModeState, MODE, true)
+                let mode = 0;
+                mode |= obj.state.val.toUpperCase().includes('DWD') ? DWD   : 0;
+                mode |= obj.state.val.toUpperCase().includes('UWZ') ? UWZ   : 0;
+                mode |= obj.state.val.toUpperCase().includes('NINA')? NINA  : 0;
                 if ( MODE != mode ) {
                     myLog('Modus wird geändert von: '+mode+ ' String:' +obj.state.val);
                     changeMode(mode);
@@ -528,25 +557,23 @@ function changeMode(modeFromState) {
     }
 
     // MODE änderung über Datenpunkte Boolean
-    for (let a=0;a<MODES.length;a++) {
+    for (let a = 0;a < MODES.length;a++) {
         let tok = MODES[a].text.toLowerCase();
         let id = mainStatePath+'config.'+tok;
         if (!extendedExists(id)) {
             let mi = !!(MODE&MODES[a].mode);
-            createCustomState(id, mi, {read: true,write: true,desc: "Aktivere "+tok.toUpperCase()+'.',type: "boolean",def: mi});
+            createCustomState(id, mi, {read: true, write: true, desc: "Aktivere "+tok.toUpperCase()+'.', type: "boolean",def: mi});
         } else {
             on({id:id, change:'ne', ack:false}, function(obj){
                 let arr = obj.id.split('.');
-                let tok = arr[arr.length-1].toUpperCase();
-                let mode = MODES[MODES.findIndex(function(j){return j.text==tok})].mode;
+                let tok = arr[arr.length - 1].toUpperCase();
+                let mode = MODES[MODES.findIndex(function(j){return j.text == tok})].mode;
                 let oldMode = MODE;
-                if (obj.state.val) oldMode|=mode;
-                else oldMode&=~mode;
+                oldMode = switchFlags(oldMode, mode, obj.state.val);
                 myLog('Modus wird geändert von: '+MODE);
                 changeMode(oldMode);
             });
-            if (getState(id).val) MODE|=MODES[a].mode;
-            else MODE&=~MODES[a].mode;
+            MODE = switchFlags(MODE, MODES[a].mode, getState(id).val);
         }
     }
     //Initialisierung falls oben nicht geschehen
@@ -554,7 +581,7 @@ function changeMode(modeFromState) {
     // Automodus ein und ausschalten
     let id = mainStatePath+'config.auto.on';
     if (!extendedExists(id)) {
-        createCustomState(id, true, {read: true,write: true,desc: "Aktivere automatischen Push bei eintreffen der Warnungen.",type: "boolean",def: true});
+        createCustomState(id, true, {read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.",type: "boolean",def: true});
     } else {
         autoSendWarnings = getState(id).val;
         setState(id, autoSendWarnings, true);
@@ -563,11 +590,11 @@ function changeMode(modeFromState) {
 
 // setzte alle MODE Datenpunkte
 function setConfigModeStates(mode) {
-    if (extendedExists(configModeState)) setState(configModeState, (mode&DWD?'DWD':'')+(mode&UWZ?'UWZ':'')+(mode&NINA?'NINA':''), true);
-    for (let a=0;a<MODES.length;a++) {
+    if (extendedExists(configModeState)) setState(configModeState, (mode&DWD?'DWD':'') + (mode&UWZ?'UWZ':'') + (mode&NINA?'NINA':''), true);
+    for (let a = 0;a < MODES.length;a++) {
         let t = MODES[a].text.toLowerCase();
         let id = mainStatePath+'config.'+t;
-        if (extendedExists(id)) setState(id,!!(mode&MODES[a].mode),true);
+        if (extendedExists(id)) setState(id,!!(mode&MODES[a].mode), true);
     }
 }
 
@@ -575,16 +602,16 @@ function setConfigModeStates(mode) {
 {
     let allStateExist = true;
     let mode = [MODES[0],MODES[1]];
-    for (let c=0;c<mode.length;c++) {
+    for (let c = 0;c < mode.length;c++) {
         let stateAlertId = mainStatePath+'alert.'+mode[c].text.toLowerCase()+'.';
-        for (let b=0;b<warningTypesString[mode[c].mode].length;b++) {
-            for (let a=0;a<stateAlert.length;a++)
+        for (let b = 0;b < warningTypesString[mode[c].mode].length;b++) {
+            for (let a = 0;a < stateAlert.length;a++)
             {
-                let stateAlertIdFull = stateAlertId+warningTypesString[mode[c].mode][b]+'.'+stateAlert[a].name;
+                let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b]+'.'+stateAlert[a].name;
                 stateAlert[a].type.name = stateAlert[a].name;
                 if (!extendedExists(stateAlertIdFull)) {
-                    createCustomState(stateAlertIdFull,stateAlert[a].default, stateAlert[a].type);
-                    allStateExist=false;
+                    createCustomState(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
+                    allStateExist = false;
                 }
             }
         }
@@ -593,67 +620,78 @@ function setConfigModeStates(mode) {
 }
 
 // Nachrichtenversand per Click States erzeugen und subscript
-for (var a=0;a<konstanten.length;a++){
-    if (!extendedExists(mainStatePath+'commands.'+konstanten[a].name)) {
-        createCustomState(mainStatePath+'commands.'+konstanten[a].name,false, {read: true,write: true,desc: "Beschreibung",type: "boolean",role: "button",def: false});
-    }
-    for (let x=0;x<MODES.length;x++)
-    {
-        let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
-        if (!extendedExists(oid)) {
-            createCustomState(oid,((uPushdienst&konstanten[a].value)!=0), {read: true,write: true,desc: "Schalte Autopushmöglichkeiten ein/aus",type: "boolean",def: ((uPushdienst&konstanten[a].value)!=0)});
-        } else {
-            setConfigKonstanten(oid, getState(oid).val);
+for (var a = 0;a < konstanten.length;a++){
+    if ((uPushdienst&konstanten[a].value) != 0) {
+        if (!extendedExists(mainStatePath+'commands.'+konstanten[a].name)) {
+            createCustomState(mainStatePath+'commands.'+konstanten[a].name, false, {read: true, write: true, desc: "Beschreibung",type: "boolean",role: "button",def: false});
+        }
+        for (let x = 0;x < MODES.length;x++)
+        {
+            let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+            if (!extendedExists(oid)) {
+                createCustomState(oid, ((uPushdienst&konstanten[a].value) != 0), {read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus",type: "boolean",def: ((uPushdienst&konstanten[a].value) != 0)});
+            } else {
+                setConfigKonstanten(oid, getState(oid).val, true);
+            }
+            oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+            if (!extendedExists(oid)) {
+                createCustomState(oid, ((uPushdienst&konstanten[a].value) != 0), {read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus",type: "boolean",def: ((uPushdienst&konstanten[a].value) != 0)});
+            } else {
+                setConfigKonstanten(oid, getState(oid).val, false);
+            }
         }
     }
 }
 // on() für alles unter config.auto
-subscribe({id: new RegExp(getRegEx(mainStatePath+'config.auto','^')+'.*'), change:'ne', ack: false},function(obj){
+subscribe({id: new RegExp(getRegEx(mainStatePath+'config.auto', '^')+'.*'), change:'ne', ack: false},function(obj){
     if (obj.id == mainStatePath+'config.auto.on') {
-        myLog('trigger: ' + obj.id + ' Value:' + obj.state.val);
+        myLog('Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
         autoSendWarnings = !!obj.state.val;
         setState(obj.id, autoSendWarnings, true);
     } else {
-        myLog('else trigger: ' + obj.id + ' Value:' + obj.state.val);
-        setConfigKonstanten(obj.id, obj.state.val);
+        myLog('else auto trigger: ' + obj.id + ' Value:' + obj.state.val);
+        setConfigKonstanten(obj.id, obj.state.val, true);
     }
 });
-subscribe({id: new RegExp(getRegEx(mainStatePath+'commands','^')+'.*')},function(obj){
+subscribe({id: new RegExp(getRegEx(mainStatePath+'config.manuell', '^')+'.*'), change:'ne', ack: false},function(obj){
+    myLog('Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
+    setConfigKonstanten(obj.id, obj.state.val, false);
+});
+subscribe({id: new RegExp(getRegEx(mainStatePath+'commands', '^')+'.*')},function(obj){
     if (!obj.state.val) return;
-    setState(obj.id,false,true);
+    setState(obj.id, false, true);
     let b = obj.id.split('.');
-    let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);})
+    let d = konstanten.findIndex(function(c){return (c.name === b[b.length - 1]);})
     if (d == -1) return;
     warnDatabase.old = [];
     let oPd = uPushdienst;
-    uPushdienst &=konstanten[d].value;
-    forceSpeak = forcedSpeak;
-    onClickCheckRun = true;
+    uPushdienst &=konstanten[d].value; forceSpeak = forcedSpeak; onClickCheckRun = true;
     checkWarningsMain();
-    onClickCheckRun = false;
-    forceSpeak = false;
-    uPushdienst = oPd
+    onClickCheckRun = false; forceSpeak = false; uPushdienst = oPd;
 });
 
 // Hilfsfunktion zu on()
-function setConfigKonstanten(id, val){
+function setConfigKonstanten(id, val, auto){
     let b = id.split('.');
-    let m = b[b.length-2];
-    let d = konstanten.findIndex(function(c){return (c.name===b[b.length-1]);});
+    let m = b[b.length - 2];
+    let d = konstanten.findIndex(function(c){return (c.name === b[b.length - 1]);});
     if (d == -1) return;
     let value = konstanten[d].value
-    let tp=0;
+    let tp = 0;
     switch (m) {
         case 'dwd': {
-            dwdpushdienst = getNewFlags(dwdpushdienst, value, val);
+            if (auto) dwdpushdienst = switchFlags(dwdpushdienst, value, val);
+            else dwdManpushdienst = switchFlags(dwdManpushdienst, value, val);
             break;
         }
         case 'uwz': {
-            uwzpushdienst = getNewFlags(uwzpushdienst, value, val);
+            if (auto) uwzpushdienst = switchFlags(uwzpushdienst, value, val);
+            else uwzManpushdienst = switchFlags(uwzManpushdienst, value, val);
             break;
         }
         case 'nina': {
-            ninapushdienst = getNewFlags(ninapushdienst, value, val);
+            if (auto) ninapushdienst = switchFlags(ninapushdienst, value, val);
+            else ninaManpushdienst = switchFlags(ninaManpushdienst, value, val);
             break;
         }
         default: {
@@ -666,29 +704,29 @@ function setConfigKonstanten(id, val){
 // setzte die Alert States auf die höchste aktuelle Warnstufe
 function setAlertState(){
     let mode=[MODES[0],MODES[1]];
-    for (let a=0;a<2;a++) {
+    for (let a = 0;a < 2;a++) {
         if (!(MODE&mode[a].mode)) continue;
         let stateAlertid = mainStatePath+'alert.'+mode[a].text.toLowerCase()+'.';
-        for (let b=0;b<warningTypesString[mode[a].mode].length;b++)
+        for (let b = 0;b < warningTypesString[mode[a].mode].length;b++)
         {
-            let stateAlertIdFull = stateAlertid+warningTypesString[mode[a].mode][b]+'.';
+            let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b]+'.';
             let AlertLevel = -1;
             let AlertIndex = -1;
-            for (let c=0;c<warnDatabase.new.length;c++) {
+            for (let c = 0;c < warnDatabase.new.length;c++) {
                 if (warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
-                    AlertLevel=warnDatabase.new[c].level;
-                    AlertIndex=c;
+                    AlertLevel = warnDatabase.new[c].level;
+                    AlertIndex = c;
                 }
             }
-            if (extendedExists(stateAlertIdFull+stateAlert[0].name)) {
-                if (getState(stateAlertIdFull+stateAlert[0].name).val!=AlertLevel) {
-                    setState(stateAlertIdFull+stateAlert[0].name,AlertLevel);
-                    setState(stateAlertIdFull+stateAlert[1].name,b);
-                    setState(stateAlertIdFull+stateAlert[2].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start),formatierungString):''));
-                    setState(stateAlertIdFull+stateAlert[3].name,(AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].end),formatierungString):''));
-                    setState(stateAlertIdFull+stateAlert[4].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].headline:''));
-                    setState(stateAlertIdFull+stateAlert[5].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].description:''));
-                    setState(stateAlertIdFull+stateAlert[6].name,(AlertIndex>-1?warnDatabase.new[AlertIndex].color:''));
+            if (extendedExists(stateAlertIdFull + stateAlert[0].name)) {
+                if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel) {
+                    setState(stateAlertIdFull + stateAlert[0].name, AlertLevel);
+                    setState(stateAlertIdFull + stateAlert[1].name, b);
+                    setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].start), formatierungString):''));
+                    setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex>-1?formatDate(new Date(warnDatabase.new[AlertIndex].end), formatierungString):''));
+                    setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex>-1?warnDatabase.new[AlertIndex].headline:''));
+                    setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex>-1?warnDatabase.new[AlertIndex].description:''));
+                    setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex>-1?warnDatabase.new[AlertIndex].color:''));
                 }
             }
         }
@@ -702,18 +740,64 @@ function setAlertState(){
 * Hilfsfunktion für Flags Bearbeitung Pushdienste & MODE
 /* ************************************************************************* */
 
-
-function getAutoPushFlags(mode) {
-    if (onClickCheckRun) return uPushdienst;
-    if (mode === undefined) return null;
-    if (mode==DWD) return (uPushdienst&dwdpushdienst);
-    if (mode==UWZ) return (uPushdienst&uwzpushdienst);
-    if (mode==NINA) return (uPushdienst&ninapushdienst);
+function getPushModeFlag(mode, noflags) {
+    if (noflags === undefined || !noflags) {
+        if (onClickCheckRun) return getManuellPushFlags(mode);
+        else return getAutoPushFlags(mode);
+    } else {
+        if (onClickCheckRun) return getManuellPushMode(mode);
+        else return getAutoPushMode(mode);
+    }
+}
+function getAutoPushMode(mode) {
+    if (onClickCheckRun) return getManuellPushMode(mode);
+    if (mode !== undefined) {
+        if (mode&DWD) switchFlags(mode, DWD,!!(uPushdienst&dwdpushdienst));
+        if (mode&UWZ) switchFlags(mode, UWZ,!!(uPushdienst&dwdpushdienst));
+        if (mode&NINA) switchFlags(mode, NINA,!!(uPushdienst&dwdpushdienst));
+        return mode;
+    }
+    myLog('getAutoPushFlags() mode unbekannt!', 'error');
+    return 0;
+}
+function getManuellPushMode(mode) {
+    if (onClickCheckRun) return getAutoPushMode(mode);
+    if (mode !== undefined) {
+        if (mode&DWD) switchFlags(mode, DWD,!!(uPushdienst&dwdManpushdienst));
+        if (mode&UWZ) switchFlags(mode, UWZ,!!(uPushdienst&uwzManpushdienst));
+        if (mode&NINA) switchFlags(mode, NINA,!!(uPushdienst&ninaManpushdienst));
+        return mode;
+    }
+    myLog('getAutoPushFlags() mode unbekannt!', 'error');
     return 0;
 }
 
-function getNewFlags(g, f, b) {
-    if (b) g |= uPushdienst & f;
+function getAutoPushFlags(mode) {
+    if (onClickCheckRun) return getManuellPushFlags(mode);
+    if (mode !== undefined) {
+        let m = 0;
+        if (mode&DWD) m |= (uPushdienst&dwdpushdienst);
+        if (mode&UWZ) m |= (uPushdienst&uwzpushdienst);
+        if (mode&NINA) m |= (uPushdienst&ninapushdienst);
+        return m;
+    }
+    myLog('getAutoPushFlags() mode unbekannt!', 'error');
+    return 0;
+}
+function getManuellPushFlags(mode) {
+    if (!onClickCheckRun) return getAutoPushFlags(mode);
+    if (mode !== undefined) {
+        let m = 0;
+        if (mode&DWD) m |= (uPushdienst&dwdManpushdienst);
+        if (mode&UWZ) m |= (uPushdienst&uwzManpushdienst);
+        if (mode&NINA) m |= (uPushdienst&ninaManpushdienst);
+        return m;
+    }
+    myLog('getManuellPushFlags() mode unbekannt!', 'error');
+    return 0;
+}
+function switchFlags(g, f, b) {
+    if (b) g |= f;
     else g &= ~f;
     return g;
 }
@@ -782,241 +866,302 @@ function checkWarningsMain() {
     setWeekend();
     let DebugMail ='';
     if (DEBUGSENDEMAIL) {
-        for (a=0;a<warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a],null,false));
-        for (a=0;a<warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a],null,false));
-        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new.length', warnDatabase.new.length.toString(),null,false);
-        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old.length', warnDatabase.old.length.toString(),null,false);
+        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
+        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
     // Option nicht ausreichend getestet.
     if (uFilterDuplicate) {
         let dn = new Date();
-        for(let a=0;a<warnDatabase.new.length;a++) {
+        for(let a = 0;a < warnDatabase.new.length;a++) {
             let w = warnDatabase.new[a];
-            for(let b=a+1;b<warnDatabase.new.length;b++) {
+            for(let b = a+1;b < warnDatabase.new.length;b++) {
                 let w2 = warnDatabase.new[b];
                 if (
                     w.mode !== w2.mode
                     || w.type !== w2.type
-                    || w.level > warnlevel
-                    || w2.level > warnlevel
+                    || w.level > attentionWarningLevel
+                    || w2.level > attentionWarningLevel
                 ) continue;
                 if (w.start >= w2.start && w.end <= w2.end && w.level<= w2.level) {
-                    let i = getIndexOfHash(warnDatabase.old,w.hash);
-                    if (i!=-1) warnDatabase.old.splice(i,1);
+                    let i = getIndexOfHash(warnDatabase.old, w.hash);
+                    if (i!=-1) warnDatabase.old.splice(i, 1);
                     warnDatabase.new.splice(a--,1);
                     break;
                 } else if (w.start <= w2.start && w.end >= w2.end && w.level>= w2.level) {
-                    let i = getIndexOfHash(warnDatabase.old,w2.hash);
-                    if (i!=-1) warnDatabase.old.splice(i,1);
+                    let i = getIndexOfHash(warnDatabase.old, w2.hash);
+                    if (i!=-1) warnDatabase.old.splice(i, 1);
                     warnDatabase.new.splice(b--,1);
                     // w endet vor w2 && w2 startet bevor w endet && w hat kleiner gleiches level wie w2 -> lösche w
                     // Hochwassermeldungen werden laufend aufgehoben und durch neue erstzt;
                 } else if (w.end < w2.end && w2.start < w.end  && w.level <= w2.level) {
-                    let i = getIndexOfHash(warnDatabase.old,w.hash);
-                    if (i!=-1) warnDatabase.old.splice(i,1);
+                    let i = getIndexOfHash(warnDatabase.old, w.hash);
+                    if (i!=-1) warnDatabase.old.splice(i, 1);
                     warnDatabase.new.splice(a--,1);
                     break;
                     // siehe oben nur umgedreht
                 } else if (w2.end < w.end && w.start < w2.end  && w2.level <= w.level) {
-                    let i = getIndexOfHash(warnDatabase.old,w2.hash);
-                    if (i!=-1) warnDatabase.old.splice(i,1);
+                    let i = getIndexOfHash(warnDatabase.old, w2.hash);
+                    if (i!=-1) warnDatabase.old.splice(i, 1);
                     warnDatabase.new.splice(b--,1);
                 }
             }
         }
     }
-    for(let a=0;a<warnDatabase.new.length;a++) {
+    let ignoreWarningCount = 0, ignoreModes = 8;
+    for(let a = 0;a < warnDatabase.new.length;a++) {
+        let t = a;
         let w = warnDatabase.new[a];
-        for(let b=0;b<warnDatabase.old.length;b++) {
+        for(let b = 0;b < warnDatabase.old.length;b++) {
             let w2 = warnDatabase.old[b];
             if (
                 w.mode !== w2.mode
                 || w.type !== w2.type
-                || w.level > warnlevel
-                || w2.level > warnlevel
+                || w.level > attentionWarningLevel
+                || w2.level > attentionWarningLevel
                 || w.hash == w2.hash
             ) continue;
-            // w endet vor/gleich w2 && w2 startet bevor/gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
+            // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
             if (w2.end <= w.end && w.start <= w2.end  && w2.level <= w.level ) {
-                let i = getIndexOfHash(warnDatabase.new,w2.hash);
+                let i = getIndexOfHash(warnDatabase.new, w2.hash);
                 if (i != -1) warnDatabase.new.splice(a--,1);
                 warnDatabase.old.splice(b--,1);
             }
         }
+        if (a == t && isWarnIgnored(w)) {
+            ignoreWarningCount++
+            ignoreModes|=w.mode;
+        }
     }
 
-
-    warnDatabase.new.sort(function(a,b) {return a.level==b.level?b.begin-a.begin:b.level-a.level;})
-    setAlertState();
-    var collectMode = 0;
     if (DEBUGSENDEMAIL) {
         let a;
-        DebugMail = buildHtmlEmail(DebugMail,'uPushdienst', uPushdienst,null,false);
-        for (a=0;a<warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a],null,false));
-        for (a=0;a<warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a],null,false));
-        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.new.length', warnDatabase.new.length.toString(),null,false);
-        DebugMail = buildHtmlEmail(DebugMail,'warnDatabase.old.length', warnDatabase.old.length.toString(),null,true);
-        sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, '','',DebugMail);
+        DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null);
+        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
+        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
+        sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
     }
-    /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
-    if(warnDatabase.new.length==0 && (warnDatabase.old.length>0 || onClickCheckRun)) {
-        for (let a=0;a<warnDatabase.old.length;a++) collectMode|=warnDatabase.old[a].mode;
-        let pushMsg = 'Alle Warnmeldungen'+artikelMode(collectMode)+'wurden aufgehoben';
 
-        /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
-        if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
-            sendMessage(getAutoPushFlags(collectMode)&SPEAK,'','',pushMsg,'');
-        }
-        myLog('all all:'+pushMsg);
-        sendMessage(getAutoPushFlags(collectMode)&PUSH,((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'),pushMsg,'','');
-        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung')+artikelMode(collectMode)+ '(iobroker)', '', '', buildHtmlEmail('', pushMsg, null, 'silver', true));
-
-        /* alle Sicherungen Wetterwarnung löschen */
-        warnDatabase.old = cloneObj(warnDatabase.new);
-        return;
-    }
-    let emailHtmlWarn='';
-    let emailHtmlClear='';
-    let speakMsgTemp=[];
-    collectMode=0;
+    warnDatabase.new.sort(function(a, b) {return a.level == b.level?b.begin - a.begin:b.level - a.level;})
+    var collectMode     = 0;
+    let emailHtmlWarn   = '';
+    let emailHtmlClear  = '';
+    let speakMsgTemp    = [];
+    collectMode         = 0;
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
-        let description = warnDatabase.old[i].description;
-        let headline = warnDatabase.old[i].headline;
-        let hash = warnDatabase.old[i].hash;
-        let area = warnDatabase.old[i].areaID;
-        let mode = warnDatabase.old[i].mode;
-        if(description && headline && getIndexOfHash(warnDatabase.new,hash) == -1 ) {
-            myLog('json old:'+JSON.stringify(warnDatabase.old[i]));
-            collectMode|=mode;
-            let end = getFormatDate(warnDatabase.old[i].end);
-            // Text Entwarnungen
+        let entry       = warnDatabase.old[i];
+        let description = entry.description;
+        let headline    = entry.headline;
+        let hash        = entry.hash;
+        let area        = entry.areaID;
+        let mode        = entry.mode;
+
+        if (isWarnIgnored(entry)) continue;
+        if(description && headline && getIndexOfHash(warnDatabase.new, hash) == -1 ) {
+            myLog('json old:'+JSON.stringify(entry));
             let prefix = ''
+            let end = entry.end?getFormatDate(entry.end):null;
+            collectMode|=mode;
+            // Text Entwarnungen
             if (mode === NINA) {
-                prefix='Die Warnung';
+                prefix = 'Die Warnung';
             } else {
-                prefix='Die Wetterwarnung';
+                prefix = 'Die Wetterwarnung';
             }
-            let pushMsg = prefix+artikelMode(mode)+"'"+ headline+area+(end?" gültig bis " + end + "Uhr'":'')+" wurde aufgehoben.";
-            // email html newline
-            emailHtmlClear+=pushMsg+'<br><br>';
+            let pushMsg = prefix + getArtikelMode(mode)+"'"+ headline + area + (end?" gültig bis " + end + "Uhr'":'')+" wurde aufgehoben.";
+            // EMAIL
+            emailHtmlClear += pushMsg+'<br>';
+            // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(getAutoPushFlags(mode)&PUSH,(mode==NINA?'Entwarnung':'Wetterentwarnung'),pushMsg,'','');
+            sendMessage(getPushModeFlag(mode)&PUSH, (mode == NINA?'Entwarnung':'Wetterentwarnung'), pushMsg);
             myLog('text old:'+pushMsg);
-
-            /* Sprache: Wetterentwarnungen */
-            pushMsg = headline +artikelMode(mode,true)+ area + (end?' gültig bis ' + getFormatDateSpeak(end) + ' Uhr':'')+' wurde aufgehoben' + '  .  ';
-            speakMsgTemp.push([pushMsg,mode]);
+            // SPEAK
+            pushMsg = headline +getArtikelMode(mode, true)+ area + (end?' gültig bis ' + getFormatDateSpeak(end) + ' Uhr':'')+' wurde aufgehoben' + '  .  ';
+            speakMsgTemp.push([pushMsg, mode]);
             myLog('Sprache old:'+pushMsg);
         }
     }
     let gefahr = false;
-    let count=0;
+    let count = 0;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
     for(let i = 0; i < warnDatabase.new.length; i++) {
-        let headline = warnDatabase.new[i].headline;
-        let description = warnDatabase.new[i].description;
-        let level = warnDatabase.new[i].level;
-        let instruction = warnDatabase.new[i].instruction;
-        let hash = warnDatabase.new[i].hash;
-        let area = warnDatabase.new[i].areaID;
-        let color = warnDatabase.new[i].color;
-        let mode = warnDatabase.new[i].mode;
+        let entry       = warnDatabase.new[i];
+        let headline    = entry.headline;
+        let description = entry.description;
+        let level       = entry.level;
+        let instruction = entry.instruction;
+        let hash        = entry.hash;
+        let area        = entry.areaID;
+        let color       = entry.color;
+        let mode        = entry.mode;
+        let web         = entry.web ? [entry.web, entry.webname]:null;
+        if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
-            myLog('json old:'+JSON.stringify(warnDatabase.new[i]));
+            let todoBitmask = uPushdienst;
+            myLog('json old:'+JSON.stringify(entry));
             collectMode|=mode;
             count++;
-            if (!gefahr) gefahr=level>warnlevel;
-            let begin = getFormatDate(warnDatabase.new[i].start), end = getFormatDate(warnDatabase.new[i].end)
-            let sTime =' ',bt = (begin && end);
-            if (begin || end) sTime= "gültig "; if (begin) sTime+= "vom " + begin + " Uhr"; if (bt) sTime+=" ";if (end) sTime+="bis " + end + " Uhr";
-            let pushMsg =area + (bt?"\n"+sTime:'')+"\n" + description;
-            let html ='', instPush = '';
-            if (warnDatabase.new[i].html != undefined) html=sTime+ "<br>" +warnDatabase.new[i].html.description;
-            else html=(bt?sTime + '<br>':'') +description;
-            if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
-                instPush+='\nHandlungsanweisungen:\n '+instruction;
-                if (warnDatabase.new[i].html != undefined) html+='<br>Handlungsanweisungen:<br>'+warnDatabase.new[i].html.instruction;
-                else html+='<br>Handlungsanweisungen:<br>'+instruction;
+            if (!gefahr) gefahr = level > attentionWarningLevel;
+
+            let begin = entry.start?getFormatDate(entry.start):'', end = entry.end?getFormatDate(entry.end):'';
+            let sTime = SPACE, bt = (begin || end);
+            if (begin || end) sTime = "gültig ";
+            if (begin) sTime += "vom " + begin + " Uhr";
+            if ((begin && end)) sTime += SPACE;
+            if (end) sTime += "bis " + end + " Uhr";
+
+            // html
+            if ((getPushModeFlag(mode) & CANHTML) != 0 ) {
+                let he='',de='';
+                if (entry.html) {
+                    let html = entry.html;
+                    if ( html.headline ) he = html.headline;
+                    else he = headline;
+                    if ( html.description ) de = html.description;
+                    else de = description;
+                    if ( html.instruction && html.instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + html.instruction;
+                    else if ( instruction && instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + instruction;
+                    if (web) de+='<br><br>'+entry.html.web;
+                } else {
+                    he = headline;
+                    de = description;
+                    if ( instruction && instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + instruction;
+                }
+                let html = (bt ? sTime + '<br>' : '') + de;
+                log(html);
+                html = html[0].toUpperCase() + html.substring(1);
+
+                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, he + getArtikelMode(mode) + area+':', html , color, false);
+                html = he + getArtikelMode(mode) + area+':' + html;
+                let topic = '';
+                if ( mode !== NINA ) {
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                } else {
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                }
+                if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
+                let b = getPushModeFlag(mode)&CANHTML&PUSH&~EMAIL;
+                sendMessage( b, topic, html, web);
+                todoBitmask &= ~b & ~EMAIL ;
             }
-            // Anzahl Meldungen erst am Ende zu email hinzufügen
-            if (warnDatabase.new[i].html != undefined) emailHtmlWarn=buildHtmlEmail(emailHtmlWarn,warnDatabase.new[i].html.headline+artikelMode(mode)+area+':',html,color,false);
-            else emailHtmlWarn=buildHtmlEmail(emailHtmlWarn,headline+artikelMode(mode)+area+':',html,color,false);
-            /* ab Level 4 zusätzlicher Hinweis */
-            let topic = '';
-            if ( mode !== NINA ) {
-                topic = (level>warnlevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
-            } else {
-                topic = (level>warnlevel)?'Gefahr Warnung':'Warnung';
+            // Plain text
+            if ( (getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0 ) {
+
+                let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '') + NEWLINE + description;
+                if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
+                    pushMsg+=NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                }
+
+                // Anzahl Meldungen erst am Ende zu email hinzufügen
+                if (todoBitmask&EMAIL) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area+':', pushMsg, color, false);
+                /* ab Level 4 zusätzlicher Hinweis */
+                let topic = '';
+                if ( mode !== NINA ) {
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                } else {
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                }
+                if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
+                let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
+                sendMessage(b, topic, pushMsg, web);
+                myLog('text new:'+pushMsg);
+                todoBitmask &= ~b;
             }
-            pushMsg = headline + artikelMode(mode) + pushMsg + instPush;
-            if (warnDatabase.new.length>1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
-            sendMessage(getAutoPushFlags(mode)&PUSH,topic,pushMsg,'','');
-            myLog('text new:'+pushMsg);
-            /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
-            var replaceDescription0 = replaceTokenForSpeak(description);
-            if ( mode !== NINA ) {
-                topic = (level>warnlevel)?'Achtung Unwetter  ':'';
-            } else {
-                topic = (level>warnlevel)?'Gefahr ':'';
+            // Sprache
+            if ((getPushModeFlag(mode) & SPEAK) != 0) {
+
+                sTime = SPACE;
+                if (begin || end) sTime+= "gültig "; if (begin) sTime+= "vom " + getFormatDateSpeak(begin) + " Uhr"; if ((begin && end)) sTime+=" ";if (end) sTime+="bis " + getFormatDateSpeak(end) + " Uhr";
+                /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
+                if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
+                    description+=SPACE + 'Handlungsanweisungen:' + SPACE + instruction;
+                }
+                let topic = '';
+                if ( mode !== NINA ) {
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                } else {
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                }
+                let speakMsg = topic + headline + getArtikelMode(mode, true) + area + sTime + SPACE + replaceTokenForSpeak(description);
+                if (isWarnIgnored(entry)) {
+                    speakMsgTemp.push([speakMsg, mode]);
+                    myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
+                }
             }
-            if (bt) sTime = "gültig vom " + getFormatDateSpeak(begin) + " Uhr, bis " + getFormatDateSpeak(end) + " Uhr. ";
-            pushMsg = topic + headline+ artikelMode(mode,true)+area + sTime + replaceDescription0 + instPush;
-            speakMsgTemp.push([pushMsg,mode]);
-            myLog('Sprache new:'+pushMsg);
         }
     }
     /* Bereich für Sprachausgabe */
-    if (speakMsgTemp.length>0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (uPushdienst & (HOMETWO+SAYIT+ALEXA))!=0 ) {
-        let a=100;
+    if (speakMsgTemp.length > 0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(collectMode)&SPEAK) != 0 ) {
+        let a = 100;
         let b = a;
         let c = a;
-        while (speakMsgTemp.length>0)
+        while (speakMsgTemp.length > 0)
         {
             let msgAppend = '';
             if (speakMsgTemp.length > 1) {
-                if (speakMsgTemp.length-1==1) {
+                if (speakMsgTemp.length - 1 == 1) {
                     msgAppend = ' Eine weitere neue Warnung.';
                 } else {
-                    msgAppend = speakMsgTemp.length-1+' weitere neue Warnungen.';
+                    msgAppend = speakMsgTemp.length - 1+' weitere neue Warnungen.';
                 }
             } else {
-                if (warnDatabase.new.length==0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
+                if (warnDatabase.new.length == 0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
                 else {
-                    if (warnDatabase.new.length==1) msgAppend = ' Insgesamt eine aktive Warnung.';
+                    if (warnDatabase.new.length == 1) msgAppend = ' Insgesamt eine aktive Warnung.';
                     else msgAppend = ' Insgesamt '+warnDatabase.new.length+ ' aktive Warnungen.';
                 }
             }
-            if((getAutoPushFlags(speakMsgTemp[0][1]) & HOMETWO)!=0 ){
-                setTimeout(function(msg,msg2){
-                    sendMessage(HOMETWO,'','',msg+msg2,'');
-                },a,speakMsgTemp[0][0], msgAppend);
+            if((getPushModeFlag(speakMsgTemp[0][1]) & HOMETWO) != 0 ){
+                setTimeout(function(msg, msg2){
+                    sendMessage(HOMETWO, '', msg + msg2);
+                },a, speakMsgTemp[0][0], msgAppend);
             }
             /* Bereich für Sprachausgabe über SayIt + Alexa */
-            if ((getAutoPushFlags(speakMsgTemp[0][1]) & SAYIT)!=0) {
-                setTimeout(function(msg,msg2){
-                    sendMessage(SAYIT,'','',msg+msg2,'');
-                },b,speakMsgTemp[0][0], msgAppend);
+            if ((getPushModeFlag(speakMsgTemp[0][1]) & SAYIT) != 0) {
+                setTimeout(function(msg, msg2){
+                    sendMessage(SAYIT, '',msg + msg2);
+                },b, speakMsgTemp[0][0], msgAppend);
             }
-            if ((getAutoPushFlags(speakMsgTemp[0][1]) & ALEXA)!=0) {
-                setTimeout(function(msg,msg2){
-                    sendMessage(ALEXA,'','',msg+msg2,'');
-                },c,speakMsgTemp[0][0], msgAppend);
+            if ((getPushModeFlag(speakMsgTemp[0][1]) & ALEXA) != 0) {
+                setTimeout(function(msg, msg2){
+                    sendMessage(ALEXA, '', msg + msg2);
+                },c, speakMsgTemp[0][0], msgAppend);
             }
-            a+=uSpeakSpeakPerCharHomeTwo*speakMsgTemp[0].length+2000;
-            b+=uSpeakSpeakPerCharSayIt*speakMsgTemp[0].length+2000;
-            c+=uSpeakSpeakPerCharAlexa*speakMsgTemp[0].length+2000;
+            a += uSpeakSpeakPerCharHomeTwo  * speakMsgTemp[0].length + 2000;
+            b += uSpeakSpeakPerCharSayIt    * speakMsgTemp[0].length + 2000;
+            c += uSpeakSpeakPerCharAlexa    * speakMsgTemp[0].length + 2000;
             myLog('Länge der auszugebenen Sprachnachricht: ' + speakMsgTemp[0].length.toString()+' Nachricht:'+speakMsgTemp[0]);
             speakMsgTemp.shift();
         }
     }
-    if ((getAutoPushFlags(collectMode) & ALLMSG)!=0 && (emailHtmlWarn+emailHtmlClear)) {
-        emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear?'Aufgehobene Warnungen':null),emailHtmlClear,'silver',false);
-        emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,null,getStringWarnCount(null, warnDatabase.new.length),null,true);
-        sendMessage(getAutoPushFlags(collectMode)&ALLMSG,(gefahr?"Wichtige Warnungen":"Warnungen")+ artikelMode(collectMode) + "(iobroker)", '', '', emailHtmlWarn);
+    if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && (emailHtmlWarn + emailHtmlClear)) {
+        emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,   (emailHtmlClear?'Aufgehobene Warnungen':null),  emailHtmlClear, 'silver',   false);
+        emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,   null,  getStringWarnCount(null,warnDatabase.new.length),   null,       true);
+        sendMessage(getPushModeFlag(collectMode)&ALLMSG, (gefahr?"Wichtige Warnungen":"Warnungen") + getArtikelMode(collectMode) + "(iobroker)", emailHtmlWarn);
+    }
+    /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
+    if(!emailHtmlWarn && warnDatabase.new.length == ignoreWarningCount && (warnDatabase.old.length > ignoreWarningCount || onClickCheckRun)) {
+        for (let a = 0;a < warnDatabase.old.length;a++) collectMode|=warnDatabase.old[a].mode;
+        if (ignoreModes) {
+            if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false), true);
+        }
+        let pushMsg = 'Alle Warnmeldungen'+getArtikelMode(collectMode)+'wurden aufgehoben.'+getStringIgnoreCount(ignoreWarningCount);
+
+        /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
+        if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
+            sendMessage(getPushModeFlag(collectMode)&SPEAK, pushMsg);
+        }
+        myLog('all all:'+pushMsg);
+        sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
+        sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
 
+    setAlertState();
     /* Neue Werte sichern */
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
@@ -1029,80 +1174,78 @@ function checkWarningsMain() {
 /* ************************************************************************* */
 
 //Versende die Warnungen über die Schienen
-function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
-    if (msgsingle) {
-        if ((pushdienst & TELEGRAM)!=0) {
-            if (telegramUser.length>0) {
-                for (let a=0;a<telegramUser.length;a++) {
-                    sendTo (telegramInstanz, {user: telegramUser[a], text: msgsingle});
-                }
-            }
-            if (telegramChatId.length>0){
-                for (let a=0;a<telegramChatId.length;a++) {
-                    sendTo (telegramInstanz, {ChatId: telegramChatId[a], text: msgsingle});
-                }
-            }
-            if(!(telegramUser.length>0||telegramChatId.length>0)) {
-                sendTo (telegramInstanz, msgsingle);
-            }
+function sendMessage(pushdienst, topic, msg, opt) {
+    if (opt === undefined) opt = null;
+    if ((pushdienst & TELEGRAM) != 0) {
+        let nMsg = {};
+        if (opt) nMsg.reply_markup = {inline_keyboard: [[{ text: opt[1] ,  url: opt[0]}]]};
+        nMsg.text = msg;
+        if (telegramUser.length > 0) {
+                nMsg.user = telegramUser;
+                sendTo (telegramInstanz, nMsg);
         }
-        if ((pushdienst & PUSHOVER)!=0) {
-            sendTo(pushoverInstanz, msgsingle);
+        if (telegramChatId.length > 0){
+                nMsg.ChatId = telegramChatId;
+                sendTo (telegramInstanz, nMsg);
         }
-        if ((pushdienst & IOGO)!=0) {
-            if (ioGoUser.length>0) {
-                for (let a=0;a<ioGoUser.length;a++) {
-                    myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a+1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
-                    sendTo(ioGoInstanz, "send", {
-                        user:                   ioGoUser[a],
-                        text:                   topic,
-                        title:                  msgsingle
-                    });
-                }
-            } else {
+        if(!(telegramUser.length > 0||telegramChatId.length > 0)) {
+            sendTo (telegramInstanz, nMsg);
+        }
+    }
+    // keinen weiteren Einzelfall von opt
+    if ((pushdienst & PUSHOVER) != 0) {
+        sendTo(pushoverInstanz, msg);
+    }
+    if ((pushdienst & IOGO) != 0) {
+        if (ioGoUser.length > 0) {
+            for (let a = 0;a < ioGoUser.length;a++) {
+                myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a + 1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
                 sendTo(ioGoInstanz, "send", {
+                    user:                   ioGoUser[a],
                     text:                   topic,
-                    title:                  msgsingle
-                });
-            }
-        }
-        if ((pushdienst & STATE)!=0 ) {
-            setState(mirrorMessageState,msgsingle,true);
-        }
-    }
-    if(msgspeak){
-        if((pushdienst & HOMETWO)!=0 ){
-            for(let a=0;a<idMediaplayer.length;a++) {
-                var Url2 = "http://" + idMediaplayer[a] + "/track=4fachgong.mp3|tts=" + msgspeak;
-                myLog('Url2 :' + Url2);
-                request(Url2);
-            }
-        }
-        if ((pushdienst & SAYIT)!=0) {
-            for(let a=0;a<idSayIt.length;a++) {
-                setState(idSayIt[a], sayItVolumen[a] + ";" + msgspeak);
-            }
-        }
-        if ((pushdienst & ALEXA)!=0) {
-            for(let a=0;a<idAlexaSerial.length;a++) {
-                // Wenn auf Gruppe keine Lautstärken regelung möglich
-                if (extendedExists(getFullId(idAlexaVolumen,idAlexaSerial[a]))) setState(getFullId(idAlexaVolumen,idAlexaSerial[a]), alexaVolumen[a]);
-                setState(getFullId(idAlexa,idAlexaSerial[a]), msgspeak);
-            }
-        }
-    }
-    if (msgall &&(pushdienst & EMAIL)!=0) {
-        let nMsg = msgall[0].toUpperCase()+msgall.substring(1);
-        if (empfaengerEmailID.length>0) {
-            for (let a=0;a<empfaengerEmailID.length;a++) {
-                sendTo(emailInstanz, senderEmailID[0]? {
-                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: nTopic, html: nMsg
-                }:{
-                    to: empfaengerEmailID[a], subject: topic, html: nMsg
+                    title:                  msg
                 });
             }
         } else {
-            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: nTopic, text: nMsg}:{subject: nTopic, html: nMsg});
+            sendTo(ioGoInstanz, "send", {
+                text:                   topic,
+                title:                  msg
+            });
+        }
+    }
+    if ((pushdienst & STATE) != 0 ) {
+        setState(mirrorMessageState, msg, true);
+    }
+    if((pushdienst & HOMETWO) != 0 ){
+        for(let a = 0;a < idMediaplayer.length;a++) {
+            var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + msg;
+            myLog('Url2 :' + Url2);
+            request(Url2);
+        }
+    }
+    if ((pushdienst & SAYIT) != 0) {
+        for(let a = 0;a < idSayIt.length;a++) {
+            setState(idSayIt[a], sayItVolumen[a] + ";" + msg);
+        }
+    }
+    if ((pushdienst & ALEXA) != 0) {
+        for(let a = 0;a < idAlexaSerial.length;a++) {
+            // Wenn auf Gruppe keine Lautstärken regelung möglich
+            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+            setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), msg);
+        }
+    }
+    if ((pushdienst & EMAIL) != 0) {
+        if (empfaengerEmailID.length > 0) {
+            for (let a = 0;a < empfaengerEmailID.length;a++) {
+                sendTo(emailInstanz, senderEmailID[0]? {
+                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, html: msg
+                }:{
+                    to: empfaengerEmailID[a], subject: topic, html: msg
+                });
+            }
+        } else {
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msg}:{subject: topic, html: msg});
         }
     }
 }
@@ -1118,21 +1261,21 @@ function sendMessage(pushdienst, topic, msgsingle, msgspeak, msgall) {
 function dataSubscribe(){
     if (subDWDhandler) unsubscribe(subDWDhandler);
     if ( MODE&DWD) {
-        let r = getRegEx(dwdPath,'^');
+        let r = getRegEx(dwdPath, '^');
         r +='.*\.object$';
         myLog('subscribe path:'+r);
         subDWDhandler = subscribe({id:new RegExp(r), change:'ne'}, onChangeDWD);
     }
     if (subUWZhandler) unsubscribe(subUWZhandler);
     if (MODE&UWZ) {
-        let r = getRegEx(uwzPath,'^');
+        let r = getRegEx(uwzPath, '^');
         r +='.*\.object$';
         myLog('subscribe path:'+r);
         subUWZhandler = subscribe({id:new RegExp(r), change:'ne'}, onChangeUWZ);
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
     if (MODE&NINA) {
-        let r = getRegEx(ninaPath,'^');
+        let r = getRegEx(ninaPath, '^');
         r +='.*.rawJson$';
         myLog('subscribe path:'+r);
         subNINAhandler = subscribe({id:new RegExp(r), change:'ne'}, onChangeNina);
@@ -1141,23 +1284,23 @@ function dataSubscribe(){
 
 function onChangeDWD(dp){
     myLog('onchange DWD id:'+dp.id);
-    onChange(dp,DWD);
+    onChange(dp, DWD);
 }
 function onChangeUWZ(dp){
     myLog('onchange UWZ id:'+dp.id);
-    onChange(dp,UWZ);
+    onChange(dp, UWZ);
 }
 function onChangeNina(dp){
     myLog('onchange NINA '+dp.id);
-    onChange(dp,NINA);
+    onChange(dp, NINA);
 }
 
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
     if ( addDatabaseData(dp.id, dp.state.val, mode, false) ) {
-        myLog('Neuer Datensatz - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
+        myLog('Datenbank wurde geändert - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
         if (timer) clearTimeout(timer);
-        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
+        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
     }
 }
 
@@ -1170,7 +1313,7 @@ function InitDatabase(first){
     if (first) warnDatabase={new:[],old:[]};
     if ( MODE&DWD) {
         var idAll = $('state[state.id='+dwdPath+'.*.object$]');
-        for (let a=0;a<idAll.length;a++) {
+        for (let a = 0;a < idAll.length;a++) {
             let id = idAll[a];
             addDatabaseData(id, getState(id).val, DWD, first);
         }
@@ -1180,7 +1323,7 @@ function InitDatabase(first){
 
     if ( MODE&UWZ) {
         var idAll = $('state[state.id='+uwzPath+'.*.object$]');
-        for (let a=0;a<idAll.length;a++) {
+        for (let a = 0;a < idAll.length;a++) {
             let id = idAll[a];
             addDatabaseData(id, getState(id).val, UWZ, first);
         }
@@ -1190,9 +1333,8 @@ function InitDatabase(first){
     if ( MODE&NINA) {
         var idAll = $('state[state.id='+ninaPath+'.*.rawJson$]');
         myLog('nina idAll: '+JSON.stringify(idAll));
-        for (let a=0;a<idAll.length;a++) {
+        for (let a = 0;a < idAll.length;a++) {
             let id = idAll[a];
-            myLog('nina rawJsonId: '+id);
             addDatabaseData(id, getState(id).val, NINA, first);
         }
     } else {
@@ -1205,44 +1347,87 @@ function InitDatabase(first){
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
     let change = false;
-    let newVal = true;
-    if (value && value != {} && value !== undefined && value != '{}') value=JSON.parse(value);
-    else return null;
-    myLog('ID + JSON:'+ id + ' '+JSON.stringify(value));
-    if (mode != NINA) value['info']=[value];
-    if (value.info === undefined || !Array.isArray(value.info)) return null;
-    for (let a=0; a<value.info.length; a++) {
-        warn = getDatabaseData(value.info[a], mode);
-        if (warn) {
-            warn.id=id;
-            if (mode == UWZ) {
-                warn.areaID=getRegionName(id);
+    let jvalue = null;
+    myLog('addDatabaseData() ID + JSON:'+ id + SPACE + JSON.stringify(value));
+    if (value && value != {} && value !== undefined && value != '{}') jvalue = JSON.parse(value);
+    myLog('addDatabaseData() Json ok process...');
+    if (mode == UWZ) {
+        change = removeDatabaseDataID(id);
+        if (jvalue) {
+            warn = getDatabaseData(jvalue, mode);
+            warn.areaID = getRegionName(id);
+            warn.hash = JSON.stringify(warn).hashCode();
+            warn.id = id;
+            warnDatabase.new.push(warn);
+            if (old) warnDatabase.old.push(warn);
+            change = true;
+        }
+    } else if (mode == DWD) {
+        change = removeDatabaseDataID(id);
+        if (jvalue) {
+            warn = getDatabaseData(jvalue, mode);
+            warn.areaID=' für ' + warn.areaID;
+            warn.hash = JSON.stringify(warn).hashCode();
+            warn.id = id;
+            warnDatabase.new.push(warn);
+            if (old) warnDatabase.old.push(warn);
+            change = true;
+        }
+    } else if (mode == NINA) {
+        if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return removeDatabaseDataID(id);
+        let tempArr = [];
+        // sammele die neuen Daten
+        for (let a = 0; a < jvalue.info.length; a++) {
+            warn = getDatabaseData(jvalue.info[a], mode);
+            // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
+            if (warn && warn.end && new Date(warn.end) < new Date()) {
+                warn.identifier = jvalue.identifier === undefined ? '' : jvalue.identifier;
+                warn.sender = jvalue.sender === undefined ? '' : jvalue.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
-                removeDatabaseDataID(id);
+                warn.id = id;
+                tempArr.push(warn);
             }
-            else if (mode == DWD) {
-                warn.areaID=' für ' + warn.areaID;
-                warn.hash = JSON.stringify(warn).hashCode();
-                removeDatabaseDataID(id);
-            }
-            else if (mode == NINA) {
-                warn.identifier = value.identifier === undefined ? '' : value.identifier;
-                warn.sender = value.sender === undefined ? '' : value.sender;
-                warn.hash = JSON.stringify(warn).hashCode();
-                if (getIndexOfHash(warnDatabase.new, warn.hash, mode, id) != -1) newVal = false;
-                else removeDatabaseDataID(id);
-                if (uAutoNinaFilterList.indexOf(warn.sender) != -1 && warn.level <= warnlevel) {
-                    // Füge eintrag nur zur warnDatabase.old hinzu, wenn er dort nicht existiert
-                    old = (getIndexOfHash(warnDatabase.old, warn.hash, warn.mode) == -1);
-                    myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - Ist in gesendet:'+!old);
+        }
+        // Vergleiche vorhandene und neue Daten wenn hash = hash aktualisiere ID, wenn nicht und ID = ID lösche Eintrag und
+        if ( tempArr.length > 0) {
+            for (let a = 0; a < tempArr.length; a++) {
+                for (let b = 0; b < warnDatabase.new.length; b++) {
+                    if (tempArr[a].hash == warnDatabase.new[b].hash) {
+                        warnDatabase.new[b].id = tempArr[a].id;
+                        tempArr.splice(a--,1);
+                        break;
+                    } else if (tempArr[a].id == warnDatabase.new[b].id) {
+                        warnDatabase.new.splice(b--,1);
+                        change = true;
+                    }
                 }
             }
-            if (newVal) warnDatabase.new.push(warn);
-            if (old) warnDatabase.old.push(warn);
-            change = newVal || old;
+        } else { // keine neuen Daten lösche Daten mit dieser ID
+            change = change || removeDatabaseDataID(id);
+        }
+        if ( tempArr.length > 0) {
+            for (let a = 0; a < tempArr.length; a++) {
+                warn = tempArr[a];
+                warnDatabase.new.push(warn);
+                if (old) warnDatabase.old.push(warn);
+            }
+            change = true;
         }
     }
     return change;
+}
+
+function isWarnIgnored (warn){
+    if ( warn.level <= attentionWarningLevel ) {
+        if ( (uFilterList & warn.mode) != 0 ) return true;
+        if ((warn.mode & NINA) != 0) {
+            if (uAutoNinaFilterList.indexOf(warn.sender) != -1) {
+                myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - level:'+warn.level);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function getIndexOfHash(db, hash, mode, id) {
@@ -1258,15 +1443,15 @@ function getDatabaseData(warn, mode){
     let result={};
     if (mode === DWD) {
         if (
-            warn.altitudeStart>maxhoehe
-            || (warn.altitudeEnd && warn.altitudeEnd<minhoehe)
+            warn.altitudeStart > maxhoehe
+            || (warn.altitudeEnd && warn.altitudeEnd < minhoehe)
             || warn.level < minlevel
         ) {myLog('Übergebenens Json DWD verworfen');return null;}
         result['mode'] = DWD;
         result['description'] = warn.description === undefined ? '' : warn.description;
         result['headline'] = warn.headline === undefined ? '' : warn.headline;
-        result['start'] = warn.start === undefined ? null : warn.start||null;
-        result['end'] = warn.end === undefined ? null : warn.end||null;
+        result['start'] = warn.start === undefined ? null : warn.start || null;
+        result['end'] = warn.end === undefined ? null : warn.end || null;
         result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.level === undefined ? -1 : warn.level;
@@ -1274,15 +1459,15 @@ function getDatabaseData(warn, mode){
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
-            || warn.payload.altMin>maxhoehe
-            || (warn.payload.altMax && warn.payload.altMax<minhoehe)
+            || warn.payload.altMin > maxhoehe
+            || (warn.payload.altMax && warn.payload.altMax < minhoehe)
             || warn.level < minlevel
 
         ) {myLog('Übergebenens Json UWZ verworfen');return null;}
         result['mode'] = UWZ;
         result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
-        result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart*1000||null;
-        result['end'] = warn.dtgEnd === undefined ? null : warn.dtgEnd*1000||null;
+        result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart * 1000 || null;
+        result['end'] = warn.dtgEnd === undefined ? null : warn.dtgEnd * 1000 || null;
         result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['type'] = warn.type === undefined ? -1 : warn.type;
         result['level'] = warn.payload.levelName === undefined ? -1 : getUWZLevel(warn.payload.levelName);
@@ -1290,16 +1475,17 @@ function getDatabaseData(warn, mode){
         result['areaID'] = warn.areaID === undefined ? '' : warn.areaID;
         result['color'] = getLevelColor(result.level);
     } else if (mode === NINA) {
-        // level 2,3,4
-        let ninaLevel=['Minor','Severe','Extreme']
+        // level 2, 3, 4
         let web='';
         web = warn.web === undefined || !warn.web? '' : '<br>'+warn.web+'<br>';
         result['mode'] = NINA;
         //result['identifier'] = warn.identifier === undefined ? '' : warn.identifier;
         //result['sender'] = warn.sender === undefined ? '' : warn.sender;
+        result['web'] = warn.web === undefined || !warn.web? '' : warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
+        result['webname'] = warn.web === undefined || !warn.web? '' : warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
         result['description'] = warn.description === undefined ? '' : removeHtml(warn.description);
-        result['start'] = warn.effective === undefined ? null : getDateObject(warn.effective).getTime()||null;
-        result['end'] = warn.expires === undefined ? null : getDateObject(warn.expires).getTime()||null;
+        result['start'] = warn.onset === undefined ? null : getDateObject(warn.onset).getTime() || null;
+        result['end'] = warn.expires === undefined ? null : getDateObject(warn.expires).getTime() || null;
         result['instruction'] = warn.instruction === undefined ? '' : removeHtml(warn.instruction);
         result['typename'] = warn.event === undefined ? '' : removeHtml(warn.event);
         result['type'] = result.typename.hashCode();
@@ -1307,20 +1493,58 @@ function getDatabaseData(warn, mode){
         result['severity'] = warn.severity === undefined ? '' : warn.severity;
         //result['certainty'] = warn.certainty === undefined ? '' : warn.certainty;
         result['headline'] = warn.headline === undefined ? '' : removeHtml(warn.headline);
-        result['areaID'] = warn.area === undefined || warn.area[0].areaDesc === undefined? '' : removeHtml(warn.area[0].areaDesc);
-        result['level'] = warn.severity === undefined ? -1 : (ninaLevel.indexOf(warn.severity)+1);
+        result['areaID'] = warn.area === undefined || warn.area === undefined? '' : getNinaArea(warn.area);
+        result['level'] = warn.severity === undefined ? -1 : getNinaLevel(warn.severity, result.typename);
         result['color'] = getLevelColor(result.level);
         result['html'] = {};
+        result['html']['web'] = warn.web === undefined || !warn.web ? '' : warn.web;
         result['html']['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['html']['headline'] = warn.headline === undefined ? '' : warn.headline;
-        result['html']['description'] = warn.description === undefined ? '' : warn.description+web;
+        result['html']['description'] = warn.description === undefined ? '' : warn.description;
         myLog(JSON.stringify(result));
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
+    result['pending'] = 0;
     result['hash'] = 0;
     myLog('result: ' + JSON.stringify(result));
     return result;
+
+    function getNinaArea(value) {
+        let result = 'für ihre Region'
+        if (!value && !Array.isArray(value)) return result;
+        // gibt nur 1 nix zum Suchen.
+        if ( value.length == 0 ) return 'für '+value[0].areaDesc;
+
+        let region = '';
+        let lvl = 5;
+        let len = 1000;
+        for (let a = 0; a < value.length; a++) {
+            let area = value[a].areaDesc;
+            if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
+                region = area;
+                len = area.length - uGemeinde.length;
+                lvl=1;
+            } else if ( lvl > 2 && area.includes(uLandkreis) ) {
+                lvl=2;
+                region = area;
+            }
+        }
+        return region || result;
+    }
+    // gibt Nina level zurück
+    function getNinaLevel(str, type) {
+        let ninaLevel=[
+            'Minor',
+            'Moderate',
+            'Severe',
+            'Extreme'
+        ]
+        let offset = 2;
+        // Hochwassser ist immer Severe das ist im Vergleich denke ich zu hoch.
+        if (type == 'Hochwasserinformation') offset = 0;
+        return ninaLevel.indexOf(str) + offset;
+    }
     // Gibt Farben für die level zurück
     function getLevelColor(level) {
         var color = [
@@ -1331,7 +1555,7 @@ function getDatabaseData(warn, mode){
             '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
             '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
         ];
-        if (level>=0 && level<=5) return color[level];
+        if (level >= 0 && level <= 5) return color[level];
         return null;
     }
     function getUWZLevel (warnName){
@@ -1339,7 +1563,7 @@ function getDatabaseData(warn, mode){
         var alert = warnName.split("_");
         var colors = {
             color:["green","darkgreen","yellow","orange","red","violet"],
-            level:[0,0,1,2,3,4] // um 1 level reduziert, sond nicht mit DWD vergleichbar nach Erfahrungen
+            level:[0, 0, 1, 2, 3, 4] // um 1 level reduziert, sond nicht mit DWD vergleichbar nach Erfahrungen
         };
         if (alert[0]=="notice") { result = 1; }
         else if (alert[1] == "forewarn") { result = 1; }
@@ -1350,41 +1574,61 @@ function getDatabaseData(warn, mode){
     }
 }
 function removeHtml(a) {
-    let b = a.replace(/<br\/>/ig,'\n');
-    b = b.replace(/(&nbsp;|<([^>]+)>)/ig,'');
-    myLog('removeHtml: '+a+' after: '+b);
+    let b = a.replace(/<br\/>/ig, NEWLINE);
+    b = b.replace(/(&nbsp;|<([^>]+)>)/ig, '');
     return b;
 }
 
-// Überprüfe wegen Nina-Adapter häufig die DB ob obj.ids gelöscht wurden.
-schedule('*/1 * * * *', function(){
+// Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
+// Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
+// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 5 * 6 = 100 Minuten entwarnen erst dann.
+// Abgelaufene Meldungen werden aufgeräumt.
+schedule('20 */10 * * * *', function(){
     let c = false;
-    for (let a=0; a<warnDatabase.new.length;a++) {
-        if (!extendedExists(warnDatabase.new[a].id)) {
-            myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' remove entry.')
+    for (let a = 0; a < warnDatabase.new.length;a++) {
+        let w = warnDatabase.new[a];
+        if (!extendedExists(w.id) ) {
+            if ( warnDatabase.new[a].pending++ > 8 ) {
+                myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' - remove entry.')
+                warnDatabase.new.splice(a--,1);
+                c = true;
+            }
+        } w.pending = 0;
+        if (w.end && new Date(w.end) < new Date()) {
+            myLog('check DB obj with ID: '+warnDatabase.new[a].id+' expire - remove entry.')
             warnDatabase.new.splice(a--,1);
-            c=true;
+            c = true;
         }
     }
-    if (c && autoSendWarnings) checkWarningsMain();
+    if (c && autoSendWarnings) {
+        if (timer) clearTimeout(timer);
+        checkWarningsMain();
+    }
 });
 
 // entferne Eintrag aus der Database
-function removeDatabaseDataID(id) {
-    if (!id || (typeof id !== 'string')) return;
+function removeDatabaseDataID(id, multitimes) {
+    if (!id || (typeof id !== 'string')) return false;
+    if (multitimes === undefined) multitimes = false;
+    let change = false;
     if (warnDatabase.new && warnDatabase.new.length > 0) {
         let i=-2;
         while (i!=-1) {
-            i = warnDatabase.new.findIndex(function(j){return j.id==id});
-            if (i!=-1) warnDatabase.new.splice(i,1);
+            i = warnDatabase.new.findIndex(function(j){return j.id == id});
+            if (i!=-1) {
+                warnDatabase.new.splice(i, 1);
+                change = true;
+            }
+            if (!multitimes) break;
         }
     }
+    return change;
 }
 function removeDuplicateHash() {
     if (warnDatabase.new && warnDatabase.new.length > 0) {
         warnDatabase.new = warnDatabase.new.filter(function(j, i){
             let b = (-1 == warnDatabase.new.findIndex(function(j2, i2){
-                return i>i2 && j.mode == j2.mode && j.hash == j2.hash;
+                return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
             }));
             if (!b) myLog('new filtere:'+JSON.stringify(j));
             return b;}
@@ -1393,7 +1637,7 @@ function removeDuplicateHash() {
     if (warnDatabase.old && warnDatabase.old.length > 0) {
         warnDatabase.old = warnDatabase.old.filter(function(j, i){
             let b = (-1 == warnDatabase.old.findIndex(function(j2, i2){
-                return i>i2 && j.mode == j2.mode && j.hash == j2.hash;
+                return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
             }));
             if (!b) myLog('old filtere:'+JSON.stringify(j));
             return b;}
@@ -1409,9 +1653,9 @@ function removeDuplicateHash() {
 * Aufbereitung von Texten für die verschiedenen Pushmöglichkeiten
 /* ************************************************************************* */
 
-function artikelMode(mode, speak=false) {
-    let r = ' ';
-    if (mode&DWD) r+=(DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
+function getArtikelMode(mode, speak = false) {
+    let r = SPACE;
+    if (mode&DWD) r += (DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
     if (mode&UWZ) {
         if (r.length > 1) r+='und ';
         if (speak) r+= (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale ');
@@ -1424,12 +1668,25 @@ function artikelMode(mode, speak=false) {
     return r;
 }
 
-// Gibt einen fertigen Zähler string zurück. 1/3 wenn es Sinn macht und manuelle Auslösung
+// Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
-    return ' Insgesamt '+(i&&!onClickCheckRun&&c>1?i+'/':'')+(c==1 ?'eine gültige Warnung.':c+' gültige Warnungen.');
+    return SPACE+'Insgesamt '+( i && !onClickCheckRun && c > 1?i+'/':'') + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
 }
 
-function buildHtmlEmail(mailMsg, headline, msg, color, last) {
+function getStringIgnoreCount(i, c) {
+    if (c == 0) return '';
+    let r = SPACE;
+    if (c == 1) r += 'Es wird eine Warnung ignoriert.';
+    else r += 'Es werden '+c.toString()+' Warnungen ignoriert.';
+
+    return r;
+}
+
+function replacePlaceholder(str, insertText) {
+    return str.replace(placeHolder, insertText);
+}
+
+function buildHtmlEmail(mailMsg, headline, msg, color, last=false) {
     if (!mailMsg) mailMsg='<table border="1" cellpadding="0" cellspacing="0" width="100%">';
     if (headline) {
         if (color) mailMsg+='<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"'+color+'\"><b>'+headline+'</b></td></tr>';
@@ -1464,7 +1721,7 @@ function replaceTokenForSpeak(beschreibung) {
             rueckgabe = rueckgabe.replace(/m\/s/g, " Meter pro Sekunde");
         }
     }
-    catch(e) {log(e,'warn');}
+    catch(e) {log(e, 'warn');}
     return rueckgabe;
 }
 
@@ -1494,21 +1751,21 @@ function getFormatDateSpeak(a) {
         case '12': m='Dezember';break;
         default: m='';
     }
-    //  if (Number(b[0])<10) b[0]=b[0].slice(1,1);
+    //  if (Number(b[0]) < 10) b[0]=b[0].slice(1, 1);
     // Das geht echt einfacher  *g*
     b[0]=Number(b[0]).toString();
     b[1]=m; // setze Monatsname
     // entferne Jahr
-    let c = b[2].split(' ');
+    let c = b[2].split(SPACE);
     c[0]='';
-    b[2] = c.join(' ');
-    return b.join(' ');
+    b[2] = c.join(SPACE);
+    return b.join(SPACE);
 }
 
 // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
 function getRegionName(id) {
-    if (!Array.isArray(regionName) || regionName.length==0) return '';
-    for (let a=0; a<regionName.length;a++) {
+    if (!Array.isArray(regionName) || regionName.length == 0) return '';
+    for (let a = 0; a < regionName.length;a++) {
         if (id.includes(regionName[a][0])) {
             return 'für '+regionName[a][1];
         }
@@ -1523,12 +1780,22 @@ function getRegionName(id) {
 /* ************************************************************************* */
 
 if ((uPushdienst&TELEGRAM) != 0 ) {
-    on({id: telegramInstanz+'.communicate.request',change:"any",ack:false}, function(obj){
+    on({id: telegramInstanz+'.communicate.request', change:"any",ack:false}, function(obj){
         var msg = obj.state.val;
-        var user = msg.substring(1,msg.indexOf(']'));
-        msg = msg.substring(msg.indexOf(']')+1,msg.length);
-        if (msg.includes('Ww?')||msg.includes('Wetterwarnungen?')) {
-            setState(mainStatePath+'commands.'+konstanten[0].name,true);
+        var user = msg.substring(1, msg.indexOf(']'));
+        msg = msg.substring(msg.indexOf(']') + 1, msg.length);
+        if (msg.includes('Ww?') || msg.includes('Wetterwarnungen?')) {
+            setState(mainStatePath+'commands.'+konstanten[0].name, true);
+        } else if (msg.includes('Wwdd')) {
+            let olddebug = DEBUG;
+            DEBUG = true;
+            DEBUGSENDEMAIL=true;
+            setState(mainStatePath+'commands.'+konstanten[2].name, true, function() {
+                setTimeout(function(){
+                    DEBUG = olddebug;
+                    DEBUGSENDEMAIL=false;
+                },200);
+            });
         }
     });
 }
@@ -1553,7 +1820,7 @@ onStop(function(callback){
             });
         } else {
             myLog('wurde beendet!');
-            setState(aliveState,false, true);
+            setState(aliveState, false, true);
         }
     }
     callback();
@@ -1564,7 +1831,7 @@ function restartScript() {
     setTimeout(function(){
         setState(aliveState, false, false, function(){
             myLog('Wird über restartScript() beendet.!');
-            stopScript();
+            stopScript(scriptName);
         });
     },200);
 }
@@ -1580,8 +1847,8 @@ function restartScript() {
 function getCustomRoot(id){
     let sRoot = id.split('.');
     if (!Array.isArray(sRoot)) {
-        log('Fehler: '+id+' ist fehlerhaft. Es fehlt ein . ','error');
-        stopScript();
+        log('Fehler: '+id+' ist fehlerhaft. Es fehlt ein . ', 'error');
+        stopScript(scriptName);
     }
     if(sRoot[0]==='0_userdata') sRoot = '0_userdata.0';
     else sRoot = 'javascript.'+ id.split('.')[1];
@@ -1589,7 +1856,7 @@ function getCustomRoot(id){
 }
 // gibt das zurück was nicht zu getCustomRoot() gehört
 function getEndOfState(id){
-    return id.replace(getCustomRoot(id)+'.','');
+    return id.replace(getCustomRoot(id)+'.', '');
 }
 
 // erweiterte existsState() funktion
@@ -1605,7 +1872,7 @@ function createCustomState(id, def, type, callback = undefined) {
         myLog('getEndOfState: ' + getEndOfState(id));
         if (def == null && type.type == 'string') type.def = '';
         else type.def = def ;
-        createUserStates(getCustomRoot(id),false,[
+        createUserStates(getCustomRoot(id), false,[
             [getEndOfState(id), type ],
         ], callback);
         // Restart Skript nach dem States erzeugt wurden
@@ -1763,10 +2030,6 @@ function myLog(msg, channel){
         if (channel=== undefined) channel = 'info';
         log(msg,channel);
     }
-}
-// gibt aktuell die Alexa ID zurück
-function getFullId(a,b) {
-    return a.replace(placeHolder,b)
 }
 function getRegEx(value, firstChar) {
     let path = value.split('.');
