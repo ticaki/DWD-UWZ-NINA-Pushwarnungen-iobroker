@@ -1,4 +1,4 @@
-# DWD-Pushwarnungen-iobroker
+# DWD-UWZ-Pushwarnungen-iobroker
 
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
