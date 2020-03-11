@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.7.2
+//Version 0.95.7.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -261,7 +261,7 @@ windForceDetailsSpeak = !!windForceDetailsSpeak;
 const SPEAK = ALEXA + HOMETWO + SAYIT;
 const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
 const ALLMSG = EMAIL;
-const ALLMODES= [DWD, UWZ, NINA];
+const ALLMODES= DWD|UWZ|NINA;
 const CANHTML = EMAIL;
 const CANPLAIN = PUSH+EMAIL;
 const placeHolder = 'XXXXPLACEHOLDERXXXX';
@@ -909,7 +909,7 @@ function checkWarningsMain() {
             }
         }
     }
-    let ignoreWarningCount = 0, ignoreModes = 8;
+    let ignoreWarningCount = 0, ignoreModes = 0;
     for(let a = 0;a < warnDatabase.new.length;a++) {
         let t = a;
         let w = warnDatabase.new[a];
@@ -1147,16 +1147,18 @@ function checkWarningsMain() {
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if(!emailHtmlWarn && warnDatabase.new.length == ignoreWarningCount && (warnDatabase.old.length > ignoreWarningCount || onClickCheckRun)) {
         for (let a = 0;a < warnDatabase.old.length;a++) collectMode|=warnDatabase.old[a].mode;
-        if (ignoreModes) {
-            if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false), true);
-        }
+
         let pushMsg = 'Alle Warnmeldungen'+getArtikelMode(collectMode)+'wurden aufgehoben.'+getStringIgnoreCount(ignoreWarningCount);
+
+        if (!collectMode || ignoreModes) {
+            if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
+        }
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
             sendMessage(getPushModeFlag(collectMode)&SPEAK, pushMsg);
         }
-        myLog('all all:'+pushMsg);
+        myLog('all all:'+pushMsg+' PUSH'+(getPushModeFlag(collectMode)&PUSH).toString(2) + ' ALLMSG:'+(getPushModeFlag(collectMode)&ALLMSG).toString(2));
         sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
         sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
