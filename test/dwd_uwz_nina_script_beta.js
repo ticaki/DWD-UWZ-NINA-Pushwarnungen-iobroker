@@ -909,6 +909,7 @@ function checkWarningsMain() {
             }
         }
     }
+
     let ignoreWarningCount = 0, ignoreModes = 0;
     for(let a = 0;a < warnDatabase.new.length;a++) {
         let t = a;
@@ -1158,7 +1159,9 @@ function checkWarningsMain() {
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
             sendMessage(getPushModeFlag(collectMode)&SPEAK, pushMsg);
         }
+
         myLog('all all:'+pushMsg+' PUSH'+(getPushModeFlag(collectMode)&PUSH).toString(2) + ' ALLMSG:'+(getPushModeFlag(collectMode)&ALLMSG).toString(2));
+
         sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
         sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
