@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.7.5
+//Version 0.95.7.6
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -246,7 +246,6 @@ var emailInstanz=       'email.0';
 //Logausgabe
 var DEBUG = false;
 var DEBUGSENDEMAIL = false;
-
 
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
@@ -752,9 +751,9 @@ function getPushModeFlag(mode, noflags) {
 function getAutoPushMode(mode) {
     if (onClickCheckRun) return getManuellPushMode(mode);
     if (mode !== undefined) {
-        if (mode&DWD) switchFlags(mode, DWD,!!(uPushdienst&dwdpushdienst));
-        if (mode&UWZ) switchFlags(mode, UWZ,!!(uPushdienst&uwzpushdienst));
-        if (mode&NINA) switchFlags(mode, NINA,!!(uPushdienst&ninapushdienst));
+        if (mode&DWD) mode = switchFlags(mode, DWD,!!(uPushdienst&dwdpushdienst));
+        if (mode&UWZ) mode = switchFlags(mode, UWZ,!!(uPushdienst&uwzpushdienst));
+        if (mode&NINA) mode = switchFlags(mode, NINA,!!(uPushdienst&ninapushdienst));
         return mode;
     }
     myLog('getAutoPushFlags() mode unbekannt!', 'error');
@@ -962,7 +961,7 @@ function checkWarningsMain() {
         let mode        = entry.mode;
 
         if (isWarnIgnored(entry)) continue;
-        if(description && headline && getIndexOfHash(warnDatabase.new, hash) == -1 ) {
+        if(description && headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.old.length > ignoreWarningCount)) {
             myLog('json old:'+JSON.stringify(entry));
             let prefix = ''
             let end = entry.end?getFormatDate(entry.end):null;
@@ -1025,13 +1024,13 @@ function checkWarningsMain() {
                     else he = headline;
                     if ( html.description ) de = html.description;
                     else de = description;
-                    if ( html.instruction && html.instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + html.instruction;
-                    else if ( instruction && instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + instruction;
+                    if ( html.instruction && html.instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
+                    else if ( instruction && instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                     if (web) de+='<br><br>'+entry.html.web;
                 } else {
                     he = headline;
                     de = description;
-                    if ( instruction && instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + instruction;
+                    if ( instruction && instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
                 log(html);
@@ -1080,19 +1079,19 @@ function checkWarningsMain() {
                 if (begin || end) sTime+= "gültig "; if (begin) sTime+= "vom " + getFormatDateSpeak(begin) + " Uhr"; if ((begin && end)) sTime+=" ";if (end) sTime+="bis " + getFormatDateSpeak(end) + " Uhr";
                 /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
                 if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
-                    description+=SPACE + 'Handlungsanweisungen:' + SPACE + instruction;
+                    description+=SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                 }
                 let topic = '';
                 if ( mode !== NINA ) {
-                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung    ':'';
                 } else {
-                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung    ':'';
                 }
-                let speakMsg = topic + headline + getArtikelMode(mode, true) + area + sTime + SPACE + replaceTokenForSpeak(description);
-                if (isWarnIgnored(entry)) {
+                let speakMsg = topic + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE + replaceTokenForSpeak(description);
+                if (!isWarnIgnored(entry)) {
                     speakMsgTemp.push([speakMsg, mode]);
-                    myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
                 }
+                myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
             }
         }
     }
@@ -1133,10 +1132,10 @@ function checkWarningsMain() {
                     sendMessage(ALEXA, '', msg + msg2);
                 },c, speakMsgTemp[0][0], msgAppend);
             }
-            a += uSpeakSpeakPerCharHomeTwo  * speakMsgTemp[0].length + 2000;
-            b += uSpeakSpeakPerCharSayIt    * speakMsgTemp[0].length + 2000;
-            c += uSpeakSpeakPerCharAlexa    * speakMsgTemp[0].length + 2000;
-            myLog('Länge der auszugebenen Sprachnachricht: ' + speakMsgTemp[0].length.toString()+' Nachricht:'+speakMsgTemp[0]);
+            a += uSpeakSpeakPerCharHomeTwo  * speakMsgTemp[0][0].length + 2000;
+            b += uSpeakSpeakPerCharSayIt    * speakMsgTemp[0][0].length + 2000;
+            c += uSpeakSpeakPerCharAlexa    * speakMsgTemp[0][0].length + 2000;
+            myLog('Länge der auszugebenen Sprachnachricht: ' + (speakMsgTemp[0][0].length + msgAppend.length) + ' Nachricht:'+speakMsgTemp[0][0]);
             speakMsgTemp.shift();
         }
     }
@@ -1151,13 +1150,14 @@ function checkWarningsMain() {
 
         let pushMsg = 'Alle Warnmeldungen'+getArtikelMode(collectMode)+'wurden aufgehoben.'+getStringIgnoreCount(ignoreWarningCount);
 
-        if (!collectMode || ignoreModes) {
-            if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
-        }
+        // Einen Mode ermitteln der aktiv ist und der das Versenden erlauben würde.
+        if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
+
+        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im '+(onClickCheckRun?'manuellen Modus':'Automatikmodus')+' gefunden!');
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if ( forceSpeak || compareTime(START, ENDE, 'between')){                  // Ansage über Sayit nur im definierten Zeitbereich
-            sendMessage(getPushModeFlag(collectMode)&SPEAK, pushMsg);
+            sendMessage(getPushModeFlag(collectMode)&SPEAK, '', pushMsg);
         }
 
         myLog('all all:'+pushMsg+' PUSH'+(getPushModeFlag(collectMode)&PUSH).toString(2) + ' ALLMSG:'+(getPushModeFlag(collectMode)&ALLMSG).toString(2));
