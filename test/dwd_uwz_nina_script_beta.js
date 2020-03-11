@@ -1583,7 +1583,7 @@ function removeHtml(a) {
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
 // Folglich werden Entwarnung raus geschickt. Jetzt warten wir 5 * 6 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
-schedule('20 */10 * * * *', function(){
+schedule('18 */10 * * * *', function(){
     let c = false;
     for (let a = 0; a < warnDatabase.new.length;a++) {
         let w = warnDatabase.new[a];
