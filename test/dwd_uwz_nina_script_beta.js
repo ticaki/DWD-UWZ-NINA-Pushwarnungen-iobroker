@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.7
+//Version 0.95.7.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -218,7 +218,7 @@ var uSpeakSpeakPerCharHomeTwo = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
 var uSpeakSpeakPerCharSayIt   = 85; // Vorlese Geschwindigkeit pro Zeichen in ms
 
 // Automodus Filter um Warnungen unterhalb attentionWarningLevel von DWD, UWZ oder NINA zu unterdrücken
-// Sprachausgabe wird immer unterdrückt auch wenn Manuell ausgelöst.
+// Sprachausgabe bei auto und manuell unterdrückt.
 // Diese Warnungen sind vorhanden, sie werden nur in den benannten Fällen ausgeblendet.
 // Ist eine feste Vorgabe überschreibt alles andere
 var uFilterList               = 0;   // generelles Filter für den AutoModus ( = DWD + UWZ; oder = NINA; oder = 0;), außer Warnungslevel ist gleich/über attentionWarningLevel
@@ -232,7 +232,7 @@ var telegramInstanz=    'telegram.0';
 var pushoverInstanz=    'pushover.0';
 var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
-var emailInstanz=       'email';
+var emailInstanz=       'email.0';
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -761,7 +761,7 @@ function getAutoPushMode(mode) {
     return 0;
 }
 function getManuellPushMode(mode) {
-    if (onClickCheckRun) return getAutoPushMode(mode);
+    if (!onClickCheckRun) return getAutoPushMode(mode);
     if (mode !== undefined) {
         if (mode&DWD) switchFlags(mode, DWD,!!(uPushdienst&dwdManpushdienst));
         if (mode&UWZ) switchFlags(mode, UWZ,!!(uPushdienst&uwzManpushdienst));
@@ -1300,7 +1300,7 @@ function onChange(dp, mode) {
     if ( addDatabaseData(dp.id, dp.state.val, mode, false) ) {
         myLog('Datenbank wurde geändert - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
         if (timer) clearTimeout(timer);
-        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
+        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
     }
 }
 
@@ -1379,7 +1379,8 @@ function addDatabaseData(id, value, mode, old) {
         // sammele die neuen Daten
         for (let a = 0; a < jvalue.info.length; a++) {
             warn = getDatabaseData(jvalue.info[a], mode);
-            if (warn) {
+            // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
+            if (warn && warn.end && new Date(warn.end) < new Date()) {
                 warn.identifier = jvalue.identifier === undefined ? '' : jvalue.identifier;
                 warn.sender = jvalue.sender === undefined ? '' : jvalue.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
@@ -1582,7 +1583,7 @@ function removeHtml(a) {
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
 // Folglich werden Entwarnung raus geschickt. Jetzt warten wir 5 * 6 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
-schedule('50 */10 * * * *', function(){
+schedule('18 */10 * * * *', function(){
     let c = false;
     for (let a = 0; a < warnDatabase.new.length;a++) {
         let w = warnDatabase.new[a];
@@ -1599,7 +1600,10 @@ schedule('50 */10 * * * *', function(){
             c = true;
         }
     }
-    if (c && autoSendWarnings) checkWarningsMain();
+    if (c && autoSendWarnings) {
+        if (timer) clearTimeout(timer);
+        checkWarningsMain();
+    }
 });
 
 // entferne Eintrag aus der Database
