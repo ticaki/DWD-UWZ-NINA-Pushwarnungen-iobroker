@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.7.4
+//Version 0.95.7.5
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -763,9 +763,9 @@ function getAutoPushMode(mode) {
 function getManuellPushMode(mode) {
     if (!onClickCheckRun) return getAutoPushMode(mode);
     if (mode !== undefined) {
-        if (mode&DWD) switchFlags(mode, DWD,!!(uPushdienst&dwdManpushdienst));
-        if (mode&UWZ) switchFlags(mode, UWZ,!!(uPushdienst&uwzManpushdienst));
-        if (mode&NINA) switchFlags(mode, NINA,!!(uPushdienst&ninaManpushdienst));
+        if (mode&DWD) mode = switchFlags(mode, DWD,!!(uPushdienst&dwdManpushdienst));
+        if (mode&UWZ) mode = switchFlags(mode, UWZ,!!(uPushdienst&uwzManpushdienst));
+        if (mode&NINA) mode = switchFlags(mode, NINA,!!(uPushdienst&ninaManpushdienst));
         return mode;
     }
     myLog('getAutoPushFlags() mode unbekannt!', 'error');
