@@ -54,6 +54,10 @@ Dank an:
 - Telegramm(Buttom) & Email (eingefügt) "Hauptlinks" werden eingebettet soweit verfügbar
 - minlevel verändert - kleiner als wird gefiltert
 - warnlevel umbenannt -> attentionWarningLevel  gleich/größer wird besonders behandelt
+- Ninaverwaltung umgeschrieben
+- Event: Hochwasserinformation -2 level.(0-3) Wasserstandsmeldungen sind jetzt lvl 2 (gelb)
+- level geändert das DWD und NINA(DWD) identisch sind. (2-5)
+- Wenns Stats verschwinden, wird die dazugehörige Warnung nach ca. 100 Minuten oder nach dem Auslaufen gelöscht.
 
 /* ************************************************************************ */
 
@@ -258,6 +262,8 @@ const SPEAK = ALEXA + HOMETWO + SAYIT;
 const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
 const ALLMSG = EMAIL;
 const ALLMODES= [DWD, UWZ, NINA];
+const CANHTML = EMAIL;
+const CANPLAIN = PUSH+EMAIL;
 const placeHolder = 'XXXXPLACEHOLDERXXXX';
 const configModeState = mainStatePath+'config.mode';
 const mirrorMessageState = mainStatePath+'message';
@@ -356,7 +362,7 @@ if (!Array.isArray(regionName[0])) {
         if (Array.isArray(regionName) && regionName[a].length != 0) {
             if (regionName[a].length != 2 ) {
                 log('Konfiguration enthält Fehler. var regionName - Eintrag: '+(b)+' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
-                stopScript();
+                stopScript(scriptName);
             } else {
                 if (!regionName[a][0] && !regionName[a][1] ) regionName.splice(a--,1)
                 else {
@@ -430,12 +436,12 @@ if (!Array.isArray(regionName[0])) {
         testValueTypeLog(idAlexaSerial, 'idAlexaSerial', 'array');
         if (idAlexaSerial.length == 0) {
             log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
-            stopScript();
+            stopScript(scriptName);
         }
         for (let a = 0;a < idAlexaSerial.length;a++) {
             if (!extendedExists(replacePlaceholder(idAlexa, idAlexaSerial[a]))) {
                 log('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
-                stopScript();
+                stopScript(scriptName);
             }
         }
     }
@@ -448,14 +454,14 @@ if ((uPushdienst&SAYIT) != 0) {
             !extendedExists(idSayIt[a])
         ) {
             log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
-            stopScript();
+            stopScript(scriptName);
         }
     }
 }
 if ((uPushdienst&EMAIL) != 0) {
     if (senderEmailID.length > 1) {
         log('eMail - Konfiguration ist fehlerhaft. Nur 1 Eintrag in senderEmailID erlaubt!', 'error');
-        stopScript();
+        stopScript(scriptName);
     }
 }
 
@@ -472,13 +478,13 @@ function testValueTypeLog(test, teststring, typ, need = false) {
     if (test === undefined) {
         let errorLog = 'Konfiguration enthält Fehler. Der / Ein Wert von var '+teststring+' ist undefiniert oder fehlt!';
         log(errorLog, 'error');
-        stopScript();
+        stopScript(scriptName);
     }
     if (typ == 'array') {
         if (!test || !Array.isArray(test)) {
             let errorLog = 'Konfiguration enthält Fehler. Der / Ein Wert von var '+teststring+' ist kein Array. Es fehlen wohl die umschließenden []!';
             log(errorLog, 'error');
-            stopScript();
+            stopScript(scriptName);
         }
     } else if ( typeof test !== typ ) {
         let errorLog = 'Konfiguration enthält Fehler. Ändere '+teststring+' = [';
@@ -488,11 +494,11 @@ function testValueTypeLog(test, teststring, typ, need = false) {
             errorLog+='\''+test+'\'];//('+typeof test+') in '+teststring+' = ['+test+'];//('+typ+')';
         }
         log(errorLog, 'error');
-        stopScript();
+        stopScript(scriptName);
     }
     if (need && !test) {
         log('Konfiguration enthält Fehler. Der Wert von var '+teststring+' wird benötigt, ist jedoch nicht konfiguriert!', 'error');
-        stopScript();
+        stopScript(scriptName);
     }
 }
 
@@ -504,7 +510,6 @@ function testValueTypeLog(test, teststring, typ, need = false) {
 /* ************************************************************************* */
 
 function changeMode(modeFromState) {
-    setConfigModeStates(modeFromState);
     if (MODE != modeFromState || firstRun) {
         MODE = modeFromState;
         myLog('MODE wurde geändert. MODE: '+MODE + ' firstRun:'+firstRun);
@@ -514,6 +519,7 @@ function changeMode(modeFromState) {
         if (autoSendWarnings && !firstRun) checkWarningsMain();
         firstRun = false;
     }
+    setConfigModeStates(modeFromState);
 }
 {
 
@@ -563,7 +569,7 @@ function changeMode(modeFromState) {
                 let tok = arr[arr.length - 1].toUpperCase();
                 let mode = MODES[MODES.findIndex(function(j){return j.text == tok})].mode;
                 let oldMode = MODE;
-                oldMode = switchFlags(MODE, mode, obj.state.val);
+                oldMode = switchFlags(oldMode, mode, obj.state.val);
                 myLog('Modus wird geändert von: '+MODE);
                 changeMode(oldMode);
             });
@@ -791,7 +797,7 @@ function getManuellPushFlags(mode) {
     return 0;
 }
 function switchFlags(g, f, b) {
-    if (b) g |= uPushdienst & f;
+    if (b) g |= f;
     else g &= ~f;
     return g;
 }
@@ -860,10 +866,10 @@ function checkWarningsMain() {
     setWeekend();
     let DebugMail ='';
     if (DEBUGSENDEMAIL) {
-        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a],null, false));
-        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a],null, false));
-        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null, false);
-        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, false);
+        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
+        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
     // Option nicht ausreichend getestet.
     if (uFilterDuplicate) {
@@ -931,10 +937,10 @@ function checkWarningsMain() {
 
     if (DEBUGSENDEMAIL) {
         let a;
-        DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null, false);
-        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a],null, false));
-        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a],null, false));
-        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null, false);
+        DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null);
+        for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
+        for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
+        DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
         sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
     }
@@ -953,26 +959,28 @@ function checkWarningsMain() {
         let hash        = entry.hash;
         let area        = entry.areaID;
         let mode        = entry.mode;
+
+        if (isWarnIgnored(entry)) continue;
         if(description && headline && getIndexOfHash(warnDatabase.new, hash) == -1 ) {
-            if (isWarnIgnored(entry)) continue;
             myLog('json old:'+JSON.stringify(entry));
-            collectMode|=mode;
-            let end = entry.end?getFormatDate(entry.end):null;
-            // Text Entwarnungen
             let prefix = ''
+            let end = entry.end?getFormatDate(entry.end):null;
+            collectMode|=mode;
+            // Text Entwarnungen
             if (mode === NINA) {
                 prefix = 'Die Warnung';
             } else {
                 prefix = 'Die Wetterwarnung';
             }
             let pushMsg = prefix + getArtikelMode(mode)+"'"+ headline + area + (end?" gültig bis " + end + "Uhr'":'')+" wurde aufgehoben.";
-            emailHtmlClear += pushMsg+'<br><br>';
+            // EMAIL
+            emailHtmlClear += pushMsg+'<br>';
+            // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
             sendMessage(getPushModeFlag(mode)&PUSH, (mode == NINA?'Entwarnung':'Wetterentwarnung'), pushMsg);
             myLog('text old:'+pushMsg);
-
-            /* Sprache: Wetterentwarnungen */
+            // SPEAK
             pushMsg = headline +getArtikelMode(mode, true)+ area + (end?' gültig bis ' + getFormatDateSpeak(end) + ' Uhr':'')+' wurde aufgehoben' + '  .  ';
             speakMsgTemp.push([pushMsg, mode]);
             myLog('Sprache old:'+pushMsg);
@@ -992,52 +1000,99 @@ function checkWarningsMain() {
         let color       = entry.color;
         let mode        = entry.mode;
         let web         = entry.web ? [entry.web, entry.webname]:null;
+        if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
-            if (isWarnIgnored(entry) && !onClickCheckRun) continue;
+            let todoBitmask = uPushdienst;
             myLog('json old:'+JSON.stringify(entry));
             collectMode|=mode;
             count++;
             if (!gefahr) gefahr = level > attentionWarningLevel;
-            let begin = entry.start?getFormatDate(entry.start):'', end = entry.end?getFormatDate(entry.end):'';
-            let sTime =SPACE, bt = (begin || end);
-            if (begin || end) sTime= "gültig "; if (begin) sTime+= "vom " + begin + " Uhr"; if ((begin && end)) sTime+=" ";if (end) sTime+="bis " + end + " Uhr";
-            let pushMsg =area + (bt?NEWLINE+sTime:'')+NEWLINE + description;
-            let html ='', instPush = '';
-            if (entry.html != undefined) html = (sTime ? '<br>' : '') +entry.html.description;
-            else html = sTime + (sTime ? '<br>' : '') + description;
-            html = html[0].toUpperCase() + html.substring(1);
 
-            if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
-                instPush+=NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
-                if (entry.html != undefined) html+='<br> Handlungsanweisungen:<br>'+entry.html.instruction;
-                else html+='<br> Handlungsanweisungen:<br>'+instruction;
+            let begin = entry.start?getFormatDate(entry.start):'', end = entry.end?getFormatDate(entry.end):'';
+            let sTime = SPACE, bt = (begin || end);
+            if (begin || end) sTime = "gültig ";
+            if (begin) sTime += "vom " + begin + " Uhr";
+            if ((begin && end)) sTime += SPACE;
+            if (end) sTime += "bis " + end + " Uhr";
+
+            // html
+            if ((getPushModeFlag(mode) & CANHTML) != 0 ) {
+                let he='',de='';
+                if (entry.html) {
+                    let html = entry.html;
+                    if ( html.headline ) he = html.headline;
+                    else he = headline;
+                    if ( html.description ) de = html.description;
+                    else de = description;
+                    if ( html.instruction && html.instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + html.instruction;
+                    else if ( instruction && instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + instruction;
+                    if (web) de+='<br><br>'+entry.html.web;
+                } else {
+                    he = headline;
+                    de = description;
+                    if ( instruction && instruction.length > 2 ) de += '<br>Handlungsanweisungen:<br>' + instruction;
+                }
+                let html = (bt ? sTime + '<br>' : '') + de;
+                log(html);
+                html = html[0].toUpperCase() + html.substring(1);
+
+                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, he + getArtikelMode(mode) + area+':', html , color, false);
+                html = he + getArtikelMode(mode) + area+':' + html;
+                let topic = '';
+                if ( mode !== NINA ) {
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                } else {
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                }
+                if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
+                let b = getPushModeFlag(mode)&CANHTML&PUSH&~EMAIL;
+                sendMessage( b, topic, html, web);
+                todoBitmask &= ~b & ~EMAIL ;
             }
-            // Anzahl Meldungen erst am Ende zu email hinzufügen
-            if (entry.html != undefined) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, entry.html.headline + getArtikelMode(mode) + area+':', html, color, false);
-            else emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area+':', html, color, false);
-            /* ab Level 4 zusätzlicher Hinweis */
-            let topic = '';
-            if ( mode !== NINA ) {
-                topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
-            } else {
-                topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+            // Plain text
+            if ( (getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0 ) {
+
+                let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '') + NEWLINE + description;
+                if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
+                    pushMsg+=NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                }
+
+                // Anzahl Meldungen erst am Ende zu email hinzufügen
+                if (todoBitmask&EMAIL) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area+':', pushMsg, color, false);
+                /* ab Level 4 zusätzlicher Hinweis */
+                let topic = '';
+                if ( mode !== NINA ) {
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                } else {
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                }
+                if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
+                let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
+                sendMessage(b, topic, pushMsg, web);
+                myLog('text new:'+pushMsg);
+                todoBitmask &= ~b;
             }
-            pushMsg = headline + getArtikelMode(mode) + pushMsg + instPush;
-            if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
-            sendMessage(getPushModeFlag(mode)&PUSH, topic, pushMsg, web);
-            myLog('text new:'+pushMsg);
-            /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
-            var replaceDescription0 = replaceTokenForSpeak(description);
-            if ( mode !== NINA ) {
-                topic = (level > attentionWarningLevel)?'Achtung Unwetter  ':'';
-            } else {
-                topic = (level > attentionWarningLevel)?'Gefahr ':'';
+            // Sprache
+            if ((getPushModeFlag(mode) & SPEAK) != 0) {
+
+                sTime = SPACE;
+                if (begin || end) sTime+= "gültig "; if (begin) sTime+= "vom " + getFormatDateSpeak(begin) + " Uhr"; if ((begin && end)) sTime+=" ";if (end) sTime+="bis " + getFormatDateSpeak(end) + " Uhr";
+                /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
+                if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
+                    description+=SPACE + 'Handlungsanweisungen:' + SPACE + instruction;
+                }
+                let topic = '';
+                if ( mode !== NINA ) {
+                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
+                } else {
+                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
+                }
+                let speakMsg = topic + headline + getArtikelMode(mode, true) + area + sTime + SPACE + replaceTokenForSpeak(description);
+                if (isWarnIgnored(entry)) {
+                    speakMsgTemp.push([speakMsg, mode]);
+                    myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
+                }
             }
-            sTime =SPACE;
-            if (begin || end) sTime= "gültig "; if (begin) sTime+= "vom " + getFormatDateSpeak(begin) + " Uhr"; if ((begin && end)) sTime+=" ";if (end) sTime+="bis " + getFormatDateSpeak(end) + " Uhr";
-            pushMsg = topic + headline+ getArtikelMode(mode, true) + area + sTime + SPACE + replaceDescription0 + instPush;
-            if (isWarnIgnored(entry)) speakMsgTemp.push([pushMsg, mode]);
-            myLog('Sprache new:'+pushMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
         }
     }
     /* Bereich für Sprachausgabe */
@@ -1102,7 +1157,7 @@ function checkWarningsMain() {
             sendMessage(getPushModeFlag(collectMode)&SPEAK, pushMsg);
         }
         myLog('all all:'+pushMsg);
-        sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg, '', '');
+        sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
         sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
 
@@ -1126,16 +1181,12 @@ function sendMessage(pushdienst, topic, msg, opt) {
         if (opt) nMsg.reply_markup = {inline_keyboard: [[{ text: opt[1] ,  url: opt[0]}]]};
         nMsg.text = msg;
         if (telegramUser.length > 0) {
-            for (let a = 0;a < telegramUser.length;a++) {
-                nMsg.user = telegramUser[a];
+                nMsg.user = telegramUser;
                 sendTo (telegramInstanz, nMsg);
-            }
         }
         if (telegramChatId.length > 0){
-            for (let a = 0;a < telegramChatId.length;a++) {
-                nMsg.ChatId = telegramChatId[a];
+                nMsg.ChatId = telegramChatId;
                 sendTo (telegramInstanz, nMsg);
-            }
         }
         if(!(telegramUser.length > 0||telegramChatId.length > 0)) {
             sendTo (telegramInstanz, nMsg);
@@ -1188,13 +1239,13 @@ function sendMessage(pushdienst, topic, msg, opt) {
         if (empfaengerEmailID.length > 0) {
             for (let a = 0;a < empfaengerEmailID.length;a++) {
                 sendTo(emailInstanz, senderEmailID[0]? {
-                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: nTopic, html: msg
+                    from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, html: msg
                 }:{
                     to: empfaengerEmailID[a], subject: topic, html: msg
                 });
             }
         } else {
-            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: nTopic, text: msg}:{subject: nTopic, html: msg});
+            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msg}:{subject: topic, html: msg});
         }
     }
 }
@@ -1247,7 +1298,7 @@ function onChangeNina(dp){
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
     if ( addDatabaseData(dp.id, dp.state.val, mode, false) ) {
-        myLog('Neuer Datensatz - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
+        myLog('Datenbank wurde geändert - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
         if (timer) clearTimeout(timer);
         if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 10000);
     }
@@ -1284,7 +1335,6 @@ function InitDatabase(first){
         myLog('nina idAll: '+JSON.stringify(idAll));
         for (let a = 0;a < idAll.length;a++) {
             let id = idAll[a];
-            myLog('nina rawJsonId: '+id);
             addDatabaseData(id, getState(id).val, NINA, first);
         }
     } else {
@@ -1300,13 +1350,14 @@ function addDatabaseData(id, value, mode, old) {
     let jvalue = null;
     myLog('addDatabaseData() ID + JSON:'+ id + SPACE + JSON.stringify(value));
     if (value && value != {} && value !== undefined && value != '{}') jvalue = JSON.parse(value);
+    myLog('addDatabaseData() Json ok process...');
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
             warn = getDatabaseData(jvalue, mode);
-            warn.id = id;
             warn.areaID = getRegionName(id);
             warn.hash = JSON.stringify(warn).hashCode();
+            warn.id = id;
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
@@ -1315,9 +1366,9 @@ function addDatabaseData(id, value, mode, old) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
             warn = getDatabaseData(jvalue, mode);
-            warn.id = id;
             warn.areaID=' für ' + warn.areaID;
             warn.hash = JSON.stringify(warn).hashCode();
+            warn.id = id;
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
@@ -1325,27 +1376,41 @@ function addDatabaseData(id, value, mode, old) {
     } else if (mode == NINA) {
         if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return removeDatabaseDataID(id);
         let tempArr = [];
+        // sammele die neuen Daten
         for (let a = 0; a < jvalue.info.length; a++) {
             warn = getDatabaseData(jvalue.info[a], mode);
             if (warn) {
-                warn.id = id;
                 warn.identifier = jvalue.identifier === undefined ? '' : jvalue.identifier;
                 warn.sender = jvalue.sender === undefined ? '' : jvalue.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
+                warn.id = id;
                 tempArr.push(warn);
             }
         }
+        // Vergleiche vorhandene und neue Daten wenn hash = hash aktualisiere ID, wenn nicht und ID = ID lösche Eintrag und
         if ( tempArr.length > 0) {
-            let newVal = true;
-            if (getIndexOfHash(warnDatabase.new, tempArr[0].hash, mode, id) != -1) newVal = false;
-            else change |= removeDatabaseDataID(id);
-            for (let a = 0; a < jvalue.info.length; a++) {
-                if (newVal) warnDatabase.new.push(warn);
+            for (let a = 0; a < tempArr.length; a++) {
+                for (let b = 0; b < warnDatabase.new.length; b++) {
+                    if (tempArr[a].hash == warnDatabase.new[b].hash) {
+                        warnDatabase.new[b].id = tempArr[a].id;
+                        tempArr.splice(a--,1);
+                        break;
+                    } else if (tempArr[a].id == warnDatabase.new[b].id) {
+                        warnDatabase.new.splice(b--,1);
+                        change = true;
+                    }
+                }
+            }
+        } else { // keine neuen Daten lösche Daten mit dieser ID
+            change = change || removeDatabaseDataID(id);
+        }
+        if ( tempArr.length > 0) {
+            for (let a = 0; a < tempArr.length; a++) {
+                warn = tempArr[a];
+                warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
             }
-            change |= (newVal || old);
-        } else {
-            change |= removeDatabaseDataID(id);
+            change = true;
         }
     }
     return change;
@@ -1431,13 +1496,15 @@ function getDatabaseData(warn, mode){
         result['level'] = warn.severity === undefined ? -1 : getNinaLevel(warn.severity, result.typename);
         result['color'] = getLevelColor(result.level);
         result['html'] = {};
+        result['html']['web'] = warn.web === undefined || !warn.web ? '' : warn.web;
         result['html']['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
         result['html']['headline'] = warn.headline === undefined ? '' : warn.headline;
-        result['html']['description'] = warn.description === undefined ? '' : warn.description + warn.web === undefined || !warn.web? '' : '<br>'+warn.web+'<br>';
+        result['html']['description'] = warn.description === undefined ? '' : warn.description;
         myLog(JSON.stringify(result));
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
+    result['pending'] = 0;
     result['hash'] = 0;
     myLog('result: ' + JSON.stringify(result));
     return result;
@@ -1445,20 +1512,23 @@ function getDatabaseData(warn, mode){
     function getNinaArea(value) {
         let result = 'für ihre Region'
         if (!value && !Array.isArray(value)) return result;
+        // gibt nur 1 nix zum Suchen.
+        if ( value.length == 0 ) return 'für '+value[0].areaDesc;
+
         let region = '';
         let lvl = 5;
-        len = 1000;
+        let len = 1000;
         for (let a = 0; a < value.length; a++) {
-            area = value[a].areaDesc;
-            if ( area.includes(uGemeinde) && area.length - uGemeinde.length < len) {
+            let area = value[a].areaDesc;
+            if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
                 region = area;
                 len = area.length - uGemeinde.length;
                 lvl=1;
-            } else { lvl > 2 && area.includes(uLandkreis) } {
+            } else if ( lvl > 2 && area.includes(uLandkreis) ) {
                 lvl=2;
                 region = area;
             }
-        }        
+        }
         return region || result;
     }
     // gibt Nina level zurück
@@ -1469,7 +1539,7 @@ function getDatabaseData(warn, mode){
             'Severe',
             'Extreme'
         ]
-        let offset = 1;
+        let offset = 2;
         // Hochwassser ist immer Severe das ist im Vergleich denke ich zu hoch.
         if (type == 'Hochwasserinformation') offset = 0;
         return ninaLevel.indexOf(str) + offset;
@@ -1505,17 +1575,26 @@ function getDatabaseData(warn, mode){
 function removeHtml(a) {
     let b = a.replace(/<br\/>/ig, NEWLINE);
     b = b.replace(/(&nbsp;|<([^>]+)>)/ig, '');
-    myLog('removeHtml: '+a+' after: '+b);
     return b;
 }
 
 // Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
-// Standardeinstellung von Nina ist 5 Minuten, also schauen wir alle 5,5 Minuten nach
-schedule('30 */5 * * * *', function(){
+// Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
+// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 5 * 6 = 100 Minuten entwarnen erst dann.
+// Abgelaufene Meldungen werden aufgeräumt.
+schedule('50 */10 * * * *', function(){
     let c = false;
     for (let a = 0; a < warnDatabase.new.length;a++) {
-        if (!extendedExists(warnDatabase.new[a].id)) {
-            myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' remove entry.')
+        let w = warnDatabase.new[a];
+        if (!extendedExists(w.id) ) {
+            if ( warnDatabase.new[a].pending++ > 8 ) {
+                myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' - remove entry.')
+                warnDatabase.new.splice(a--,1);
+                c = true;
+            }
+        } w.pending = 0;
+        if (w.end && new Date(w.end) < new Date()) {
+            myLog('check DB obj with ID: '+warnDatabase.new[a].id+' expire - remove entry.')
             warnDatabase.new.splice(a--,1);
             c = true;
         }
@@ -1587,23 +1666,23 @@ function getArtikelMode(mode, speak = false) {
 
 // Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
-    return ' Insgesamt '+(i&&!onClickCheckRun && c>1?i+'/':'') + (c == 1 ?'eine gültige Warnung.':c+' gültige Warnungen.');
+    return SPACE+'Insgesamt '+( i && !onClickCheckRun && c > 1?i+'/':'') + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
 }
 
 function getStringIgnoreCount(i, c) {
     if (c == 0) return '';
     let r = SPACE;
     if (c == 1) r += 'Es wird eine Warnung ignoriert.';
-    else r += 'Es werden xxxx1111YYYY Warnungen ignoriert.';
+    else r += 'Es werden '+c.toString()+' Warnungen ignoriert.';
 
-    return r.replace('xxxx1111YYYY', c.toString());;
+    return r;
 }
 
 function replacePlaceholder(str, insertText) {
     return str.replace(placeHolder, insertText);
 }
 
-function buildHtmlEmail(mailMsg, headline, msg, color, last) {
+function buildHtmlEmail(mailMsg, headline, msg, color, last=false) {
     if (!mailMsg) mailMsg='<table border="1" cellpadding="0" cellspacing="0" width="100%">';
     if (headline) {
         if (color) mailMsg+='<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"'+color+'\"><b>'+headline+'</b></td></tr>';
@@ -1703,6 +1782,16 @@ if ((uPushdienst&TELEGRAM) != 0 ) {
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
         if (msg.includes('Ww?') || msg.includes('Wetterwarnungen?')) {
             setState(mainStatePath+'commands.'+konstanten[0].name, true);
+        } else if (msg.includes('Wwdd')) {
+            let olddebug = DEBUG;
+            DEBUG = true;
+            DEBUGSENDEMAIL=true;
+            setState(mainStatePath+'commands.'+konstanten[2].name, true, function() {
+                setTimeout(function(){
+                    DEBUG = olddebug;
+                    DEBUGSENDEMAIL=false;
+                },200);
+            });
         }
     });
 }
@@ -1738,7 +1827,7 @@ function restartScript() {
     setTimeout(function(){
         setState(aliveState, false, false, function(){
             myLog('Wird über restartScript() beendet.!');
-            stopScript();
+            stopScript(scriptName);
         });
     },200);
 }
@@ -1755,7 +1844,7 @@ function getCustomRoot(id){
     let sRoot = id.split('.');
     if (!Array.isArray(sRoot)) {
         log('Fehler: '+id+' ist fehlerhaft. Es fehlt ein . ', 'error');
-        stopScript();
+        stopScript(scriptName);
     }
     if(sRoot[0]==='0_userdata') sRoot = '0_userdata.0';
     else sRoot = 'javascript.'+ id.split('.')[1];
