@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.9
+//Version 0.95.9.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -1206,16 +1206,16 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
     if ((pushdienst & PUSHOVER) != 0) {
         let newMsg = {html:1};
+        newMsg.message = msg;
+        newMsg.title = topic;
 		if (entry) {
             if (entry.web) {newMsg.url = entry.web; newMsg.url_title = entry.webname};
-            msg = msg.replace(entry.headline, '<font color="'+entry.color+'">'+entry.headline+'</font>');
+            newMsg.message = msg.replace(entry.headline, '<font color="'+entry.color+'">'+entry.headline+'</font>');
 		    //msg = msg.split(' '); msg[0]='<font color="'+entry.color+'">'+msg[0]+'</font>';msg = msg.join(' ');
-            if (entry.level > attentionWarningLevel) newMsg.priority=1;
+            if (entry.level >= attentionWarningLevel) newMsg.priority=1;
         }
         if ( uPushoverDeviceName ) newMsg.device = uPushoverDeviceName;
         if ( uPushoverSound ) newMsg.sound = uPushoverSound;
-        newMsg.message = msg;
-        newMsg.title = topic;
         sendTo(pushoverInstanz, newMsg);
     }
     if ((pushdienst & IOGO) != 0) {
