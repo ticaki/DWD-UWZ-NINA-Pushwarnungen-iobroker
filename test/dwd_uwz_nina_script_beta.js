@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.8
+//Version 0.95.8.1
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -282,7 +282,6 @@ var warnDatabase = {new:[],old:[]};
 var subDWDhandler = null;
 var subUWZhandler = null;
 var subNINAhandler = null;
-var subDublicateNinaTimer = null;
 var timeoutFromCreateState = null;
 var dwdpushdienst = uPushdienst, ninapushdienst = uPushdienst, uwzpushdienst = uPushdienst;
 let dwdManpushdienst = uPushdienst, ninaManpushdienst = uPushdienst, uwzManpushdienst = uPushdienst;
@@ -1368,13 +1367,13 @@ function addDatabaseData(id, value, mode, old) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
             warn = getDatabaseData(jvalue, mode);
-            warn.areaID = getRegionName(id);
+            warn.areaID = getRegionNameUWZ(id);
             warn.hash = JSON.stringify(warn).hashCode();
             warn.id = id;
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
-            myLog('Added to database '+mode);
+            log('Add UWZ warning to database. headline:'+warn.headline)
         }
     } else if (mode == DWD) {
         change = removeDatabaseDataID(id);
@@ -1387,9 +1386,10 @@ function addDatabaseData(id, value, mode, old) {
             if (old) warnDatabase.old.push(warn);
             change = true;
             myLog('Added to database '+mode);
+            log('Add DWD warning to database. headline:'+warn.headline)
         }
     } else if (mode == NINA) {
-        if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return removeDatabaseDataID(id);
+        if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return false;
         let tempArr = [];
         let grouphash = 0;
         // sammele die neuen Daten
@@ -1414,29 +1414,39 @@ function addDatabaseData(id, value, mode, old) {
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--,1);
-                        myLog('remove from tempdatabase because duplicate hash / update id');
+                        log('Update database Nina warning old id<>new id. headline:'+warn.headline)
                         break;
                     } else if (tempArr[a].id == warnDatabase.new[b].id && tempArr[a].grouphash != warnDatabase.new[b].grouphash ) {
-                        myLog('remove from tempdatabase because duplicate id and wrong grouphash:'+warnDatabase.new[b].headline);
-                        warnDatabase.new.splice(b--,1);
-                        change = true;
+                        myLog('warnDatabase.new set id  to null because duplicate id and wrong grouphash:'+warnDatabase.new[b].headline);
+                        warnDatabase.new[b].id = null;
                     }
                 }
             }
         } else { // keine neuen Daten lösche Daten mit dieser ID
-            change = change || removeDatabaseDataID(id);
+            change = change || false;
         }
         if ( tempArr.length > 0) {
             for (let a = 0; a < tempArr.length; a++) {
                 warn = tempArr[a];
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                myLog('Added to database '+mode+' tempindex:'+a);
+                log('Add Nina warning to database. headline:'+warn.headline)
             }
             change = true;
         }
     }
     return change;
+
+    // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
+    function getRegionNameUWZ(id) {
+        if (!Array.isArray(regionName) || regionName.length == 0) return '';
+        for (let a = 0; a < regionName.length;a++) {
+            if (id.includes(regionName[a][0])) {
+                return 'für '+regionName[a][1];
+            }
+        }
+        return '';
+    }
 }
 
 function isWarnIgnored (warn){
@@ -1628,13 +1638,13 @@ schedule('18 */10 * * * *', function(){
         let w = warnDatabase.new[a];
         if (!extendedExists(w.id) ) {
             if ( warnDatabase.new[a].pending++ > 8 ) {
-                myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' - remove entry.')
+                myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' pendings - remove entry.')
                 warnDatabase.new.splice(a--,1);
                 c = true;
             }
         } w.pending = 0;
         if (w.end && new Date(w.end) < new Date()) {
-            myLog('check DB obj with ID: '+warnDatabase.new[a].id+' expire - remove entry.')
+            myLog('check DB obj with ID: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' expire - remove entry.')
             warnDatabase.new.splice(a--,1);
             c = true;
         }
@@ -1801,16 +1811,7 @@ function getFormatDateSpeak(a) {
     return b.join(SPACE);
 }
 
-// vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
-function getRegionName(id) {
-    if (!Array.isArray(regionName) || regionName.length == 0) return '';
-    for (let a = 0; a < regionName.length;a++) {
-        if (id.includes(regionName[a][0])) {
-            return 'für '+regionName[a][1];
-        }
-    }
-    return '';
-}
+
 /* *************************************************************************
 * Aufbereitung von Texten für die verschiedenen Pushmöglichkeiten ENDE
 /* ************************************************************************* */
@@ -1900,7 +1901,7 @@ function getEndOfState(id){
 
 // erweiterte existsState() funktion
 function extendedExists(id){
-    let r = ($(id).length > 0) && (existsState(id));
+    let r = (id) && ($(id).length > 0) && (existsState(id));
     return r;
 }
 
