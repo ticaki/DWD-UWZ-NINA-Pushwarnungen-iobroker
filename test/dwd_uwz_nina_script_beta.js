@@ -162,7 +162,6 @@ var regionName          = [['','']];
 var uGemeinde = '';
 var uLandkreis = '';
 
-
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID       = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
 var empfaengerEmailID   = [""]; // mit Empfänger Emailadresse füllen. Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
@@ -1060,15 +1059,9 @@ function checkWarningsMain() {
 
                 emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, he + getArtikelMode(mode) + area+':', html , color, false);
                 html = he + getArtikelMode(mode) + area+':' + html;
-                let topic = '';
-                if ( mode !== NINA ) {
-                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
-                } else {
-                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
-                }
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
-                sendMessage( b, topic, html, web);
+                sendMessage( b, getTopic(mode), html, web);
                 todoBitmask &= ~b & ~EMAIL ;
             }
             // Plain text
@@ -1082,15 +1075,10 @@ function checkWarningsMain() {
                 // Anzahl Meldungen erst am Ende zu email hinzufügen
                 if (todoBitmask&EMAIL) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area+':', pushMsg, color, false);
                 /* ab Level 4 zusätzlicher Hinweis */
-                let topic = '';
-                if ( mode !== NINA ) {
-                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung':'Wetterwarnung';
-                } else {
-                    topic = (level > attentionWarningLevel)?'Gefahr Warnung':'Warnung';
-                }
+
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, topic, pushMsg, web);
+                sendMessage(b, getTopic(mode), pushMsg, web);
                 myLog('text new:'+pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1103,17 +1091,22 @@ function checkWarningsMain() {
                 if (!!instruction && typeof instruction === 'string' && instruction.length > 2){
                     description+=SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                 }
-                let topic = '';
-                if ( mode !== NINA ) {
-                    topic = (level > attentionWarningLevel)?'Wichtige Wetterwarnung    ':'';
-                } else {
-                    topic = (level > attentionWarningLevel)?'Gefahr Warnung    ':'';
-                }
-                let speakMsg = topic + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE + replaceTokenForSpeak(description);
+                let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE + replaceTokenForSpeak(description);
                 if (!isWarnIgnored(entry)) {
                     speakMsgTemp.push([speakMsg, mode]);
                 }
                 myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
+            }
+
+            function getTopic(mode,s) {
+                if (s == undefined) s = false;
+                let result = '';
+                if ( mode !== NINA ) {
+                    result = (level > attentionWarningLevel)?'Wichtige Wetterwarnung: ':s?'':'Wetterwarnung';
+                } else {
+                    result = (level > attentionWarningLevel)?'Gefahr Warnung: ':s?'':'Warnung';
+                }
+                return result;
             }
         }
     }
@@ -1214,7 +1207,9 @@ function sendMessage(pushdienst, topic, msg, opt) {
     if (opt === undefined) opt = null;
     if ((pushdienst & TELEGRAM) != 0) {
         let nMsg = {};
+        //nMsg.parse_mode='HTML';
         if (opt) nMsg.reply_markup = {inline_keyboard: [[{ text: opt[1] ,  url: opt[0]}]]};
+        //if (opt) msg+=opt[2];
         nMsg.text = msg;
         if (telegramUser.length > 0) {
                 nMsg.user = telegramUser;
