@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.8.2
+//Version 0.95.8.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -512,11 +512,25 @@ function testValueTypeLog(test, teststring, typ, need = false) {
 
 function changeMode(modeFromState) {
     if (MODE != modeFromState || firstRun) {
+        let oldMode = MODE;
         MODE = modeFromState;
         myLog('MODE wurde geändert. MODE: '+MODE + ' firstRun:'+firstRun);
         InitDatabase(firstRun);
         dataSubscribe();
         setAlertState();
+        for (var a = 0;a < konstanten.length;a++) {
+            for (let x = 0;x < MODES.length;x++) {
+                let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                let update = !!((switchFlags(MODE, oldMode, false)&MODES[x].mode));
+                if (extendedExists(oid)) {
+                    setState(oid, update || !!(getAutoPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                }
+                oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                if (extendedExists(oid)) {
+                    setState(oid, update || !!(getManuellPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                }
+            }
+        }
         if (autoSendWarnings && !firstRun) checkWarningsMain();
         firstRun = false;
     }
@@ -620,7 +634,7 @@ function setConfigModeStates(mode) {
     if (allStateExist) setAlertState();
 }
 
-// Nachrichtenversand per Click States erzeugen und subscript
+// Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
 for (var a = 0;a < konstanten.length;a++){
     if ((uPushdienst&konstanten[a].value) != 0) {
         if (!extendedExists(mainStatePath+'commands.'+konstanten[a].name)) {
@@ -649,11 +663,20 @@ subscribe({id: new RegExp(getRegEx(mainStatePath+'config.auto', '^')+'.*'), chan
         myLog('Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
         autoSendWarnings = !!obj.state.val;
         setState(obj.id, autoSendWarnings, true);
+        for (var a = 0;a < konstanten.length;a++) {
+            for (let x = 0;x < MODES.length;x++) {
+                let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                if (extendedExists(oid)) {
+                    setState(oid, obj.state.val);
+                }
+            }
+        }
     } else {
         myLog('else auto trigger: ' + obj.id + ' Value:' + obj.state.val);
         setConfigKonstanten(obj.id, obj.state.val, true);
     }
 });
+// on() für alles unter config.manuell
 subscribe({id: new RegExp(getRegEx(mainStatePath+'config.manuell', '^')+'.*'), change:'ne', ack: false},function(obj){
     myLog('Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
     setConfigKonstanten(obj.id, obj.state.val, false);
@@ -681,16 +704,19 @@ function setConfigKonstanten(id, val, auto){
     let tp = 0;
     switch (m) {
         case 'dwd': {
+            val = val && !!(MODE & DWD);
             if (auto) dwdpushdienst = switchFlags(dwdpushdienst, value, val);
             else dwdManpushdienst = switchFlags(dwdManpushdienst, value, val);
             break;
         }
         case 'uwz': {
+            val = val && !!(MODE & UWZ);
             if (auto) uwzpushdienst = switchFlags(uwzpushdienst, value, val);
             else uwzManpushdienst = switchFlags(uwzManpushdienst, value, val);
             break;
         }
         case 'nina': {
+            val = val && !!(MODE & NINA);
             if (auto) ninapushdienst = switchFlags(ninapushdienst, value, val);
             else ninaManpushdienst = switchFlags(ninaManpushdienst, value, val);
             break;
@@ -774,7 +800,6 @@ function getManuellPushMode(mode) {
 }
 
 function getAutoPushFlags(mode) {
-    if (onClickCheckRun) return getManuellPushFlags(mode);
     if (mode !== undefined) {
         let m = 0;
         if (mode&DWD) m |= (uPushdienst&dwdpushdienst);
@@ -786,7 +811,6 @@ function getAutoPushFlags(mode) {
     return 0;
 }
 function getManuellPushFlags(mode) {
-    if (!onClickCheckRun) return getAutoPushFlags(mode);
     if (mode !== undefined) {
         let m = 0;
         if (mode&DWD) m |= (uPushdienst&dwdManpushdienst);
