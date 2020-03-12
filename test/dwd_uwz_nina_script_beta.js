@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.8.3
+//Version 0.95.9
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -174,6 +174,13 @@ var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Med
 var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 var telegramChatId      = [''];
 
+/* Konfiguration Pushover */
+var uPushoverDeviceName     = '';
+var uPushoverSound          = '';
+
+//Konfiguration von ioGo
+var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
+
 /* Konfiguration Sprachausgabe über SayIt */
 var idSayIt             = ["sayit.0.tts.text"]; // mehrfach Einträge möglich
 var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
@@ -182,9 +189,6 @@ var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
 /* mehrere Einträge möglich, bei mir ging nur der Echo, 2 dots 2.Gen reagieren nicht auf announcement. */
 var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y', 'G090RV32984110Y']
 var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
-
-//Konfiguration von ioGo
-var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 
 // Filtereinstellungen
 const minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden;
@@ -356,9 +360,7 @@ testValueTypeLog(ioGoInstanz, 'ioGoInstanz', 'string', true);
 testValueTypeLog(alexaInstanz, 'alexaInstanz', 'string', true);
 testValueTypeLog(emailInstanz, 'emailInstanz', 'string', true);
 testValueTypeLog(uGemeinde, 'uGemeinde', 'string');
-testValueTypeLog(regionName, 'uLandkreis', 'string');
-testValueTypeLog(regionName, 'regionName', 'array');
-
+testValueTypeLog(uLandkreis, 'uLandkreis', 'string');
 if (!Array.isArray(regionName[0])) {
     regionName=[regionName];
 }
@@ -389,9 +391,9 @@ if (!Array.isArray(regionName[0])) {
             else {
                 testValueTypeLog(arr[a],'name', type);
             }
-        }       
+        }
     }
-    
+
     checkConfigArray(uAutoNinaFilterList,'uAutoNinaFilterList', 'string');
     checkConfigArray(senderEmailID,'senderEmailID', 'string');
     checkConfigArray(empfaengerEmailID,'empfaengerEmailID', 'string');
@@ -401,8 +403,7 @@ if (!Array.isArray(regionName[0])) {
     checkConfigArray(idSayIt,'idSayIt', 'string');
     checkConfigArray(ioGoUser,'ioGoUser', 'string');
     checkConfigArray(telegramChatId,'telegramChatId', 'string');
-    checkConfigArray(regionName,'regionName', 'string');
-    
+
     for (let a = 0;a < sayItVolumen.length;a++) {
         if (sayItVolumen[a] === undefined) sayItVolumen[a]=0;
         else testValueTypeLog(sayItVolumen[a],'sayItVolumen', 'number');
@@ -762,7 +763,7 @@ function getAutoPushMode(mode) {
         if (mode&NINA) mode = switchFlags(mode, NINA,!!(uPushdienst&ninapushdienst));
         return mode;
     }
-    myLog('getAutoPushFlags() mode unbekannt!', 'error');
+    myLog('getAutoPushFlags() mode unbekannt! mode:'+mode, 'info');
     return 0;
 }
 function getManuellPushMode(mode) {
@@ -998,7 +999,6 @@ function checkWarningsMain() {
         let area        = entry.areaID;
         let color       = entry.color;
         let mode        = entry.mode;
-        let web         = entry.web ? [entry.web, entry.webname,entry.html.web]:null;
         if (DEBUG) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.old, hash)+SPACE+(getPushModeFlag(mode)).toString(2)+SPACE+isWarnIgnored(entry)+'<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
@@ -1026,7 +1026,7 @@ function checkWarningsMain() {
                     else de = description;
                     if ( html.instruction && html.instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
                     else if ( instruction && instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
-                    if (web) de+='<br><br>'+web[2];
+                    if (entry.html !== undefined ) de+='<br><br>'+entry.html.web;
                 } else {
                     he = headline;
                     de = description;
@@ -1040,7 +1040,7 @@ function checkWarningsMain() {
                 html = he + getArtikelMode(mode) + area+':' + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
-                sendMessage( b, getTopic(mode), html, web);
+                sendMessage( b, getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL ;
             }
             // Plain text
@@ -1057,7 +1057,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, getTopic(mode), pushMsg, web);
+                sendMessage(b, getTopic(mode), pushMsg, entry);
                 myLog('text new:'+pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1090,7 +1090,7 @@ function checkWarningsMain() {
         }
     }
     if (DEBUG) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
-    
+
     /* Bereich für Sprachausgabe */
     if (speakMsgTemp.length > 0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(collectMode)&SPEAK) != 0 ) {
         let a = 100;
@@ -1103,7 +1103,7 @@ function checkWarningsMain() {
                 if (speakMsgTemp.length - 1 == 1) {
                     msgAppend = ' Eine weitere neue Warnung.';
                 } else {
-                    msgAppend = speakMsgTemp.length - 1+' weitere neue Warnungen.';
+                    msgAppend = ' Es gibt ' + (speakMsgTemp.length - 1) +' weitere neue Warnungen.';
                 }
             } else {
                 if (warnDatabase.new.length == 0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
@@ -1131,7 +1131,7 @@ function checkWarningsMain() {
             a += uSpeakSpeakPerCharHomeTwo  * speakMsgTemp[0][0].length + 2000;
             b += uSpeakSpeakPerCharSayIt    * speakMsgTemp[0][0].length + 2000;
             c += uSpeakSpeakPerCharAlexa    * speakMsgTemp[0][0].length + 2000;
-            myLog('Länge der auszugebenen Sprachnachricht: ' + (speakMsgTemp[0][0].length + msgAppend.length) + ' Nachricht:'+speakMsgTemp[0][0]);
+            myLog('Länge der auszugebenen Sprachnachricht: ' + (speakMsgTemp[0][0].length + msgAppend.length) + ' Nachricht:'+speakMsgTemp[0][0] + msgAppend);
             speakMsgTemp.shift();
         }
     }
@@ -1169,7 +1169,7 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
         if (DEBUGSENDEMAIL) sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
-        log(DegugMail);
+        log(DebugMail);
     }
     setAlertState();
     /* Neue Werte sichern */
@@ -1184,13 +1184,13 @@ function checkWarningsMain() {
 /* ************************************************************************* */
 
 //Versende die Warnungen über die Schienen
-function sendMessage(pushdienst, topic, msg, opt) {
-    if (opt === undefined) opt = null;
+function sendMessage(pushdienst, topic, msg, entry) {
+    if (entry === undefined) entry = null;
     if ((pushdienst & TELEGRAM) != 0) {
         let nMsg = {};
         //nMsg.parse_mode='HTML';
-        if (opt) nMsg.reply_markup = {inline_keyboard: [[{ text: opt[1] ,  url: opt[0]}]]};
-        //if (opt) msg+=opt[2];
+        if (entry && entry.web && entry.webname) nMsg.reply_markup = {inline_keyboard: [[{ text: entry.webname ,  url: entry.web}]]};
+        //if (entry) msg+=entry[2];
         nMsg.text = msg;
         if (telegramUser.length > 0) {
                 nMsg.user = telegramUser;
@@ -1204,20 +1204,33 @@ function sendMessage(pushdienst, topic, msg, opt) {
             sendTo (telegramInstanz, nMsg);
         }
     }
-    // keinen weiteren Einzelfall von opt
     if ((pushdienst & PUSHOVER) != 0) {
-        sendTo(pushoverInstanz, msg);
+        let newMsg = {html:1};
+		if (entry) {
+            if (entry.web) {newMsg.url = entry.web; newMsg.url_title = entry.webname};
+            msg = msg.replace(entry.headline, '<font color="'+entry.color+'">'+entry.headline+'</font>');
+		    //msg = msg.split(' '); msg[0]='<font color="'+entry.color+'">'+msg[0]+'</font>';msg = msg.join(' ');
+            if (entry.level > attentionWarningLevel) newMsg.priority=1;
+        }
+        if ( uPushoverDeviceName ) newMsg.device = uPushoverDeviceName;
+        if ( uPushoverSound ) newMsg.sound = uPushoverSound;
+        newMsg.message = msg;
+        newMsg.title = topic;
+        sendTo(pushoverInstanz, newMsg);
     }
     if ((pushdienst & IOGO) != 0) {
         if (ioGoUser.length > 0) {
-            for (let a = 0;a < ioGoUser.length;a++) {
-                myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a + 1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
-                sendTo(ioGoInstanz, "send", {
-                    user:                   ioGoUser[a],
-                    text:                   topic,
-                    title:                  msg
-                });
-            }
+			let users = ioGoUser[0];
+            for (let a = 1;a < ioGoUser.length;a++) {
+				users+=','+ioGoUser[a];
+			}
+            myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a + 1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
+            sendTo(ioGoInstanz, "send", {
+                user:                   users,
+                text:                   msg,
+                title:                  topic
+            });
+
         } else {
             sendTo(ioGoInstanz, "send", {
                 text:                   topic,
@@ -1323,36 +1336,35 @@ function onChange(dp, mode) {
 // Erstes befüllen der Database
 function InitDatabase(first){
     if (first) warnDatabase={new:[],old:[]};
-    if ( MODE&DWD) {
+    if ( MODE & DWD ) {
         var idAll = $('state[state.id='+dwdPath+'.*.object$]');
-        for (let a = 0;a < idAll.length;a++) {
-            let id = idAll[a];
-            addDatabaseData(id, getState(id).val, DWD, first);
-        }
+        _helper(idAll, DWD, first);
     } else {
         warnDatabase.new = warnDatabase.new.filter(function(j){return j.mode != DWD;});
     }
 
-    if ( MODE&UWZ) {
+    if ( MODE & UWZ ) {
         var idAll = $('state[state.id='+uwzPath+'.*.object$]');
-        for (let a = 0;a < idAll.length;a++) {
-            let id = idAll[a];
-            addDatabaseData(id, getState(id).val, UWZ, first);
-        }
+        _helper(idAll, UWZ, first);
     } else {
         warnDatabase.new = warnDatabase.new.filter(function(j){return j.mode != UWZ;});
     }
-    if ( MODE&NINA) {
+    if ( MODE & NINA ) {
         var idAll = $('state[state.id='+ninaPath+'.*.rawJson$]');
-        myLog('nina idAll: '+JSON.stringify(idAll));
-        for (let a = 0;a < idAll.length;a++) {
-            let id = idAll[a];
-            addDatabaseData(id, getState(id).val, NINA, first);
-        }
+        _helper(idAll, NINA, first);
     } else {
         warnDatabase.new = warnDatabase.new.filter(function(j){return j.mode != NINA;});
     }
     if (!first) removeDuplicateHash();
+    return;
+
+    function _helper(arr, mode, first) {
+        myLog(mode+' idAll: '+JSON.stringify(idAll));
+        for (let a = 0;a < arr.length;a++) {
+            let id = arr[a];
+            addDatabaseData(id, getState(id).val, mode, first);
+        }
+    }
 }
 
 // für Objekt zur Database hinzu
@@ -1480,14 +1492,16 @@ function getDatabaseData(warn, mode){
             || warn.level < minlevel
         ) {myLog('Übergebenens Json DWD verworfen');return null;}
         result['mode'] = DWD;
-        result['description'] = warn.description === undefined ? '' : warn.description;
-        result['headline'] = warn.headline === undefined ? '' : warn.headline;
-        result['start'] = warn.start === undefined ? null : warn.start || null;
-        result['end'] = warn.end === undefined ? null : warn.end || null;
-        result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
-        result['type'] = warn.type === undefined ? -1 : warn.type;
-        result['level'] = warn.level === undefined ? -1 : warn.level;
-        result['areaID'] = warn.regionName === undefined ? '' : warn.regionName;
+        result['description']   = warn.description === undefined 	? '' 	: warn.description;
+        result['headline']      = warn.headline === undefined 		? '' 	: warn.headline;
+        result['start']         = warn.start === undefined 			? null 	: warn.start || null;
+        result['end']           = warn.end === undefined 			? null 	: warn.end || null;
+        result['instruction']   = warn.instruction === undefined 	? '' 	: warn.instruction;
+        result['type']          = warn.type === undefined 			? -1 	: warn.type;
+        result['level']         = warn.level === undefined 			? -1 	: warn.level;
+        result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
+		result['web'] 			= '';
+        result['webname'] 		= '';
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
@@ -1497,15 +1511,17 @@ function getDatabaseData(warn, mode){
 
         ) {myLog('Übergebenens Json UWZ verworfen');return null;}
         result['mode'] = UWZ;
-        result['description'] = warn.payload.translationsLongText.DE === undefined ? '' : warn.payload.translationsLongText.DE;
-        result['start'] = warn.dtgStart === undefined ? null : warn.dtgStart * 1000 || null;
-        result['end'] = warn.dtgEnd === undefined ? null : warn.dtgEnd * 1000 || null;
-        result['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
-        result['type'] = warn.type === undefined ? -1 : warn.type;
-        result['level'] = warn.payload.levelName === undefined ? -1 : getUWZLevel(warn.payload.levelName);
-        result['headline'] = warn.type === undefined ? '' : 'Warnung vor '+warningTypesString['UWZ'][result.type];
-        result['areaID'] = warn.areaID === undefined ? '' : warn.areaID;
-        result['color'] = getLevelColor(result.level);
+        result['description'] 	= warn.payload.translationsLongText.DE === undefined 	? '' 	: warn.payload.translationsLongText.DE;
+        result['start'] 		= warn.dtgStart === undefined 							? null 	: warn.dtgStart * 1000 || null;
+        result['end'] 			= warn.dtgEnd === undefined 							? null 	: warn.dtgEnd * 1000 || null;
+        result['instruction'] 	= warn.instruction === undefined 						? '' 	: warn.instruction;
+        result['type'] 			= warn.type === undefined 								? -1 	: warn.type;
+        result['level'] 		= warn.payload.levelName === undefined 					? -1 	: getUWZLevel(warn.payload.levelName);
+        result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString['UWZ'][result.type];
+        result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
+        result['color'] 		= getLevelColor(result.level);
+		result['web'] 			= '';
+        result['webname'] 		= '';
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
@@ -1513,26 +1529,26 @@ function getDatabaseData(warn, mode){
         result['mode'] = NINA;
         //result['identifier'] = warn.identifier === undefined ? '' : warn.identifier;
         //result['sender'] = warn.sender === undefined ? '' : warn.sender;
-        result['web'] = warn.web === undefined || !warn.web? '' : warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
-        result['webname'] = warn.web === undefined || !warn.web? '' : warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
-        result['description'] = warn.description === undefined ? '' : removeHtml(warn.description);
-        result['start'] = warn.onset === undefined ? null : getDateObject(warn.onset).getTime() || null;
-        result['end'] = warn.expires === undefined ? null : getDateObject(warn.expires).getTime() || null;
-        result['instruction'] = warn.instruction === undefined ? '' : removeHtml(warn.instruction);
-        result['typename'] = warn.event === undefined ? '' : removeHtml(warn.event);
-        result['type'] = result.typename.hashCode();
-        //result['urgency'] = warn.urgency === undefined ? '' : warn.urgency;
-        result['severity'] = warn.severity === undefined ? '' : warn.severity;
-        //result['certainty'] = warn.certainty === undefined ? '' : warn.certainty;
-        result['headline'] = warn.headline === undefined ? '' : removeHtml(warn.headline);
-        result['areaID'] = warn.area === undefined || warn.area === undefined? '' : getNinaArea(warn.area);
-        result['level'] = warn.severity === undefined ? -1 : getNinaLevel(warn.severity, result.typename);
-        result['color'] = getLevelColor(result.level);
-        result['html'] = {};
-        result['html']['web'] = warn.web === undefined || !warn.web ? '' : warn.web;
-        result['html']['instruction'] = warn.instruction === undefined ? '' : warn.instruction;
-        result['html']['headline'] = warn.headline === undefined ? '' : warn.headline;
-        result['html']['description'] = warn.description === undefined ? '' : warn.description;
+        result['web'] 					= warn.web === undefined || !warn.web	? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
+        result['webname'] 				= warn.web === undefined || !warn.web	? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
+        result['description'] 			= warn.description === undefined 		? '' 	: removeHtml(warn.description);
+        result['start'] 				= warn.onset === undefined 				? null 	: getDateObject(warn.onset).getTime() || null;
+        result['end'] 					= warn.expires === undefined 			? null	: getDateObject(warn.expires).getTime() || null;
+        result['instruction'] 			= warn.instruction === undefined 		? '' 	: removeHtml(warn.instruction);
+        result['typename'] 				= warn.event === undefined 				? '' 	: removeHtml(warn.event);
+        result['type'] 					= result.typename.hashCode();
+        //result['urgency'] 			= warn.urgency === undefined 			? '' 	: warn.urgency;
+        result['severity'] 				= warn.severity === undefined 			? '' 	: warn.severity;
+        //result['certainty']		 	= warn.certainty === undefined 			? ''	: warn.certainty;
+        result['headline'] 				= warn.headline === undefined 			? ''	: removeHtml(warn.headline);
+        result['areaID'] 				= warn.area === undefined 				? ''	: getNinaArea(warn.area);
+        result['level'] 				= warn.severity === undefined 			? -1	: getNinaLevel(warn.severity, result.typename);
+        result['color'] 				= getLevelColor(result.level);
+        result['html'] 					= {};
+        result['html']['web'] 			= warn.web === undefined || !warn.web 	? '' 	: warn.web;
+        result['html']['instruction'] 	= warn.instruction === undefined 		? '' 	: warn.instruction;
+        result['html']['headline'] 		= warn.headline === undefined 			? '' 	: warn.headline;
+        result['html']['description'] 	= warn.description === undefined 		? '' 	: warn.description;
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
