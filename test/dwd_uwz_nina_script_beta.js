@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.9.1
+//Version 0.95.9.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -45,6 +45,16 @@ Kleinkram:
 - Filter für Nina-sender
 - Namesbezeichner für Nina verfügbar, diese werden benötigt, falls in der Warnung Ort genannt wird, das auszugeben und damit die Bedeutung der Warnung hervorzuheben.
 
+Farben-Bedeutung:
+0 - Grün
+1 - Dunkelgrün
+2 - Gelb Wetterwarnungen (Stufe 2)
+3 - Orange Warnungen vor markantem Wetter (Stufe 3)
+4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
+5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+
+
+
 Dank an:
 - Mic für die createUserStates() Funktionen
 - CruziX der diese eingebaut hat.
@@ -52,16 +62,6 @@ Dank an:
 - die ursprünglichen Authoren s.o.
 
 /* ************************************************************************
-* Änderungen ab Version 95.6
-- Sprachausgabe von Elementen die ingnoriert werden, wird immer unterdrückt.
-- Telegramm(Buttom) & Email (eingefügt) "Hauptlinks" werden eingebettet soweit verfügbar
-- minlevel verändert - kleiner als wird gefiltert
-- warnlevel umbenannt -> attentionWarningLevel  gleich/größer wird besonders behandelt
-- Ninaverwaltung umgeschrieben
-- Event: Hochwasserinformation -2 level.(0-3) Wasserstandsmeldungen sind jetzt lvl 2 (gelb)
-- level geändert das DWD und NINA(DWD) identisch sind. (2-5)
-- Wenns Stats verschwinden, wird die dazugehörige Warnung nach ca. 100 Minuten oder nach dem Auslaufen gelöscht.
-
 /* ************************************************************************ */
 
 /* ************************************************************************ */
@@ -72,7 +72,11 @@ Dank an:
 /*                                                                          */
 /* ************************************************************************ */
 
+
+
 var mainStatePath = 'javascript.0.wetterwarnung_test.';
+
+
 
 /* ************************************************************************ */
 /*            Datenpfad konfigurieren ENDE                                  */
@@ -109,6 +113,7 @@ const aliveState = mainStatePath+'alive';
 if (extendedExists(aliveState)) {
     setState(aliveState, true, true);
 }
+
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -116,6 +121,7 @@ if (extendedExists(aliveState)) {
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
+
 /* Konfiguration der zu nutzenden Ausgabe um //uPushdienst+= PUSHOVER; zu aktivieren, bitte die // enfernen, also uPushdienst+= PUSHOVER; */
 //uPushdienst+= TELEGRAM;          // Auskommentieren zum aktivieren
 //uPushdienst+= PUSHOVER;          // Auskommentieren zum aktivieren
@@ -175,8 +181,8 @@ var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', '
 var telegramChatId      = [''];
 
 /* Konfiguration Pushover */
-var uPushoverDeviceName     = '';
-var uPushoverSound          = '';
+var uPushoverDeviceName     = ''; // ein bestimmtes Gerät z.B: ['droid4'];
+var uPushoverSound          = ''; // Sounds siehe: https://pushover.net/api#sounds
 
 //Konfiguration von ioGo
 var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
@@ -1517,7 +1523,7 @@ function getDatabaseData(warn, mode){
         result['instruction'] 	= warn.instruction === undefined 						? '' 	: warn.instruction;
         result['type'] 			= warn.type === undefined 								? -1 	: warn.type;
         result['level'] 		= warn.payload.levelName === undefined 					? -1 	: getUWZLevel(warn.payload.levelName);
-        result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString['UWZ'][result.type];
+        result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type];
         result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
         result['color'] 		= getLevelColor(result.level);
 		result['web'] 			= '';
