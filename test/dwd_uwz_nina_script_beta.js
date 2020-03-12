@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.8.1
+//Version 0.95.8.2
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -1719,7 +1719,7 @@ function getArtikelMode(mode, speak = false) {
 
 // Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
-    return SPACE+'Insgesamt '+( i && !onClickCheckRun && c > 1?i+'/':'') + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
+    return SPACE+'Insgesamt '+( i && onClickCheckRun && c > 1?i+'/':'') + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
 }
 
 function getStringIgnoreCount(c) {
