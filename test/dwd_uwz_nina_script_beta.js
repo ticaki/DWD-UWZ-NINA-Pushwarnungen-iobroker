@@ -346,12 +346,19 @@ String.prototype.hashCode = function() {
 * Überprüfe Nutzerkonfiguration
 /* ************************************************************************* */
 
-
 testValueTypeLog(uPushdienst&(SPEAK + PUSH + ALLMSG), 'uPushdienst', 'number', true);
 testValueTypeLog(uwzPath, 'uwzPath', 'string', true);
 testValueTypeLog(dwdPath, 'dwdPath', 'string', true);
 testValueTypeLog(ninaPath, 'ninaPath', 'string', true);
+testValueTypeLog(telegramInstanz, 'telegramInstanz', 'string', true);
+testValueTypeLog(pushoverInstanz, 'pushoverInstanz', 'string', true);
+testValueTypeLog(ioGoInstanz, 'ioGoInstanz', 'string', true);
+testValueTypeLog(alexaInstanz, 'alexaInstanz', 'string', true);
+testValueTypeLog(emailInstanz, 'emailInstanz', 'string', true);
+testValueTypeLog(uGemeinde, 'uGemeinde', 'string');
+testValueTypeLog(regionName, 'uLandkreis', 'string');
 testValueTypeLog(regionName, 'regionName', 'array');
+
 if (!Array.isArray(regionName[0])) {
     regionName=[regionName];
 }
@@ -376,54 +383,26 @@ if (!Array.isArray(regionName[0])) {
     }
 }
 {
-    for (let a = 0;a < senderEmailID.length;a++) {
-        if (!senderEmailID[a]) senderEmailID.splice(a--,1);
-        else {
-            testValueTypeLog(senderEmailID[a],'senderEmailID', 'string');
-        }
+    function checkConfigArray(arr,name,type) {
+        for (let a = 0;a < arr.length;a++) {
+            if (!arr[a]) arr.splice(a--,1);
+            else {
+                testValueTypeLog(arr[a],'name', type);
+            }
+        }       
     }
-    for (let a = 0;a < empfaengerEmailID.length;a++) {
-        if (!empfaengerEmailID[a]) empfaengerEmailID.splice(a--,1);
-        else {
-            testValueTypeLog(empfaengerEmailID[a],'empfaengerEmailID', 'string');
-        }
-    }
-    for (let a = 0;a < idAlexaSerial.length;a++) {
-        if (!idAlexaSerial[a]) idAlexaSerial.splice(a--,1);
-        else {
-            testValueTypeLog(idAlexaSerial[a],'idAlexaSerial', 'string');
-        }
-    }
-    for (let a = 0;a < idMediaplayer.length;a++) {
-        if (!idMediaplayer[a]) idMediaplayer.splice(a--,1);
-        else {
-            testValueTypeLog(idMediaplayer[a],'idMediaplayer', 'string');
-        }
-    }
-    for (let a = 0;a < telegramUser.length;a++) {
-        if (!telegramUser[a]) telegramUser.splice(a--,1);
-        else {
-            testValueTypeLog(telegramUser[a],'telegramUser', 'string');
-        }
-    }
-    for (let a = 0;a < idSayIt.length;a++) {
-        if (!idSayIt[a]) idSayIt.splice(a--,1);
-        else {
-            testValueTypeLog(idSayIt[a],'idSayIt', 'string');
-        }
-    }
-    for (let a = 0;a < ioGoUser.length;a++) {
-        if (!ioGoUser[a]) ioGoUser.splice(a--,1);
-        else {
-            testValueTypeLog(ioGoUser[a],'ioGoUser', 'string');
-        }
-    }
-    for (let a = 0;a < telegramChatId.length;a++) {
-        if (!telegramChatId[a]) telegramChatId.splice(a--,1);
-        else {
-            testValueTypeLog(telegramChatId[a],'telegramChatId', 'string');
-        }
-    }
+    
+    checkConfigArray(uAutoNinaFilterList,'uAutoNinaFilterList', 'string');
+    checkConfigArray(senderEmailID,'senderEmailID', 'string');
+    checkConfigArray(empfaengerEmailID,'empfaengerEmailID', 'string');
+    checkConfigArray(idAlexaSerial,'idAlexaSerial', 'string');
+    checkConfigArray(idMediaplayer,'idMediaplayer', 'string');
+    checkConfigArray(telegramUser,'telegramUser', 'string');
+    checkConfigArray(idSayIt,'idSayIt', 'string');
+    checkConfigArray(ioGoUser,'ioGoUser', 'string');
+    checkConfigArray(telegramChatId,'telegramChatId', 'string');
+    checkConfigArray(regionName,'regionName', 'string');
+    
     for (let a = 0;a < sayItVolumen.length;a++) {
         if (sayItVolumen[a] === undefined) sayItVolumen[a]=0;
         else testValueTypeLog(sayItVolumen[a],'sayItVolumen', 'number');
@@ -889,7 +868,7 @@ function checkWarningsMain() {
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend||!startTimeSpeak||!endTimeSpeak);
     setWeekend();
     let DebugMail ='';
-    if (DEBUGSENDEMAIL) {
+    if (DEBUG) {
         for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
         for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
@@ -1111,6 +1090,7 @@ function checkWarningsMain() {
         }
     }
     if (DEBUG) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
+    
     /* Bereich für Sprachausgabe */
     if (speakMsgTemp.length > 0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(collectMode)&SPEAK) != 0 ) {
         let a = 100;
@@ -1181,14 +1161,15 @@ function checkWarningsMain() {
         sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
         sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
-    if (DEBUGSENDEMAIL) {
+    if (DEBUG) {
         let a;
         DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null);
         for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
         for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
-        sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
+        if (DEBUGSENDEMAIL) sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
+        log(DegugMail);
     }
     setAlertState();
     /* Neue Werte sichern */
@@ -1329,7 +1310,7 @@ function onChangeNina(dp){
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
     if ( addDatabaseData(dp.id, dp.state.val, mode, false) ) {
-        myLog('Datenbank wurde geändert - checkWarningsMain()?:'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
+        myLog('Datenbank wurde geändert - checkWarningsMain():'+autoSendWarnings+' id:'+dp.id+' Mode:'+mode);
         if (timer) clearTimeout(timer);
         if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
     }
