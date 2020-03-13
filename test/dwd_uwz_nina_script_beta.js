@@ -780,7 +780,7 @@ function getAutoPushMode(mode) {
         if (mode&NINA) mode = switchFlags(mode, NINA,!!(uPushdienst&ninapushdienst));
         return mode;
     }
-    myLog('getAutoPushFlags() mode unbekannt! mode:'+mode, 'info');
+    myLog('getAutoPushFlags() mode unbekannt!', 'info');
     return 0;
 }
 function getManuellPushMode(mode) {
@@ -1020,7 +1020,6 @@ function checkWarningsMain() {
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
             let todoBitmask = uPushdienst;
-            myLog('json old:'+JSON.stringify(entry));
             collectMode|=mode;
             count++;
             if (!gefahr) gefahr = level > attentionWarningLevel;
@@ -1056,7 +1055,6 @@ function checkWarningsMain() {
                 html = he + getArtikelMode(mode) + area+':' + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
-                sendMessage( b, getTopic(mode), html, entry);
                 sendMessage(b, getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL ;
             }
@@ -1415,7 +1413,7 @@ function addDatabaseData(id, value, mode, old) {
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
-            log('Add UWZ warning to database. headline:'+warn.headline)
+            if (uLogAusgabe) log('Add UWZ warning to database. headline: '+warn.headline)
         }
     } else if (mode == DWD) {
         change = removeDatabaseDataID(id);
@@ -1427,8 +1425,7 @@ function addDatabaseData(id, value, mode, old) {
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
-            myLog('Added to database '+mode);
-            log('Add DWD warning to database. headline:'+warn.headline)
+            if (uLogAusgabe) log('Add DWD warning to database. headline: '+warn.headline)
         }
     } else if (mode == NINA) {
         if (jvalue.info === undefined || !Array.isArray(jvalue.info)) return false;
@@ -1456,10 +1453,10 @@ function addDatabaseData(id, value, mode, old) {
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--,1);
-                        log('Update database Nina warning old id<>new id. headline:'+warn.headline)
+                        if (uLogAusgabe) log('Update database Nina warning old id<>new id. headline: '+warn.headline)
                         break;
                     } else if (tempArr[a].id == warnDatabase.new[b].id && tempArr[a].grouphash != warnDatabase.new[b].grouphash ) {
-                        myLog('warnDatabase.new set id  to null because duplicate id and wrong grouphash:'+warnDatabase.new[b].headline);
+                        myLog('warnDatabase.new set id to null because duplicate id and wrong grouphash: '+warnDatabase.new[b].headline);
                         warnDatabase.new[b].id = null;
                     }
                 }
@@ -1472,7 +1469,7 @@ function addDatabaseData(id, value, mode, old) {
                 warn = tempArr[a];
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                log('Add Nina warning to database. headline:'+warn.headline)
+                if (uLogAusgabe) log('Add Nina warning to database. headline: '+warn.headline)
             }
             change = true;
         }
@@ -1496,7 +1493,7 @@ function isWarnIgnored (warn){
         if ( (uFilterList & warn.mode) != 0 ) return true;
         if ((warn.mode & NINA) != 0) {
             if (uAutoNinaFilterList.indexOf(warn.sender) != -1) {
-                myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - level:'+warn.level);
+                myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - level: '+warn.level);
                 return true;
             }
         }
@@ -1900,15 +1897,15 @@ if ((uPushdienst&TELEGRAM) != 0 ) {
 onStop(function(callback){
     if (extendedExists(aliveState)) {
         if (!getState(aliveState).val) {
-            myLog('wird neugestartet!');
+            log('wird neugestartet!');
             setState(aliveState, false, true, function(){
                 setTimeout(function(){
                     startScript(scriptName);
-                    myLog('Neustart wurde ausgeführt');
+                    log('Neustart wurde ausgeführt');
                 },1000)
             });
         } else {
-            myLog('wurde beendet!');
+            log('wurde beendet!');
             setState(aliveState, false, true);
         }
     }
