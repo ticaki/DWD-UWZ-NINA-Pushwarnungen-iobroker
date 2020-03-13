@@ -1054,7 +1054,6 @@ function checkWarningsMain() {
                 html = he + getArtikelMode(mode) + area+':' + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
-                sendMessage( b, getTopic(mode), html, entry);
                 sendMessage(b, getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL ;
             }
