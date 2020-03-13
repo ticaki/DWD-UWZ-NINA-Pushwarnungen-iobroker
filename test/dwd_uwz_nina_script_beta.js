@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.9.2
+//Version 0.95.9.3
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -297,7 +297,7 @@ let dwdManpushdienst = uPushdienst, ninaManpushdienst = uPushdienst, uwzManpushd
 var firstRun = true;;
 
 // Warning types
-var warningTypesString = {};
+var warningTypesString = [];
 warningTypesString[DWD] = [
     'Gewitter',
     'Sturm',
@@ -875,7 +875,7 @@ function checkWarningsMain() {
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend||!startTimeSpeak||!endTimeSpeak);
     setWeekend();
     let DebugMail ='';
-    if (DEBUG) {
+    if (DEBUGSENDEMAIL) {
         for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
         for (a = 0;a < warnDatabase.old.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old'+a, JSON.stringify(warnDatabase.old[a]));
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
@@ -955,6 +955,7 @@ function checkWarningsMain() {
     let speakMsgTemp    = [];
     collectMode         = 0;
     let debugdata       = '';
+    let allcount        = 1;
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
         let entry       = warnDatabase.old[i];
@@ -963,11 +964,12 @@ function checkWarningsMain() {
         let hash        = entry.hash;
         let area        = entry.areaID;
         let mode        = entry.mode;
-
+        let count       = 0;
         if (isWarnIgnored(entry)) continue;
-        if (DEBUG) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.new, hash)+SPACE+(getPushModeFlag(mode)&PUSH).toString(2)+'<br';
+        if (DEBUGSENDEMAIL) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.new, hash)+SPACE+(getPushModeFlag(mode)&PUSH).toString(2)+'<br';
         if( headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.old.length > ignoreWarningCount)) {
             myLog('json old:'+JSON.stringify(entry));
+            allcount++;
             let prefix = ''
             let end = entry.end?getFormatDate(entry.end):null;
             collectMode|=mode;
@@ -983,7 +985,7 @@ function checkWarningsMain() {
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(getPushModeFlag(mode)&PUSH, (mode == NINA?'Entwarnung':'Wetterentwarnung'), pushMsg);
+            setTimeout(sendMessage,allcount++ * 500, getPushModeFlag(mode)&PUSH, (mode == NINA?'Entwarnung':'Wetterentwarnung'), pushMsg);
             myLog('text old:'+pushMsg);
             // SPEAK
             pushMsg = headline +getArtikelMode(mode, true)+ area + (end?' gültig bis ' + getFormatDateSpeak(end) + ' Uhr':'')+' wurde aufgehoben' + '  .  ';
@@ -991,7 +993,7 @@ function checkWarningsMain() {
             myLog('Sprache old:'+pushMsg);
         }
     }
-    if (DEBUG) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-New Flags', debugdata, null);
+    if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-New Flags', debugdata, null);
     let gefahr = false;
     let count = 0;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
@@ -1005,7 +1007,7 @@ function checkWarningsMain() {
         let area        = entry.areaID;
         let color       = entry.color;
         let mode        = entry.mode;
-        if (DEBUG) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.old, hash)+SPACE+(getPushModeFlag(mode)).toString(2)+SPACE+isWarnIgnored(entry)+'<br';
+        if (DEBUGSENDEMAIL) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.old, hash)+SPACE+(getPushModeFlag(mode)).toString(2)+SPACE+isWarnIgnored(entry)+'<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if(hash && getIndexOfHash(warnDatabase.old, hash) == -1 ) {
             let todoBitmask = uPushdienst;
@@ -1047,6 +1049,7 @@ function checkWarningsMain() {
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
                 sendMessage( b, getTopic(mode), html, entry);
+                setTimeout(sendMessage, 500 * allcount++, b, getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL ;
             }
             // Plain text
@@ -1063,7 +1066,8 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, getTopic(mode), pushMsg, entry);
+                setTimeout(sendMessage, 500 * allcount++,b, getTopic(mode), pushMsg, entry);
+                //sendMessage(b, getTopic(mode), pushMsg, entry);
                 myLog('text new:'+pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1095,7 +1099,7 @@ function checkWarningsMain() {
             }
         }
     }
-    if (DEBUG) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
+    if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
 
     /* Bereich für Sprachausgabe */
     if (speakMsgTemp.length > 0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(collectMode)&SPEAK) != 0 ) {
@@ -1167,7 +1171,7 @@ function checkWarningsMain() {
         sendMessage(getPushModeFlag(collectMode)&PUSH, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung'), pushMsg,);
         sendMessage(getPushModeFlag(collectMode)&ALLMSG, ((collectMode&NINA||!collectMode)?'Entwarnungen':'Wetterentwarnung') + getArtikelMode(collectMode)+ '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
-    if (DEBUG) {
+    if (DEBUGSENDEMAIL) {
         let a;
         DebugMail = buildHtmlEmail(DebugMail, 'uPushdienst', 'Binär:' + uPushdienst.toString(2) + ' Decimal:' + uPushdienst.toString(), null);
         for (a = 0;a < warnDatabase.new.length;a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new'+a, JSON.stringify(warnDatabase.new[a]));
@@ -1175,7 +1179,7 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
         if (DEBUGSENDEMAIL) sendMessage(uPushdienst&EMAIL, 'Debug checkWarningsMain() '+scriptName, DebugMail);
-        log(DebugMail);
+        //log(DebugMail);
     }
     setAlertState();
     /* Neue Werte sichern */
