@@ -259,6 +259,7 @@ var emailInstanz=       'email.0';
 //Logausgabe
 var DEBUG = false;
 var DEBUGSENDEMAIL = false;
+//jump 123456
 
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
@@ -356,9 +357,9 @@ String.prototype.hashCode = function() {
 var deviceList = 		{};
 
 for (let a=0;a<konstanten.length; a++) {
-	deviceList[konstanten[a].name].value = konstanten[a].value;
-	if ( konstanten[a].count !== undefined ) deviceList[konstanten[a].name].count = konstanten[a].count;
-	if ( konstanten[a].delay !== undefined ) deviceList[konstanten[a].delay].count = konstanten[a].delay;
+    deviceList[konstanten[a].value] = {};
+    if ( konstanten[a].count !== undefined ) deviceList[konstanten[a].value].count = konstanten[a].count;
+    if ( konstanten[a].delay !== undefined ) deviceList[konstanten[a].value].delay = konstanten[a].delay;
 }
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration
@@ -1209,12 +1210,12 @@ function sendMessage(pushdienst, topic, msg, entry) {
         //if (entry) msg+=entry[2];
         nMsg.text = msg;
         if (telegramUser.length > 0) {
-                nMsg.user = telegramUser;
-                _sendTo(TELEGRAM, telegramInstanz, nMsg);
+            nMsg.user = telegramUser;
+            _sendTo(TELEGRAM, telegramInstanz, nMsg);
         }
         if (telegramChatId.length > 0){
-                nMsg.ChatId = telegramChatId;
-                _sendTo(TELEGRAM, telegramInstanz, nMsg);
+            nMsg.ChatId = telegramChatId;
+            _sendTo(TELEGRAM, telegramInstanz, nMsg);
         }
         if(!(telegramUser.length > 0||telegramChatId.length > 0)) {
             _sendTo(TELEGRAM, telegramInstanz, nMsg);
@@ -1222,35 +1223,35 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
     if ((pushdienst & PUSHOVER) != 0) {
         let newMsg = {html:1};
-		let usesound = ((deviceList[PUSHOVER].count == undefined || deviceList[PUSHOVER].count == 0) || !(!entry || entry.level < attentionWarningLevel));
+        let usesound = ((deviceList[PUSHOVER].count == undefined || deviceList[PUSHOVER].count == 0) || !(!entry || entry.level < attentionWarningLevel));
         newMsg.message = msg;
         newMsg.title = topic;
-		if (entry) {
+        if (entry) {
             if (entry.web) {newMsg.url = entry.web; newMsg.url_title = entry.webname};
             newMsg.message = msg.replace(entry.headline, '<font color="'+entry.color+'">'+entry.headline+'</font>');
-		    //msg = msg.split(' '); msg[0]='<font color="'+entry.color+'">'+msg[0]+'</font>';msg = msg.join(' ');
-            if (entry.level >= attentionWarningLevel) newMsg.priority=1;        	
+            //msg = msg.split(' '); msg[0]='<font color="'+entry.color+'">'+msg[0]+'</font>';msg = msg.join(' ');
+            if (entry.level >= attentionWarningLevel) newMsg.priority=1;
         }
-		if ( !usesound  ) newMsg.sound = 'none';
-		else if ( uPushoverSound ) newMsg.sound = uPushoverSound;
+        if ( !usesound  ) newMsg.sound = 'none';
+        else if ( uPushoverSound ) newMsg.sound = uPushoverSound;
         if ( uPushoverDeviceName ) newMsg.device = uPushoverDeviceName;
         _sendTo(PUSHOVER, pushoverInstanz, newMsg);
     }
     if ((pushdienst & IOGO) != 0) {
         if (ioGoUser.length > 0) {
-			let users = ioGoUser[0];
+            let users = ioGoUser[0];
             for (let a = 1;a < ioGoUser.length;a++) {
-				users+=','+ioGoUser[a];
-			}
+                users+=','+ioGoUser[a];
+            }
             myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a + 1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
-            _sendTo(IOGO, ioGoInstanz, "send", {
+            _sendTo(IOGO, ioGoInstanz, {
                 user:                   users,
                 text:                   msg,
                 title:                  topic
             });
 
         } else {
-            _sendTo(IOGO, ioGoInstanz, "send", {
+            _sendTo(IOGO, ioGoInstanz, {
                 text:                   topic,
                 title:                  msg
             });
@@ -1291,16 +1292,16 @@ function sendMessage(pushdienst, topic, msg, entry) {
             _sendTo(EMAIL, emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msg}:{subject: topic, html: msg});
         }
     }
-	function _sendTo (dienst,a,b) {
-		if (deviceList[dienst].count == undefined) {
-			sendTo(a,b);
-		} else {
-			setTimeout(function (dienst, a ,b) {
-				sendTo(a,b);
-				deviceList[dienst].count--
-			})(deviceList[dienst].count++*deviceList[dienst].delay+20), dienst, a, b);
-		}
-	}
+    function _sendTo (dienst,a,b) {
+        if (deviceList[dienst].count == undefined) {
+            sendTo(a,b);
+        } else {
+            setTimeout(function (dienst, a ,b) {
+                sendTo(a,b);
+                deviceList[dienst].count--;
+            },(deviceList[dienst].count++*deviceList[dienst].delay+20), dienst, a, b);
+        }
+    }
 }
 /* *************************************************************************
 * Senden der Nachricht über die verschiedenen Möglichkeiten
@@ -1528,7 +1529,7 @@ function getDatabaseData(warn, mode){
         result['type']          = warn.type === undefined 			? -1 	: warn.type;
         result['level']         = warn.level === undefined 			? -1 	: warn.level;
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
-		result['web'] 			= '';
+        result['web'] 			= '';
         result['webname'] 		= '';
     } else if (mode === UWZ) {
         if (
@@ -1548,7 +1549,7 @@ function getDatabaseData(warn, mode){
         result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type];
         result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
         result['color'] 		= getLevelColor(result.level);
-		result['web'] 			= '';
+        result['web'] 			= '';
         result['webname'] 		= '';
     } else if (mode === NINA) {
         // level 2, 3, 4
@@ -1687,8 +1688,8 @@ schedule('18 */10 * * * *', function(){
                 c = true;
             }
         } else {
-			w.pending = 0;
-		}
+            w.pending = 0;
+        }
         if (w.end && new Date(w.end) < new Date()) {
             myLog('check DB obj with ID: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' expire - remove entry.')
             warnDatabase.new.splice(a--,1);
@@ -1880,9 +1881,9 @@ if ((uPushdienst&TELEGRAM) != 0 ) {
                 },200);
             });
         } else if (msg.includes('Wwdon')) {
-			DEBUG = true;
+            DEBUG = true;
         } else if (msg.includes('Wwdoff')) {
-			DEBUG = false;
+            DEBUG = false;
         }
     });
 }
