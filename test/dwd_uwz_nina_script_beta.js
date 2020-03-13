@@ -1595,7 +1595,7 @@ function getDatabaseData(warn, mode){
         for (let a = 0; a < value.length; a++) {
             if (value[a].areaDesc !== undefined) {
                 let area = value[a].areaDesc;
-                if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
+                if ( area.includes(uGemeinde) && area.length - uGemeinde.length < len) {
                     region = area;
                     len = area.length - uGemeinde.length;
                     lvl = 1;
@@ -1609,7 +1609,7 @@ function getDatabaseData(warn, mode){
                 for (let b = 0; b < newval.length; b++) {
                     if (newval[b].valueName === undefined) continue;
                     let area = newval[b].valueName;
-                    if ( area.includes(SPACE+uGemeinde) && area.length - uGemeinde.length < len) {
+                    if ( area.includes(uGemeinde) && area.length - uGemeinde.length < len) {
                         region = area;
                         len = area.length - uGemeinde.length;
                         lvl = 1;
@@ -1672,19 +1672,21 @@ function removeHtml(a) {
 
 // Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
-// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 5 * 6 = 100 Minuten entwarnen erst dann.
+// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 10 * 9 = 90 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
 schedule('18 */10 * * * *', function(){
     let c = false;
     for (let a = 0; a < warnDatabase.new.length;a++) {
         let w = warnDatabase.new[a];
         if (!extendedExists(w.id) ) {
-            if ( warnDatabase.new[a].pending++ > 8 ) {
+            if ( warnDatabase.new[a].pending++ >= 8 ) { //  9 Durchläufe
                 myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' pendings - remove entry.')
                 warnDatabase.new.splice(a--,1);
                 c = true;
             }
-        } w.pending = 0;
+        } else {
+			w.pending = 0;
+		}
         if (w.end && new Date(w.end) < new Date()) {
             myLog('check DB obj with ID: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' expire - remove entry.')
             warnDatabase.new.splice(a--,1);
@@ -1761,7 +1763,7 @@ function getArtikelMode(mode, speak = false) {
 
 // Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
-    return SPACE+'Insgesamt '+( i && onClickCheckRun && c > 1?i+'/':'') + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
+    return SPACE+'Insgesamt '+( i && onClickCheckRun && (c > 1 ? i + '/' : '')) + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
 }
 
 function getStringIgnoreCount(c) {
@@ -1769,7 +1771,6 @@ function getStringIgnoreCount(c) {
     let r = SPACE;
     if (c == 1) r += 'Es wird eine Warnung ignoriert.';
     else r += 'Es werden '+c.toString()+' Warnungen ignoriert.';
-
     return r;
 }
 
@@ -1868,16 +1869,18 @@ if ((uPushdienst&TELEGRAM) != 0 ) {
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
         if (msg.includes('Ww?') || msg.includes('Wetterwarnungen?')) {
             setState(mainStatePath+'commands.'+konstanten[0].name, true);
-        } else if (msg.includes('Wwdd')) {
-            let olddebug = DEBUG;
-            DEBUG = true;
+        } else if (DEBUG && msg.includes('Wwdmail')) {
+            let olddebug = DEBUGSENDEMAIL;
             DEBUGSENDEMAIL=true;
             setState(mainStatePath+'commands.'+konstanten[2].name, true, function() {
                 setTimeout(function(){
-                    DEBUG = olddebug;
-                    DEBUGSENDEMAIL=false;
+                    DEBUGSENDEMAIL=olddebug;
                 },200);
             });
+        } else if (msg.includes('Wwdon')) {
+			DEBUG = true;
+        } else if (msg.includes('Wwdoff')) {
+			DEBUG = false;
         }
     });
 }
