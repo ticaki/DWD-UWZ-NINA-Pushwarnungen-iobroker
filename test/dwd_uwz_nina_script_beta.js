@@ -1643,7 +1643,7 @@ function getDatabaseData(warn, mode){
         var color = [
             '#00ff00', // 0 - Grün
             '#009b00', // 1 - Dunkelgrün
-            '#ffff00', // 2 - Gelb Wetterwarnungen (Stufe 2)
+            '#d7d700', // 2 - Gelb Wetterwarnungen (Stufe 2) //vorher:#ffff00
             '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
             '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
             '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
