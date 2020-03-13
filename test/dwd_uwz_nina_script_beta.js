@@ -87,7 +87,7 @@ var mainStatePath = 'javascript.0.wetterwarnung_test.';
 /* ************************************************************************ */
 var konstanten = [
     {"name":'telegram',"value":1},
-    {"name":'pushover',"value":2},
+    {"name":'pushover',"value":2, count:0, delay:400},
     {"name":'email',"value":4},
     {"name":'sayit',"value":8},
     {"name":'home24',"value":16},
@@ -245,6 +245,7 @@ var pushoverInstanz=    'pushover.0';
 var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
 var emailInstanz=       'email.0';
+
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -352,6 +353,13 @@ String.prototype.hashCode = function() {
     return hash;
 };
 
+var deviceList = 		{};
+
+for (let a=0;a<konstanten.length; a++) {
+	deviceList[konstanten[a].name].value = konstanten[a].value;
+	if ( konstanten[a].count !== undefined ) deviceList[konstanten[a].name].count = konstanten[a].count;
+	if ( konstanten[a].delay !== undefined ) deviceList[konstanten[a].delay].count = konstanten[a].delay;
+}
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration
 /* ************************************************************************* */
@@ -955,7 +963,6 @@ function checkWarningsMain() {
     let speakMsgTemp    = [];
     collectMode         = 0;
     let debugdata       = '';
-    let allcount        = 1;
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     for(let i = 0; i < warnDatabase.old.length; i++) {
         let entry       = warnDatabase.old[i];
@@ -984,7 +991,7 @@ function checkWarningsMain() {
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            setTimeout(sendMessage,allcount++ * 500, getPushModeFlag(mode)&PUSH, (mode == NINA?'Entwarnung':'Wetterentwarnung'), pushMsg);
+            sendMessage(getPushModeFlag(mode)&PUSH, (mode == NINA?'Entwarnung':'Wetterentwarnung'), pushMsg);
             myLog('text old:'+pushMsg);
             // SPEAK
             pushMsg = headline +getArtikelMode(mode, true)+ area + (end?' gültig bis ' + getFormatDateSpeak(end) + ' Uhr':'')+' wurde aufgehoben' + '  .  ';
@@ -1048,7 +1055,7 @@ function checkWarningsMain() {
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode)&CANHTML&~EMAIL;
                 sendMessage( b, getTopic(mode), html, entry);
-                setTimeout(sendMessage, 500 * allcount++, b, getTopic(mode), html, entry);
+                sendMessage(b, getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL ;
             }
             // Plain text
@@ -1065,7 +1072,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                setTimeout(sendMessage, 500 * allcount++, b, getTopic(mode), pushMsg, entry);
+                sendMessage( b, getTopic(mode), pushMsg, entry);
                 //sendMessage(b, getTopic(mode), pushMsg, entry);
                 myLog('text new:'+pushMsg);
                 todoBitmask &= ~b;
@@ -1203,14 +1210,14 @@ function sendMessage(pushdienst, topic, msg, entry) {
         nMsg.text = msg;
         if (telegramUser.length > 0) {
                 nMsg.user = telegramUser;
-                sendTo (telegramInstanz, nMsg);
+                _sendTo(TELEGRAM, telegramInstanz, nMsg);
         }
         if (telegramChatId.length > 0){
                 nMsg.ChatId = telegramChatId;
-                sendTo (telegramInstanz, nMsg);
+                _sendTo(TELEGRAM, telegramInstanz, nMsg);
         }
         if(!(telegramUser.length > 0||telegramChatId.length > 0)) {
-            sendTo (telegramInstanz, nMsg);
+            _sendTo(TELEGRAM, telegramInstanz, nMsg);
         }
     }
     if ((pushdienst & PUSHOVER) != 0) {
@@ -1225,7 +1232,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         }
         if ( uPushoverDeviceName ) newMsg.device = uPushoverDeviceName;
         if ( uPushoverSound ) newMsg.sound = uPushoverSound;
-        sendTo(pushoverInstanz, newMsg);
+        _sendTo(PUSHOVER, pushoverInstanz, newMsg);
     }
     if ((pushdienst & IOGO) != 0) {
         if (ioGoUser.length > 0) {
@@ -1234,14 +1241,14 @@ function sendMessage(pushdienst, topic, msg, entry) {
 				users+=','+ioGoUser[a];
 			}
             myLog('ioGoInstanz:'+ ioGoInstanz +' ioGoUser'+a + 1+':'+ioGoUser[a]+' length:'+ioGoUser[a].length);
-            sendTo(ioGoInstanz, "send", {
+            _sendTo(IOGO, ioGoInstanz, "send", {
                 user:                   users,
                 text:                   msg,
                 title:                  topic
             });
 
         } else {
-            sendTo(ioGoInstanz, "send", {
+            _sendTo(IOGO, ioGoInstanz, "send", {
                 text:                   topic,
                 title:                  msg
             });
@@ -1264,7 +1271,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
     if ((pushdienst & ALEXA) != 0) {
         for(let a = 0;a < idAlexaSerial.length;a++) {
-            // Wenn auf Gruppe keine Lautstärken regelung möglich
+            // Wenn auf Gruppe, keine Lautstärkenregelung möglich
             if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), msg);
         }
@@ -1272,16 +1279,26 @@ function sendMessage(pushdienst, topic, msg, entry) {
     if ((pushdienst & EMAIL) != 0) {
         if (empfaengerEmailID.length > 0) {
             for (let a = 0;a < empfaengerEmailID.length;a++) {
-                sendTo(emailInstanz, senderEmailID[0]? {
+                _sendTo(EMAIL, emailInstanz, senderEmailID[0]? {
                     from: senderEmailID[0], to: empfaengerEmailID[a], subject: topic, html: msg
                 }:{
                     to: empfaengerEmailID[a], subject: topic, html: msg
                 });
             }
         } else {
-            sendTo(emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msg}:{subject: topic, html: msg});
+            _sendTo(EMAIL, emailInstanz, senderEmailID[0]?{from: senderEmailID[0], subject: topic, text: msg}:{subject: topic, html: msg});
         }
     }
+	function _sendTo (dienst,a,b) {
+		if (deviceList[dienst].count == undefined) {
+			sendTo(a,b);
+		} else {
+			setTimeout(function (dienst, a ,b) {
+				sendTo(a,b);
+				deviceList[dienst].count--
+			})(deviceList[dienst].count++*deviceList[dienst].delay+20), dienst, a, b);
+		}
+	}
 }
 /* *************************************************************************
 * Senden der Nachricht über die verschiedenen Möglichkeiten
