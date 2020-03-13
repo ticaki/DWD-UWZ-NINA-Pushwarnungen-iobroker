@@ -246,6 +246,8 @@ var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
 var emailInstanz=       'email.0';
 
+var uLogAusgabe=        true; // auf false gibt es überhaupt keine
+
 /* ************************************************************************* */
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -385,7 +387,7 @@ if (!Array.isArray(regionName[0])) {
         b++;
         if (Array.isArray(regionName) && regionName[a].length != 0) {
             if (regionName[a].length != 2 ) {
-                log('Konfiguration enthält Fehler. var regionName - Eintrag: '+(b)+' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
+                if (uLogAusgabe) log('Konfiguration enthält Fehler. var regionName - Eintrag: '+(b)+' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
                 stopScript(scriptName);
             } else {
                 if (!regionName[a][0] && !regionName[a][1] ) regionName.splice(a--,1)
@@ -430,12 +432,12 @@ if (!Array.isArray(regionName[0])) {
     if ((uPushdienst&ALEXA) != 0) {
         testValueTypeLog(idAlexaSerial, 'idAlexaSerial', 'array');
         if (idAlexaSerial.length == 0) {
-            log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
+            if (uLogAusgabe) log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
             stopScript(scriptName);
         }
         for (let a = 0;a < idAlexaSerial.length;a++) {
             if (!extendedExists(replacePlaceholder(idAlexa, idAlexaSerial[a]))) {
-                log('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
+               if (uLogAusgabe) ('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
                 stopScript(scriptName);
             }
         }
@@ -448,7 +450,7 @@ if ((uPushdienst&SAYIT) != 0) {
         if (
             !extendedExists(idSayIt[a])
         ) {
-            log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
+           if (uLogAusgabe) ('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
             stopScript(scriptName);
         }
     }
@@ -1682,7 +1684,7 @@ schedule('18 */10 * * * *', function(){
         let w = warnDatabase.new[a];
         if (!extendedExists(w.id) ) {
             if ( warnDatabase.new[a].pending++ >= 8 ) { //  9 Durchläufe
-                myLog('check DB obj.id dont exists: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' pendings - remove entry.')
+                if (uLogAusgabe) log('Remove old warning with id: '+warnDatabase.new[a].id+' and headline: '+warnDatabase.new[a].headline);
                 warnDatabase.new.splice(a--,1);
                 c = true;
             }
@@ -1690,7 +1692,7 @@ schedule('18 */10 * * * *', function(){
             w.pending = 0;
         }
         if (w.end && new Date(w.end) < new Date()) {
-            myLog('check DB obj with ID: '+warnDatabase.new[a].id+' headline:'+warnDatabase.new[a].headline+' expire - remove entry.')
+            if (uLogAusgabe) log('Remove expired warning with id: '+warnDatabase.new[a].id+', headline: '+warnDatabase.new[a].headline+' expire:'+ new Date(w.end));
             warnDatabase.new.splice(a--,1);
             c = true;
         }
