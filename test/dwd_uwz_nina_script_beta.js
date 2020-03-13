@@ -1048,7 +1048,6 @@ function checkWarningsMain() {
                     if ( instruction && instruction.length > 2 ) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
-                log(html);
                 html = html[0].toUpperCase() + html.substring(1);
 
                 emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, he + getArtikelMode(mode) + area+':', html , color, false);
