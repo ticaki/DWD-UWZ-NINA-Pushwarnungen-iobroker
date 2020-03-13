@@ -969,7 +969,6 @@ function checkWarningsMain() {
         if (DEBUGSENDEMAIL) debugdata+=i+SPACE+mode+SPACE+hash+SPACE+getIndexOfHash(warnDatabase.new, hash)+SPACE+(getPushModeFlag(mode)&PUSH).toString(2)+'<br';
         if( headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.old.length > ignoreWarningCount)) {
             myLog('json old:'+JSON.stringify(entry));
-            allcount++;
             let prefix = ''
             let end = entry.end?getFormatDate(entry.end):null;
             collectMode|=mode;
@@ -1066,7 +1065,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                setTimeout(sendMessage, 500 * allcount++,b, getTopic(mode), pushMsg, entry);
+                setTimeout(sendMessage, 500 * allcount++, b, getTopic(mode), pushMsg, entry);
                 //sendMessage(b, getTopic(mode), pushMsg, entry);
                 myLog('text new:'+pushMsg);
                 todoBitmask &= ~b;
