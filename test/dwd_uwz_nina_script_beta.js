@@ -512,16 +512,18 @@ function changeMode(modeFromState) {
         InitDatabase(firstRun);
         dataSubscribe();
         setAlertState();
-        for (var a = 0;a < konstanten.length;a++) {
-            for (let x = 0;x < MODES.length;x++) {
-                let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
-                let update = !!((switchFlags(MODE, oldMode, false)&MODES[x].mode));
-                if (extendedExists(oid)) {
-                    setState(oid, update || !!(getAutoPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
-                }
-                oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
-                if (extendedExists(oid)) {
-                    setState(oid, update || !!(getManuellPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+        if (!firstRun) { // überspringe das beim Starten des Scripts
+            for (var a = 0;a < konstanten.length;a++) {
+                for (let x = 0;x < MODES.length;x++) {
+                    let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                    let update = !!((switchFlags(MODE, oldMode, false)&MODES[x].mode));
+                    if (extendedExists(oid)) {
+                        setState(oid, update || !!(getAutoPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                    }
+                    oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                    if (extendedExists(oid)) {
+                        setState(oid, update || !!(getManuellPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                    }
                 }
             }
         }
