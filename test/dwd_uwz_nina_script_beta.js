@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.9.5
+//Version 0.95.9.7
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -89,9 +89,9 @@ var konstanten = [
     {"name":'telegram',"value":1},
     {"name":'pushover',"value":2, count:0, delay:400},
     {"name":'email',"value":4},
-    {"name":'sayit',"value":8},
-    {"name":'home24',"value":16},
-    {"name":'alexa',"value":32},
+    {"name":'sayit',"value":8, count:0, delay:0},
+    {"name":'home24',"value":16, count:0, delay:0},
+    {"name":'alexa',"value":32, count:0, delay:0},
     {"name":'state',"value":64},
     {"name":'iogo',"value":128}
 ];
@@ -214,6 +214,9 @@ var startTimeSpeak =        '6:45';// Zeiten mo - fr ab der Sprachausgaben ok si
 var startTimeSpeakWeekend = '9:00';// sa + so Bemerkung siehe oben
 var endTimeSpeak =          '22:30'; // ab diesem Zeitpunkt gibt es keine Sprachausgabe
 
+// Ein manuellen Auslösen von Sprachnachrichten, löscht alle noch nicht ausgegebenen Sprachnachrichten aus der Liste.
+var uManuellClickClearSpeakMessageList = true;
+
 // Automatikmodus schalten geht über mainStatePath.config.auto.on
 //var autoSendWarnings = true;
 //Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
@@ -225,9 +228,9 @@ var windForceDetailsSpeak   = false;
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
 // Die Geschwindigkeit gibt an wie lange das Skript wartet bevor es eine neue Nachricht an die Sprachausgabe sendet.
-var uSpeakSpeakPerCharAlexa   = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
-var uSpeakSpeakPerCharHomeTwo = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
-var uSpeakSpeakPerCharSayIt   = 85; // Vorlese Geschwindigkeit pro Zeichen in ms
+konstanten[3].delay /*SayIt*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
+konstanten[4].delay /*Home24*/      = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
+konstanten[5].delay /*Alexa*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 
 // Automodus Filter um Warnungen unterhalb attentionWarningLevel von DWD, UWZ oder NINA zu unterdrücken
 // Sprachausgabe bei auto und manuell unterdrückt.
@@ -299,6 +302,8 @@ var timeoutFromCreateState = null;
 var dwdpushdienst = uPushdienst, ninapushdienst = uPushdienst, uwzpushdienst = uPushdienst;
 let dwdManpushdienst = uPushdienst, ninaManpushdienst = uPushdienst, uwzManpushdienst = uPushdienst;
 var firstRun = true;;
+var _speakToArray       = [{speakEndtime:new Date()}]; // muß immer 1 Element enthalten
+var _speakToInterval    = null
 
 // Warning types
 var warningTypesString = [];
@@ -437,7 +442,7 @@ if (!Array.isArray(regionName[0])) {
         }
         for (let a = 0;a < idAlexaSerial.length;a++) {
             if (!extendedExists(replacePlaceholder(idAlexa, idAlexaSerial[a]))) {
-               if (uLogAusgabe) ('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
+                if (uLogAusgabe) ('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
                 stopScript(scriptName);
             }
         }
@@ -450,7 +455,7 @@ if ((uPushdienst&SAYIT) != 0) {
         if (
             !extendedExists(idSayIt[a])
         ) {
-           if (uLogAusgabe) ('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
+            if (uLogAusgabe) log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
             stopScript(scriptName);
         }
     }
@@ -688,6 +693,8 @@ subscribe({id: new RegExp(getRegEx(mainStatePath+'commands', '^')+'.*')},functio
     warnDatabase.old = [];
     let oPd = uPushdienst;
     uPushdienst &=konstanten[d].value; forceSpeak = forcedSpeak; onClickCheckRun = true;
+    if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray  = [{speakEndtime:new Date()}];
+
     checkWarningsMain();
     onClickCheckRun = false; forceSpeak = false; uPushdienst = oPd;
 });
@@ -1087,9 +1094,10 @@ function checkWarningsMain() {
                     description+=SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                 }
                 let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE + replaceTokenForSpeak(description);
-                if (!isWarnIgnored(entry)) {
-                    speakMsgTemp.push([speakMsg, mode]);
+                if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode)&SPEAK) != 0 ) {
+                    sendMessage(getPushModeFlag(mode)&SPEAK, '', speakMsg, entry);
                 }
+
                 myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
             }
 
@@ -1107,50 +1115,7 @@ function checkWarningsMain() {
     }
     if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
 
-    /* Bereich für Sprachausgabe */
-    if (speakMsgTemp.length > 0 && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(collectMode)&SPEAK) != 0 ) {
-        let a = 100;
-        let b = a;
-        let c = a;
-        while (speakMsgTemp.length > 0)
-        {
-            let msgAppend = '';
-            if (speakMsgTemp.length > 1) {
-                if (speakMsgTemp.length - 1 == 1) {
-                    msgAppend = ' Eine weitere neue Warnung.';
-                } else {
-                    msgAppend = ' Es gibt ' + (speakMsgTemp.length - 1) +' weitere neue Warnungen.';
-                }
-            } else {
-                if (warnDatabase.new.length == 0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
-                else {
-                    if (warnDatabase.new.length == 1) msgAppend = ' Insgesamt eine aktive Warnung.';
-                    else msgAppend = ' Insgesamt '+warnDatabase.new.length+ ' aktive Warnungen.';
-                }
-            }
-            if((getPushModeFlag(speakMsgTemp[0][1]) & HOMETWO) != 0 ){
-                setTimeout(function(msg, msg2){
-                    sendMessage(HOMETWO, '', msg + msg2);
-                },a, speakMsgTemp[0][0], msgAppend);
-            }
-            /* Bereich für Sprachausgabe über SayIt + Alexa */
-            if ((getPushModeFlag(speakMsgTemp[0][1]) & SAYIT) != 0) {
-                setTimeout(function(msg, msg2){
-                    sendMessage(SAYIT, '',msg + msg2);
-                },b, speakMsgTemp[0][0], msgAppend);
-            }
-            if ((getPushModeFlag(speakMsgTemp[0][1]) & ALEXA) != 0) {
-                setTimeout(function(msg, msg2){
-                    sendMessage(ALEXA, '', msg + msg2);
-                },c, speakMsgTemp[0][0], msgAppend);
-            }
-            a += uSpeakSpeakPerCharHomeTwo  * speakMsgTemp[0][0].length + 2000;
-            b += uSpeakSpeakPerCharSayIt    * speakMsgTemp[0][0].length + 2000;
-            c += uSpeakSpeakPerCharAlexa    * speakMsgTemp[0][0].length + 2000;
-            myLog('Länge der auszugebenen Sprachnachricht: ' + (speakMsgTemp[0][0].length + msgAppend.length) + ' Nachricht:'+speakMsgTemp[0][0] + msgAppend);
-            speakMsgTemp.shift();
-        }
-    }
+
     if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && (emailHtmlWarn + emailHtmlClear)) {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,   (emailHtmlClear?'Aufgehobene Warnungen':null),  emailHtmlClear, 'silver',   false);
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn,   null,  getStringWarnCount(null,warnDatabase.new.length),   null,       true);
@@ -1259,24 +1224,8 @@ function sendMessage(pushdienst, topic, msg, entry) {
     if ((pushdienst & STATE) != 0 ) {
         setState(mirrorMessageState, msg, true);
     }
-    if((pushdienst & HOMETWO) != 0 ){
-        for(let a = 0;a < idMediaplayer.length;a++) {
-            var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + msg;
-            myLog('Url2 :' + Url2);
-            request(Url2);
-        }
-    }
-    if ((pushdienst & SAYIT) != 0) {
-        for(let a = 0;a < idSayIt.length;a++) {
-            setState(idSayIt[a], sayItVolumen[a] + ";" + msg);
-        }
-    }
-    if ((pushdienst & ALEXA) != 0) {
-        for(let a = 0;a < idAlexaSerial.length;a++) {
-            // Wenn auf Gruppe, keine Lautstärkenregelung möglich
-            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
-            setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), msg);
-        }
+    if ((pushdienst & SPEAK) != 0) {
+        _speakTo(pushdienst&SPEAK, msg);
     }
     if ((pushdienst & EMAIL) != 0) {
         if (empfaengerEmailID.length > 0) {
@@ -1299,6 +1248,101 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 sendTo(a,b);
                 deviceList[dienst].count--;
             },(deviceList[dienst].count++*deviceList[dienst].delay+20), dienst, a, b);
+        }
+    }
+    // nur einmal pro Mitteilung aufrufen
+    // Element 0 im Array muß immer vorhanden sein.
+    function _speakTo(dienst, msg) {
+        if (_speakToInterval ) clearInterval(_speakToInterval);
+        _speakToArray = _addItem(_speakToArray,msg,dienst);
+        _speakToArray = _speakToArray.sort(function(a,b){ return a.startTimeSpeak - b.startTimeSpeak;});
+
+        _speakToInterval = setInterval(function(){
+            if (_speakToArray.length > 1) {
+                let entry = _speakToArray[1];
+                if ( entry.startTimeSpeak <= new Date() ) {
+                    let nTime = new Date (new Date().getTime() + (deviceList[entry.dienst].delay  * (entry.msg + _getMsgCountString(_speakToArray, entry.dienst)).length ));
+                    let value = nTime.getTime() - new Date(entry.endTimeSpeak).getTime();
+                    for (let a=1; a<_speakToArray.length; a++) {
+                        if (entry.dienst == _speakToArray[a].dienst) {
+                            _speakToArray[a].endTimeSpeak = new Date(_speakToArray[a].endTimeSpeak.getTime() + value);
+                            if (a != 1 || value < 0)_speakToArray[a].startTimeSpeak = new Date(_speakToArray[a].startTimeSpeak.getTime() + value);
+                        }
+                    }
+
+                    if(entry.dienst == HOMETWO){
+                        for(let a = 0;a < idMediaplayer.length;a++) {
+                            var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst );
+                            myLog('Url2 :' + Url2);
+                            request(Url2);
+                        }
+                    }
+                    else if (entry.dienst == SAYIT) {
+                        for(let a = 0;a < idSayIt.length;a++) {
+                            setState(idSayIt[a], sayItVolumen[a] + ";" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
+                        }
+                    }
+                    else if (entry.dienst == ALEXA) {
+                        for(let a = 0;a < idAlexaSerial.length;a++) {
+                            // Wenn auf Gruppe, keine Lautstärkenregelung möglich
+                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+                            setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst ));
+                        }
+                    }
+                    myLog('Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
+                    _speakToArray.shift();
+                    _speakToArray = _speakToArray.sort(function(a,b){ return a.startTimeSpeak - b.startTimeSpeak;});
+
+                }
+            } else clearInterval(_speakToInterval);
+        },1000);
+        return;
+        // Hilfunktionen
+        // gibt den letzten Satz zur Sprachausgabe zurück.
+        function _getMsgCountString(arr, dienst){
+            let msgAppend = '';
+            let len = arr.filter(function(a,b){return !!(a.dienst&dienst);}).length-1;
+            if (len > 1) {
+                if (len - 1 == 1) {
+                    msgAppend = ' Eine weitere neue Warnung.';
+                } else {
+                    msgAppend = ' Es gibt ' + (len) +' weitere neue Warnungen.';
+                }
+            } else {
+                if (warnDatabase.new.length == 0) {if ( !onClickCheckRun )msgAppend = ' keine weitere Warnung.';}
+                else {
+                    if (warnDatabase.new.length == 1) msgAppend = ' Insgesamt eine aktive Warnung.';
+                    else msgAppend = ' Insgesamt '+warnDatabase.new.length+ ' aktive Warnungen.';
+                }
+            }
+            return msgAppend;
+        }
+        // fügt eine Sprachausgabe dem Array hinzu
+        function _addItem(arr, a,dienst) {
+            if((dienst & HOMETWO) != 0 ){
+                let m = deviceList[HOMETWO].delay  * a.length + 2000;
+                __addItem(arr, a,HOMETWO,m)
+            }
+            if ((dienst & SAYIT) != 0 ) {
+                let m = deviceList[SAYIT].delay  * a.length + 2000;
+                __addItem(arr, a,SAYIT,m)
+            }
+            if ((dienst & ALEXA) != 0 ) {
+                let m = deviceList[ALEXA].delay  * a.length + 2000;
+                __addItem(arr, a,ALEXA,m)
+            }
+            return arr;
+            // Hilfsunktion
+            function __addItem(arr, a, dienst, m) {
+                let t = null;
+                for (let a=arr.length-1; a>=0; a--) {
+                    if (dienst == arr[a].dienst) { t = arr[a].endTimeSpeak;break;}
+                }
+                t = t || new Date();
+                let nt = new Date(t);
+                nt.setMilliseconds(t.getMilliseconds()+m);
+                arr.push({msg:a,dienst:dienst,endTimeSpeak:nt, startTimeSpeak:t});
+            }
         }
     }
 }
@@ -1387,7 +1431,6 @@ function InitDatabase(first){
     return;
 
     function _helper(arr, mode, first) {
-        myLog(mode+' idAll: '+JSON.stringify(idAll));
         for (let a = 0;a < arr.length;a++) {
             let id = arr[a];
             addDatabaseData(id, getState(id).val, mode, first);
@@ -1402,7 +1445,6 @@ function addDatabaseData(id, value, mode, old) {
     let jvalue = null;
     myLog('addDatabaseData() ID + JSON:'+ id + SPACE + JSON.stringify(value));
     if (value && value != {} && value !== undefined && value != '{}') jvalue = JSON.parse(value);
-    myLog('addDatabaseData() Json ok process...');
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
