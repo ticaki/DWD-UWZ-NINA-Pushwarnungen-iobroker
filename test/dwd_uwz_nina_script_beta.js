@@ -165,7 +165,8 @@ if (extendedExists(aliveState)) {
 /* var regionName = ['UWZDE12345', 'Entenhausen'] */
 var regionName          = [['','']];
 
-// für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren:
+// für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren: https://warnung.bund.de/assets/json/suche_channel.json
+// ohne die kryptischen Zeichen.
 var uGemeinde = '';
 var uLandkreis = '';
 
