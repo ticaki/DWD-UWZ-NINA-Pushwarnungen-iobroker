@@ -1143,9 +1143,9 @@ function checkWarningsMain() {
         }
         myLog('all all:' + pushMsg + ' PUSH' + (getPushModeFlag(collectMode) & PUSH).toString(2) + ' ALLMSG:' + (getPushModeFlag(collectMode) & ALLMSG).toString(2));
 
-        let topic = ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung')
-        sendMessage(getPushModeFlag(collectMode) & PUSH, , pushMsg, );
-        sendMessage(getPushModeFlag(collectMode) & ALLMSG, ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung') + getArtikelMode(collectMode) + '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
+        let topic = ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung');
+        sendMessage(getPushModeFlag(collectMode) & PUSH, topic, pushMsg, );
+        sendMessage(getPushModeFlag(collectMode) & ALLMSG, topic + getArtikelMode(collectMode) + '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
     }
     if (DEBUGSENDEMAIL) {
         let a;
