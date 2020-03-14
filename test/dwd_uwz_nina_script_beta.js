@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.95.9.4
+//Version 0.95.9.5
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -514,16 +514,18 @@ function changeMode(modeFromState) {
         InitDatabase(firstRun);
         dataSubscribe();
         setAlertState();
-        for (var a = 0;a < konstanten.length;a++) {
-            for (let x = 0;x < MODES.length;x++) {
-                let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
-                let update = !!((switchFlags(MODE, oldMode, false)&MODES[x].mode));
-                if (extendedExists(oid)) {
-                    setState(oid, update || !!(getAutoPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
-                }
-                oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
-                if (extendedExists(oid)) {
-                    setState(oid, update || !!(getManuellPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+        if (!firstRun) { // überspringe das beim Starten des Scripts
+            for (var a = 0;a < konstanten.length;a++) {
+                for (let x = 0;x < MODES.length;x++) {
+                    let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                    let update = !!((switchFlags(MODE, oldMode, false)&MODES[x].mode));
+                    if (extendedExists(oid)) {
+                        setState(oid, update || !!(getAutoPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                    }
+                    oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                    if (extendedExists(oid)) {
+                        setState(oid, update || !!(getManuellPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                    }
                 }
             }
         }
@@ -1762,7 +1764,7 @@ function getArtikelMode(mode, speak = false) {
 
 // Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
-    return SPACE+'Insgesamt '+( i && onClickCheckRun && (c > 1 ? i + '/' : '')) + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
+    return SPACE+'Insgesamt ' + (( i && onClickCheckRun && c > 1 )? (i.toString() + '/') : '') + ((c == 1) ? 'eine gültige Warnung.' : (c.toString() + ' gültige Warnungen.'));
 }
 
 function getStringIgnoreCount(c) {
