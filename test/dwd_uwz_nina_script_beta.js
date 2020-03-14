@@ -1,5 +1,6 @@
 //Version 0.94.8 Ursprüngliches Skript
 //Version 0.95.9.7
+
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
