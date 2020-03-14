@@ -251,7 +251,7 @@ var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
 var emailInstanz=       'email.0';
 
-var uLogAusgabe=        true; // auf false gibt es überhaupt keine
+var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
 
 /* ************************************************************************* */
 /* ************************************************************************* */

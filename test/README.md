@@ -1,6 +1,6 @@
 In diesem Ordner findet ihr die aktuelle Testverson. Diese Version ist in der Regel als ungetestet anzusehen.
 
-
+# DWD-UWZ-NINA-Pushwarnungen-iobroker
 
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
@@ -39,15 +39,15 @@ Dank an:
 - die ursprünglichen Authoren s.o.
 
 Bedeutung der Farben:
-0 - Grün
-1 - Dunkelgrün
-2 - Gelb Wetterwarnungen (Stufe 2)
-3 - Orange Warnungen vor markantem Wetter (Stufe 3)
-4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
-5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+- 0 - Grün
+- 1 - Dunkelgrün
+- 2 - Gelb Wetterwarnungen (Stufe 2)
+- 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
+- 4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
+- 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
 
 
-**Erläuterung der Konfigurationsparameter:**
+## Erläuterung der Konfigurationsparameter
 
 1. Der Datenpfad zu allen von diesem Script erstellten Datenpunkten.
 ```javascript
@@ -56,7 +56,8 @@ var mainStatePath = 'javascript.0.wetterwarnung_test.';
 var mainStatePath = '0_userdata.0.wetterwarnung.';
 ```
 
-2. Aktiveren der Ausgabemöglichkeiten. Zu den jeweiligen Optionen muß der entsprechende Adapter installiert werden und eventuell im folgenden noch weitere Konfigurationen vorgenommen werden.
+2. Aktiveren der Ausgabemöglichkeiten.  
+Zu den jeweiligen Optionen muß der entsprechende Adapter installiert werden und eventuell im folgenden noch weitere Konfigurationen vorgenommen werden.
 
 ```javascript
 //uPushdienst+= TELEGRAM;          
@@ -74,20 +75,28 @@ z.B.
 uPushdienst+= TELEGRAM;
 ```
 
-3. Einstellungen zu Telegram  
+3. Einstellungen zu Telegram:  
 Stelle hier Optional bestimmte Nutzer oder ChatID ein. Die Instanz nur anpassen, wenn deine davon abweicht.
 ```javascript
 var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 var telegramChatId      = [''];
-var telegramInstanz=    'telegram.0';
+var telegramInstanz     = 'telegram.0';
 ```
 
-4. Einstelungen zu UWZ  
-Hier gibts du die UWZ RegionID an. Also z.B. UWZDE12345 und den Namen deines Ortes z.B. Entenhausen
+4. Einstellungen zu eMail:  
+Stelle hier Optional 1. Emailadresse ein, von der versendet wird, und mehrere Emailadressen die empfangen sollen.. Die Instanz nur anpassen, wenn deine davon abweicht.
+```javascript
+var senderEmailID       =   [""];// 1 Eintrag erlaubt [] oder ["email1"]
+var empfaengerEmailID   =   [""];// Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
+var emailInstanz        =   'email.0';
+```
+
+4. Einstellungen zur Unwetterzentrale/UWZ:  
+Hier gibts du die UWZ RegionID an. Also z.B. UWZDE12345 und den Namen deines Ortes z.B. Entenhausen.
 ```javascript
 var regionName          = [['UWZDE12345','Entenhausen']];
 ```
-Der Pfad der im UWZ Script eingetragen ist.
+Der Pfad, der im UWZ Script eingetragen ist.
 ```javascript
 var uwzPath=            'javascript.0.UWZ';
 ```
