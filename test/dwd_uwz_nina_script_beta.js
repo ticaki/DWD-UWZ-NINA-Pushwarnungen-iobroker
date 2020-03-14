@@ -1766,7 +1766,7 @@ function getArtikelMode(mode, speak = false) {
 
 // Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
-    return SPACE+'Insgesamt '+( i && onClickCheckRun && (c > 1 ? i + '/' : '')) + (c == 1 ? 'eine gültige Warnung.' : c + ' gültige Warnungen.');
+    return SPACE+'Insgesamt ' + (( i && onClickCheckRun && c > 1 )? (i.toString() + '/') : '') + ((c == 1) ? 'eine gültige Warnung.' : (c.toString() + ' gültige Warnungen.'));
 }
 
 function getStringIgnoreCount(c) {
