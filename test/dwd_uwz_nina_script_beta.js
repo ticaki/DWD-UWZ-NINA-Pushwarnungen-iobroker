@@ -437,12 +437,12 @@ if (!Array.isArray(regionName[0])) {
     if ((uPushdienst&ALEXA) != 0) {
         testValueTypeLog(idAlexaSerial, 'idAlexaSerial', 'array');
         if (idAlexaSerial.length == 0) {
-            if (uLogAusgabe) log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
+            log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
             stopScript(scriptName);
         }
         for (let a = 0;a < idAlexaSerial.length;a++) {
             if (!extendedExists(replacePlaceholder(idAlexa, idAlexaSerial[a]))) {
-                if (uLogAusgabe) ('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
+                log('Alexa - Serial '+idAlexaSerial[a]+' ist fehlerhaft. Überpüfen! Object ID:' +replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
                 stopScript(scriptName);
             }
         }
@@ -1455,7 +1455,7 @@ function addDatabaseData(id, value, mode, old) {
             warnDatabase.new.push(warn);
             if (old) warnDatabase.old.push(warn);
             change = true;
-            if (uLogAusgabe) log('Add UWZ warning to database. headline: '+warn.headline)
+            log('Add UWZ warning to database. headline: '+warn.headline)
         }
     } else if (mode == DWD) {
         change = removeDatabaseDataID(id);
