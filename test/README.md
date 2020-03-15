@@ -11,11 +11,9 @@ Unterstützt:
 Funktionen:
 - Filter die Warnungen nach doppelt, Gefahr(level) und Höhe
 - Umschalten über iobroker zwischen DWD/UWZ/NINA
-- Autorestart bei Datenpunkterstellung
 - Automatischer Versand und/oder manueller Nachrichtenversand
 - Zeitschaltuhr für Sprachausgabe
 - Datenpunkte mit der Startzeit, Endzeit, Type, Schlagzeile, Beschreibung, Farbe für Level(bgcolor) und höchstem Warnlevel dieses Typs
-- Unterstützung für 0_userdata
 - Datenpunkthauptpfade sind konfigurierbar incl. 0_userdata
 - Konfigurationsprüfung soweit möglich
 - Automodus und einzelne Pushdienste über iobroker schaltbar, sowohl für Automodus als auch Manuell
@@ -27,6 +25,7 @@ Kleinkram:
 - Sprachausgabe: Pause zwischen dem Absenden der einzelnen Warnungen an die Wiedergabeeinheit konfigurierbar.
 - Manuelle Sprachnachrichten können die Zeitschaltuhr missachten. (konfigurierbar)
 - Multi-User/Device bei fast allen Pushdiensten verfügbar (außer Datenpunkt & pushover)
+- Autorestart bei Datenpunkterstellung
 - Alexa und SayIt mit Lautstärkeeinstellung. Alexagruppen unterstützen keine Lautstärke trotzdem konfigurieren.
 - Zusätzliche Hervorhebung konfigurierbar über attentionWarningLevel (im Betreff/Ansage)
 - Filter für Nina-sender
@@ -113,34 +112,17 @@ const minlevel                      =    1
 ```
 2. attentionWarningLevel Warnungen gleich/über diesem Wert werden extra hervorgehoben. Die Überschriften zeigen auf Gefahr hin. Pushover-Nachrichten werden mit höherer Prioritätversand. Alle internen nicht einstellbaren Filter/ Filter die im 2. Konfigurationsabschnitt stehen übergehen diese Warnung.
 ```javascript
-const attentionWarningLevel         =    4 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+const attentionWarningLevel         =    4
 ```
 3. Warnungen von DWD und UWZ kommen gelegentlich mit einer von/bis Höhenangabe.
 - Tragt bitte hier die Höhe des tiefesten Punktes in eurem Gebiet ein, den ihr in eurem täglichen Leben aufsucht. In meiner Region kommen Meldungen eher selten mit dem "bis" Eintrag.
 ```javascript
-const minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
+const minhoehe                      =    0
 ```
 - Hier den höchsten Punkt. Dieser wird mit dem "von" Eintrag verglichen. Ich nehme die Höhe meines Ortes 350m +/- 100m
 ```javascript
-const maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+const maxhoehe                      =    5000
 ```
-
-```javascript
-```
-```javascript
-```
-```javascript
-```
-
-// Ein manuellen Auslösen von Sprachnachrichten, löscht alle noch nicht ausgegebenen Sprachnachrichten aus der Liste.
-var uManuellClickClearSpeakMessageList = true;
-
-// Automatikmodus schalten geht über mainStatePath.config.auto.on
-//var autoSendWarnings = true;
-//Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
-var forcedSpeak             = true;
-// keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
-var windForceDetailsSpeak   = false;
 
 ### Konfigurationsparameter für Pushmöglichkeiten
 - optionale Punkte brauchen nicht angepasst zu werden, wenn die Möglichkeit oben aktiviert wurde.
@@ -178,12 +160,12 @@ var ioGoUser = [''];
 ```
 
 6. Home24:
-- Das ist ungetestet, benutzt besser SayIt. Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich
+- Das ist ungetestet, benutzt besser SayIt. Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere möglich
 ```javascript
 var idMediaplayer       = ["192.168.178.x:Port"]; // (muß einen sinnvollen Wert beinhalten, wenn aktiviert)
 ```
 7. SayIt
-- idSayIt muß korrekt ausgefüllt sien, mit dem Datenpfad zum .text Datenpunkt, Mehrere möglich.
+- idSayIt muß korrekt ausgefüllt sein, mit dem Datenpfad zum .text Datenpunkt, mehrere möglich.
 - sayItVolumen muß die gleiche Anzahl an Einträgen haben wie idSayIt 0-100
 ```javascript
 var idSayIt             = ["sayit.0.tts.text"]; // (muß einen sinnvollen Wert beinhalten, wenn aktiviert)
