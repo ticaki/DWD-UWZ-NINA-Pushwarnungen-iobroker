@@ -46,9 +46,9 @@ Bedeutung der Farben:
 - 4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
 - 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
 
+## Konfigurationsparameter
 
-## Erläuterung der Konfigurationsparameter
-
+### Konfigurationsparameter vor dem ersten Start
 1. Der Datenpfad zu allen von diesem Script erstellten Datenpunkten.
 ```javascript
 var mainStatePath = 'javascript.0.wetterwarnung_test.';
@@ -56,7 +56,7 @@ var mainStatePath = 'javascript.0.wetterwarnung_test.';
 var mainStatePath = '0_userdata.0.wetterwarnung.';
 ```
 
-2. Aktiveren der Ausgabemöglichkeiten.  
+2. Aktiveren der Ausgabemöglichkeiten. Es muß mindestens 1 Punkt aktiviert sein.
 Zu den jeweiligen Optionen muß der entsprechende Adapter installiert werden und eventuell im folgenden noch weitere Konfigurationen vorgenommen werden.
 
 ```javascript
@@ -64,9 +64,9 @@ Zu den jeweiligen Optionen muß der entsprechende Adapter installiert werden und
 //uPushdienst+= PUSHOVER;          
 //uPushdienst+= EMAIL;             
 //uPushdienst+= SAYIT;             
-//uPushdienst+= HOMETWO;          
+//uPushdienst+= HOMETWO;  // kein Adapter nötig        
 //uPushdienst+= ALEXA;             
-//uPushdienst+= STATE;             
+//uPushdienst+= STATE;    // kein Adapter nötig         
 //uPushdienst+= IOGO;              
 ```
 Um einen Punkt zu aktiveren entferne die //
@@ -74,38 +74,138 @@ z.B.
 ```javascript
 uPushdienst+= TELEGRAM;
 ```
-
-3. Einstellungen zu Telegram:  
-Stelle hier Optional bestimmte Nutzer oder ChatID ein. Die Instanz nur anpassen, wenn deine davon abweicht.
+### Konfigurationsparameter Allgemein
+- Stellt uLogAusgabe auf false wenn alles so läuft wie ihr euch das vorstellt.
 ```javascript
-var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
+var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
+```
+
+#### Sprachausgabe weitere Einstellungen
+- Wenn die Sprachausgabe manuell ausgelöst wird, kann die Sprachausgabewarteschlage gelöscht (true) oder die abgerufenen Nachrichten angehangen werden (false).
+```javascript
+var uManuellClickClearSpeakMessageList = true;
+```
+- Die Sprachausgabe kann die Details zur Windgeschwindigkeit ausblenden (false) oder aussprechen (true)
+```javascript
+var windForceDetailsSpeak   = false;
+```
+#### Zeitschaltuhr für Sprachausgabe
+- Ab wieviel Uhr darf die Sprachausgabe verwendet werden (Mo-Fr)
+```javascript
+var startTimeSpeak =        '6:45';
+```
+- Ab wieviel Uhr darf die Sprachausgabe am Wochenende verwendet werden (Sa-So)
+```javascript
+var startTimeSpeakWeekend = '9:00';
+```
+- Wann endet die Sprachausgabeabends
+```javascript
+var endTimeSpeak =          '22:30';
+```
+- Das manuelle Auslösen der Sprachausgabe berücksichtigt die Zeitschaltuhr (false) es ignoriert sie (true)
+```javascript
+var forcedSpeak             = true;
+```
+#### Filtermöglichkeiten für Warnungen
+1. minlevel hiermit bestimmt man ab welchem Level Warnungen von diesem Skript berücksichtigt werden. Dieser Wert sollte nicht höher als 3 eingestellt sein.
+```javascript
+const minlevel                      =    1
+```
+2. attentionWarningLevel Warnungen gleich/über diesem Wert werden extra hervorgehoben. Die Überschriften zeigen auf Gefahr hin. Pushover-Nachrichten werden mit höherer Prioritätversand. Alle internen nicht einstellbaren Filter/ Filter die im 2. Konfigurationsabschnitt stehen übergehen diese Warnung.
+```javascript
+const attentionWarningLevel         =    4 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+```
+3. Warnungen von DWD und UWZ kommen gelegentlich mit einer von/bis Höhenangabe.
+- Tragt bitte hier die Höhe des tiefesten Punktes in eurem Gebiet ein, den ihr in eurem täglichen Leben aufsucht. In meiner Region kommen Meldungen eher selten mit dem "bis" Eintrag.
+```javascript
+const minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
+```
+- Hier den höchsten Punkt. Dieser wird mit dem "von" Eintrag verglichen. Ich nehme die Höhe meines Ortes 350m +/- 100m
+```javascript
+const maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+```
+
+```javascript
+```
+```javascript
+```
+```javascript
+```
+
+// Ein manuellen Auslösen von Sprachnachrichten, löscht alle noch nicht ausgegebenen Sprachnachrichten aus der Liste.
+var uManuellClickClearSpeakMessageList = true;
+
+// Automatikmodus schalten geht über mainStatePath.config.auto.on
+//var autoSendWarnings = true;
+//Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
+var forcedSpeak             = true;
+// keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
+var windForceDetailsSpeak   = false;
+
+### Konfigurationsparameter für Pushmöglichkeiten
+- optionale Punkte brauchen nicht angepasst zu werden, wenn die Möglichkeit oben aktiviert wurde.
+- nicht optionale Punkte **müssen** angepasst/überprüft werden, wenn die Möglichkeit oben aktiviert wurde.
+
+3. Einstellungen zu Telegram:  **(optional)**
+- Stelle hier Optional bestimmte Nutzer oder ChatID ein. Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
+- Die Instanz nur anpassen, wenn deine davon abweicht. Das gilt für jede Instanzeinstellung
+```javascript
+var telegramUser        = [''];
 var telegramChatId      = [''];
 var telegramInstanz     = 'telegram.0';
 ```
 
-4. Einstellungen zu eMail:  
-Stelle hier Optional 1. Emailadresse ein, von der versendet wird, und mehrere Emailadressen die empfangen sollen.. Die Instanz nur anpassen, wenn deine davon abweicht.
+4. eMail:  **(optional)**
+- Stelle hier Optional 1 Emailadresse ein, von der versendet wird, und mehrere Emailadressen die empfangen sollen.
 ```javascript
 var senderEmailID       =   [""];// 1 Eintrag erlaubt [] oder ["email1"]
 var empfaengerEmailID   =   [""];// Mehrere Empfänger möglich. [] oder ["email1"] oder ["email1","email2"]
 var emailInstanz        =   'email.0';
 ```
 
-4. Einstellungen zur Unwetterzentrale/UWZ:  
+5. Pushover:  **(optional)**
+- DeviceName, hier könnt ihr eines der angemeldeten Gerät bestimmen, das die Nachrichten erhalten soll. Ist kein Gerät bestimmt bekommen alle die Nachricht.
+- uPushoverSound bietet euch die Möglichkeit einen eigenen Sound für die Nachricht auszuwählen. Was ihr dort eintragen könnt findet ihr dort: https://pushover.net/api#sounds
+```javascript
+var uPushoverDeviceName     = '';
+var uPushoverSound          = '';  
+var pushoverInstanz         = 'pushover.0';
+```
+6. ioGo **(optional)**
+- ioGoUser: Tragt keinen, einen, oder mehrere Nutzer ein.
+```javascript
+var ioGoUser = [''];
+```
+
+6. Home24:
+- Das ist ungetestet, benutzt besser SayIt. Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich
+```javascript
+var idMediaplayer       = ["192.168.178.x:Port"]; // (muß einen sinnvollen Wert beinhalten, wenn aktiviert)
+```
+7. SayIt
+- idSayIt muß korrekt ausgefüllt sien, mit dem Datenpfad zum .text Datenpunkt, Mehrere möglich.
+- sayItVolumen muß die gleiche Anzahl an Einträgen haben wie idSayIt 0-100
+```javascript
+var idSayIt             = ["sayit.0.tts.text"]; // (muß einen sinnvollen Wert beinhalten, wenn aktiviert)
+var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
+```
+8 Alexa
+- idAlexaSerial beinhaltet die Seriennummer deines Echos/deiner Echos. var idAlexaSerial =['G090RV32984110Y', 'G090RV32984110Y'];
+- alexaVolumen 0-100 die gleiche Anzahl wie idAlexaSerial z.B. [30,30];
+```javascript
+var idAlexaSerial       = [''];
+var alexaVolumen        = [30];
+var alexaInstanz        = 'alexa2.0';
+```
+### Konfigurationsparameter zu den Modi DWD, UWZ, NINA
+1. Einstellungen zur Unwetterzentrale/UWZ:  
 Hier gibts du die UWZ RegionID an. Also z.B. UWZDE12345 und den Namen deines Ortes z.B. Entenhausen.
 ```javascript
 var regionName          = [['UWZDE12345','Entenhausen']];
 ```
-Der Pfad, der im UWZ Script eingetragen ist.
+2. Einstellungen zu Nina
+- Hier stellt bitte euren Ort und euren Landkreis ohne (Kreis, Landkreis, etc) ein. Warnungen von Nina kommen mit Aufgelisteten Orten, das Skript sucht dort drin nach euren Bezeichnern und gibt den gefundenen in der Warnung mit aus.
 ```javascript
-var uwzPath=            'javascript.0.UWZ';
-```
-
-
-
-```javascript
-```
-```javascript
-```
-```javascript
+var uGemeinde = '';
+var uLandkreis = '';
 ```

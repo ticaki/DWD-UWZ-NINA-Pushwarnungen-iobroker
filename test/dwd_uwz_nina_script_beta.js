@@ -1266,7 +1266,6 @@ function sendMessage(pushdienst, topic, msg, entry) {
                             if (a != 1 || value < 0) _speakToArray[a].startTimeSpeak = new Date(_speakToArray[a].startTimeSpeak.getTime() + value);
                         }
                     }
-
                     if (entry.dienst == HOMETWO) {
                         for (let a = 0; a < idMediaplayer.length; a++) {
                             var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst);
@@ -1643,6 +1642,8 @@ function getDatabaseData(warn, mode){
         result['html']['instruction'] 	= warn.instruction === undefined 		? '' 	: warn.instruction;
         result['html']['headline'] 		= warn.headline === undefined 			? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		? '' 	: warn.description;
+
+        if ( result.level < minlevel ) return null;
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
