@@ -1,5 +1,7 @@
 # DWD-UWZ-NINA-Pushwarnungen-iobroker
 
+Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/217)
+
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
 - DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter V0.0.22
