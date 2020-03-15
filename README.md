@@ -1,5 +1,3 @@
-In diesem Ordner findet ihr die aktuelle Testverson. Diese Version ist in der Regel als ungetestet anzusehen.
-
 # DWD-UWZ-NINA-Pushwarnungen-iobroker
 
 Unterstützt:
