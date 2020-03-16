@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.96.0
+//Version 0.96.1
 
 /*
 /* ************************************************************************* */
@@ -1224,7 +1224,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
     if ((pushdienst & EMAIL) != 0) {
         let j = {};
-        j.text = msg;
+        j.html = msg;
         j.subject = topic;
         if (senderEmailID[0]) j.from = senderEmailID[0];
         if (empfaengerEmailID.length > 0) {
