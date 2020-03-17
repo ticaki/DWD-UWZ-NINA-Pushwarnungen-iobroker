@@ -1481,10 +1481,13 @@ function addDatabaseData(id, value, mode, old) {
             warn = getDatabaseData(jvalue.info[a], mode);
             // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
             if (warn && (!warn.end || new Date(warn.end) > new Date())) {
-                warn.identifier =
-                    jvalue.identifier === undefined ? "" : jvalue.identifier;
-                warn.sender = jvalue.sender === undefined ? "" : jvalue.sender;
+                warn.identifier     = jvalue.identifier === undefined ? "" : jvalue.identifier;
+                warn.sender         = jvalue.sender === undefined ? "" : jvalue.sender;
+
                 warn.hash = JSON.stringify(warn).hashCode();
+                // setzte start auf das Sendungsdatum, aber nicht im Hash berücksichtigen, ist keine neue Nachricht nur weil sich das datum ändert.
+                // Wenn sich der Rest den Inhaltes ändert, ist es eine neue Nachricht
+                warn.start          = warn.start || jvalue.sent === undefined     ? warn.start    : getDateObject(jvalue.sent).getTime();
                 warn.id = id;
                 if (!grouphash) grouphash = warn.hash;
                 warn.grouphash = grouphash;
@@ -1618,26 +1621,26 @@ function getDatabaseData(warn, mode){
         result['mode'] = NINA;
         //result['identifier'] = warn.identifier === undefined ? '' : warn.identifier;
         //result['sender'] = warn.sender === undefined ? '' : warn.sender;
-        result['web'] 					= warn.web === undefined || !warn.web	? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
-        result['webname'] 				= warn.web === undefined || !warn.web	? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
-        result['description'] 			= warn.description === undefined 		? '' 	: removeHtml(warn.description);
-        result['start'] 				= warn.onset === undefined 				? null 	: getDateObject(warn.onset).getTime() || null;
-        result['end'] 					= warn.expires === undefined 			? null	: getDateObject(warn.expires).getTime() || null;
-        result['instruction'] 			= warn.instruction === undefined 		? '' 	: removeHtml(warn.instruction);
-        result['typename'] 				= warn.event === undefined 				? '' 	: removeHtml(warn.event);
+        result['web'] 					= warn.web === undefined || !warn.web         ? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
+        result['webname'] 				= warn.web === undefined || !warn.web	      ? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
+        result['description'] 			= warn.description === undefined              ? '' 	: removeHtml(warn.description);
+        result['start'] 				= warn.onset === undefined 		              ? null 	: getDateObject(warn.onset).getTime() || null;
+        result['end'] 					= warn.expires === undefined 			      ? null	: getDateObject(warn.expires).getTime() || null;
+        result['instruction'] 			= warn.instruction === undefined 		      ? '' 	: removeHtml(warn.instruction);
+        result['typename'] 				= warn.event === undefined 				      ? '' 	: removeHtml(warn.event);
         result['type'] 					= result.typename.hashCode();
-        //result['urgency'] 			= warn.urgency === undefined 			? '' 	: warn.urgency;
-        result['severity'] 				= warn.severity === undefined 			? '' 	: warn.severity;
-        //result['certainty']		 	= warn.certainty === undefined 			? ''	: warn.certainty;
-        result['headline'] 				= warn.headline === undefined 			? ''	: removeHtml(warn.headline);
-        result['areaID'] 				= warn.area === undefined 				? ''	: getNinaArea(warn.area);
-        result['level'] 				= warn.severity === undefined 			? -1	: getNinaLevel(warn.severity, result.typename);
+        //result['urgency'] 			= warn.urgency === undefined 			      ? '' 	: warn.urgency;
+        result['severity'] 				= warn.severity === undefined 			      ? '' 	: warn.severity;
+        //result['certainty']		 	= warn.certainty === undefined 			      ? ''	: warn.certainty;
+        result['headline'] 				= warn.headline === undefined 			      ? ''	: removeHtml(warn.headline);
+        result['areaID'] 				= warn.area === undefined 				      ? ''	: getNinaArea(warn.area);
+        result['level'] 				= warn.severity === undefined 			      ? -1	: getNinaLevel(warn.severity, result.typename);
         result['color'] 				= getLevelColor(result.level);
         result['html'] 					= {};
-        result['html']['web'] 			= warn.web === undefined || !warn.web 	? '' 	: warn.web;
-        result['html']['instruction'] 	= warn.instruction === undefined 		? '' 	: warn.instruction;
-        result['html']['headline'] 		= warn.headline === undefined 			? '' 	: warn.headline;
-        result['html']['description'] 	= warn.description === undefined 		? '' 	: warn.description;
+        result['html']['web'] 			= warn.web === undefined || !warn.web 	      ? '' 	: warn.web;
+        result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
+        result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
+        result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
 
         if ( result.level < minlevel ) return null;
     }
