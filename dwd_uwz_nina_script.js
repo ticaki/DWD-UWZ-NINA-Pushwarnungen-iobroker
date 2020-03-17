@@ -1480,7 +1480,7 @@ function addDatabaseData(id, value, mode, old) {
         for (let a = 0; a < jvalue.info.length; a++) {
             warn = getDatabaseData(jvalue.info[a], mode);
             // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
-            if (warn && (!warn.end || (warn.end && new Date(warn.end) > new Date()))) {
+            if (warn && (!warn.end || new Date(warn.end) > new Date())) {
                 warn.identifier =
                     jvalue.identifier === undefined ? "" : jvalue.identifier;
                 warn.sender = jvalue.sender === undefined ? "" : jvalue.sender;
