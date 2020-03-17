@@ -1,6 +1,16 @@
 # DWD-UWZ-NINA-Pushwarnungen-iobroker
 
+## Support
 Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/217)
+
+## Änderungen
+Änderungen ab V0.96  
+- 0.96.1 eMail wird falsch dargestellt (behoben)  
+- 0.96.2 Logausgabe wird alle 5 Minuten erstellt (behoben)  
+
+## Scriptbeschreibung
+Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
+Für DWD und UWZ gibt es Datenpunkte um bei bestimmten Gefahren selbst gesteuerte Aktionen auszuführen. Letzteres nutze ich z.B. um bei Sturm/Regen und offenen Fenstern auf diese hinzuweisen.
 
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
