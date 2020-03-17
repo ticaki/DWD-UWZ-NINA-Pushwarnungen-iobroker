@@ -650,7 +650,7 @@ for (var a = 0; a < konstanten.length; a++) {
             }
             oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
             if (!extendedExists(oid)) {
-                createCustomState(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
+                createCustomState(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
             } else {
                 setConfigKonstanten(oid, getState(oid).val, false);
             }
