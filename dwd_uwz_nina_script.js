@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.96.1
+//Version 0.96.2
 
 /*
 /* ************************************************************************* */
@@ -1497,13 +1497,9 @@ function addDatabaseData(id, value, mode, old) {
             for (let a = 0; a < tempArr.length; a++) {
                 for (let b = 0; b < warnDatabase.new.length; b++) {
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
+                        if (uLogAusgabe && warnDatabase.new[b].id != tempArr[a].id) log( "Update database Nina warning old id<>new id. headline: " +warn.headline );
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--, 1);
-                        if (uLogAusgabe)
-                            log(
-                                "Update database Nina warning old id<>new id. headline: " +
-                                warn.headline
-                            );
                         break;
                     } else if (
                         tempArr[a].id == warnDatabase.new[b].id &&
