@@ -1,5 +1,5 @@
 //Version 0.94.8 Ursprüngliches Skript
-//Version 0.96.2
+//Version 0.96.3
 
 /*
 /* ************************************************************************* */
@@ -877,9 +877,7 @@ function convertStringToDate(s) {
     var e = s.split(':');
     if (!Array.isArray(e) || e.length != 2) return null;
     var d = new Date();
-    d.setHours(Number(e[0]));
-    d.setMinutes(Number(e[1]));
-    d.setSeconds(0);
+    d.setHours(Number(e[0]), Number(e[1]), 0);
     return d;
 }
 /* *************************************************************************
@@ -987,7 +985,7 @@ function checkWarningsMain() {
         let count = 0;
         if (isWarnIgnored(entry)) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
-        if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.old.length > ignoreWarningCount)) {
+        if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.new.length > ignoreWarningCount)) {
             let prefix = ''
             let end = entry.end ? getFormatDate(entry.end) : null;
             collectMode |= mode;
@@ -1397,7 +1395,7 @@ function onChange(dp, mode) {
 * Datenquelle Trigger  ENDE
 /* ************************************************************************* */
 /* *************************************************************************
-* Datenbank 
+* Datenbank
 /* ************************************************************************* */
 // Erstes befüllen der Database
 function InitDatabase(first) {
@@ -1446,32 +1444,36 @@ function addDatabaseData(id, value, mode, old) {
     let jvalue = null;
     myLog("addDatabaseData() ID + JSON:" + id + SPACE + JSON.stringify(value));
     if (value && value != {} && value !== undefined && value != "{}")
-        jvalue = JSON.parse(value);
+    jvalue = JSON.parse(value);
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
             warn = getDatabaseData(jvalue, mode);
-            warn.areaID = getRegionNameUWZ(id);
-            warn.hash = JSON.stringify(warn).hashCode();
-            warn.id = id;
-            warnDatabase.new.push(warn);
-            if (old) warnDatabase.old.push(warn);
-            change = true;
-            if (uLogAusgabe)
+            if (warn) {
+                warn.areaID = getRegionNameUWZ(id);
+                warn.hash = JSON.stringify(warn).hashCode();
+                warn.id = id;
+                warnDatabase.new.push(warn);
+                if (old) warnDatabase.old.push(warn);
+                change = true;
+                if (uLogAusgabe)
                 log("Add UWZ warning to database. headline: " + warn.headline);
+            }
         }
     } else if (mode == DWD) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
             warn = getDatabaseData(jvalue, mode);
-            warn.areaID = " für " + warn.areaID;
-            warn.hash = JSON.stringify(warn).hashCode();
-            warn.id = id;
-            warnDatabase.new.push(warn);
-            if (old) warnDatabase.old.push(warn);
-            change = true;
-            if (uLogAusgabe)
+            if (warn) {
+                warn.areaID = " für " + warn.areaID;
+                warn.hash = JSON.stringify(warn).hashCode();
+                warn.id = id;
+                warnDatabase.new.push(warn);
+                if (old) warnDatabase.old.push(warn);
+                change = true;
+                if (uLogAusgabe)
                 log("Add DWD warning to database. headline: " + warn.headline);
+            }
         }
     } else if (mode == NINA) {
         if (jvalue.info === undefined || !Array.isArray(jvalue.info))
@@ -1815,15 +1817,15 @@ function removeDuplicateHash() {
 /* ************************************************************************* */
 function getArtikelMode(mode, speak = false) {
     let r = SPACE;
-    if (mode & DWD) r += (DEBUG ? 'des DWD(ALPHA) ' : 'des DWD ');
+    if (mode & DWD) r += (DEBUG ? 'des DWD('+scriptName+') ' : 'des DWD ');
     if (mode & UWZ) {
         if (r.length > 1) r += 'und ';
-        if (speak) r += (DEBUG ? 'der Unwetterzentrale(ALPHA) ' : 'der Unwetterzentrale ');
-        else r += (DEBUG ? 'der UWZ(ALPHA) ' : 'der UWZ ');
+        if (speak) r += (DEBUG ? 'der Unwetterzentrale('+scriptName+') ' : 'der Unwetterzentrale ');
+        else r += (DEBUG ? 'der UWZ('+scriptName+') ' : 'der UWZ ');
     }
     if (mode & NINA) {
         if (r.length > 1) r += 'und ';
-        r += (DEBUG ? 'von Nina(ALPHA) ' : 'von Nina ');
+        r += (DEBUG ? 'von Nina('+scriptName+') ' : 'von Nina ');
     }
     return r;
 }
@@ -1859,10 +1861,8 @@ function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
 /* Entfernt "°C" und anders aus Sprachmeldung und ersetzt es durch "Grad" */
 /* noch nicht für UWZ angepasst */
 function replaceTokenForSpeak(beschreibung) {
-    var rueckgabe;
-    rueckgabe = beschreibung;
+    var rueckgabe = beschreibung;
     try {
-
         rueckgabe = rueckgabe.replace(/\°C/g, "Grad");
         rueckgabe = rueckgabe.replace(/km\/h/g, "Kilometer pro Stunde");
         rueckgabe = rueckgabe.replace(/l\/m\²/g, "Liter pro Quadratmeter");
@@ -1885,13 +1885,13 @@ function replaceTokenForSpeak(beschreibung) {
 
 // Formatiere Date zu string
 function getFormatDate(a) {
-    if (!a || !(typeof a === 'number')) return '';
+    if (!a || (!(typeof a === 'number')) && !(typeof a === 'object')) return '';
     return formatDate(new Date (a).getTime(), formatierungString);
 }
 // hilffunktion für Zeitausgabe über Sprache
 // @PARAM Rückgabe von getFormatDate
 function getFormatDateSpeak(a) {
-    if (!a || a === '') return '';
+    if (!a || typeof a !== 'string') return '';
     let b = a.split('.');
     let m = '';
     switch (b[1]) {

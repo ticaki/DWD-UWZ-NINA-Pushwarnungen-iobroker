@@ -7,6 +7,8 @@ Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dw
 Änderungen ab V0.96  
 - 0.96.1 eMail wird falsch dargestellt (behoben)  
 - 0.96.2 Logausgabe wird alle 5 Minuten erstellt (behoben)  
+- 0.96.3 Aufgehoben Meldung für einzelne Mitteilung wurde verschickt, wenn keine weitere nicht ignorierte Warnung vorhanden war.
+- 0.96.3 Scriptfehler bei ausfiltert von Datensätzen (DWD UWZ) 
 
 ## Scriptbeschreibung
 Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
@@ -52,16 +54,19 @@ Bedeutung der Farben:
 - 1 - Dunkelgrün
 - 2 - Gelb Wetterwarnungen (Stufe 2)
 - 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
-- 4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
-- 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+- 4 - Rot Unwetterwarnungen (Stufe 4).
+- 5 - Violett Warnungen vor extremem Unwetter (DWD -> Weltuntergang nach aktueller Erfahrung und Nina -> höchste Stufe
 
-## Konfiguration in ioBroker unter mainStatePath.config
+## Konfiguration in ioBroker/Objekte unter mainStatePath.config
 1. DWD/UWZ/NINA auf true stellen um den jeweiligen Modus zu aktiveren.
 2. Mode ist aus Kompatibilitätsgründen drin und kann als Zeichenkette UWZ usw enthalten.
 3. Punkte unter .auto aktiveren oder deaktivieren den automatischen Versand von Warnmeldungen.
 - .on schaltet den kompletten automatischen Versand an/aus.
 - die Restlichen schalten für einen bestimmten Modus eine bestimmte Art an oder aus.
 4. Punkte unter manuell schalten für das manuelle Auslösen in einem bestimmten Modus die Möglichkeit an oder aus. (z.B. UWZ über alexa aber NINA nicht).
+
+### Konfigurationsparameter NACH dem ersten Start
+- DWD/UWZ/NINA muß gesetzt werden, ist alles deaktiviert.
 
 
 ## Konfigurationsparameter Script
