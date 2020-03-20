@@ -54,8 +54,16 @@ Bedeutung der Farben:
 - 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
 - 4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
 - 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+## Konfiguration in ioBroker unter mainStatePath.config
+1. DWD/UWZ/NINA auf true stellen um den jeweiligen Modus zu aktiveren.
+2. Mode ist aus Kompatibilitätsgründen drin und kann als Zeichenkette UWZ usw enthalten.
+3. Punkte unter .auto aktiveren oder deaktivieren den automatischen Versand von Warnmeldungen.
+- .on schaltet den kompletten Automatischen Versand
+- die Restlichen schalten für einen bestimmten Modus eine bestimmte Art an oder aus.
+4. Punkte unter manuell schalten für das manuelle Auslösen in einem bestimmten Modus die Möglichkeit an oder aus. (z.B. UWZ über alexa aber NINA nicht).
 
-## Konfigurationsparameter
+
+## Konfigurationsparameter Script
 
 ### Konfigurationsparameter vor dem ersten Start
 1. Der Datenpfad zu allen von diesem Script erstellten Datenpunkten.

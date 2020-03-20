@@ -1096,7 +1096,6 @@ function checkWarningsMain() {
                 if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
                 if ((begin && end)) sTime += " ";
                 if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
-                /* Sprache: Verknüpfen aller aktuellen Warnmeldungen */
                 if (!!instruction && typeof instruction === 'string' && instruction.length > 2) {
                     description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                 }
@@ -1397,6 +1396,9 @@ function onChange(dp, mode) {
 /* *************************************************************************
 * Datenquelle Trigger  ENDE
 /* ************************************************************************* */
+/* *************************************************************************
+* Datenbank 
+/* ************************************************************************* */
 // Erstes befüllen der Database
 function InitDatabase(first) {
     if (first) warnDatabase = { new: [], old: [] };
@@ -1483,7 +1485,6 @@ function addDatabaseData(id, value, mode, old) {
             if (warn && (!warn.end || new Date(warn.end) > new Date())) {
                 warn.identifier     = jvalue.identifier === undefined ? "" : jvalue.identifier;
                 warn.sender         = jvalue.sender === undefined ? "" : jvalue.sender;
-
                 warn.hash = JSON.stringify(warn).hashCode();
                 // setzte start auf das Sendungsdatum, aber nicht im Hash berücksichtigen, ist keine neue Nachricht nur weil sich das datum ändert.
                 // Wenn sich der Rest den Inhaltes ändert, ist es eine neue Nachricht
