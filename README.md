@@ -9,6 +9,7 @@ Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dw
 - 0.96.2 Logausgabe wird alle 5 Minuten erstellt (behoben)  
 - 0.96.3 Aufgehoben Meldung für einzelne Mitteilung wurde verschickt, wenn keine weitere nicht ignorierte Warnung vorhanden war. (Behoben) Allgemein gehaltene Entwarnung wird gesendet.
 - 0.96.3 Scriptfehler bei ausfiltert von Datensätzen (DWD UWZ)  Betrifft minlevel und Höhenangaben.
+- 0.97.0 Symbole zu Nachrichten hinzugefügt. Datenzweig .alert angepasst muß bei Update gelöscht werden.
 
 ## Scriptbeschreibung
 Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
