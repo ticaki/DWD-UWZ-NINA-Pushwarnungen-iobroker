@@ -1,6 +1,10 @@
-//Version 0.94.8 Ursprüngliches Skript
-//Version 0.96.3
-
+//Version 0.97.0
+// Erläuterung Update:
+// Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
+// Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
+// Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
+//
+// V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -162,7 +166,7 @@ if (extendedExists(aliveState)) {
 
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
 /* Textbeispiel anstatt Entenhausen: 'Stadt / Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
-/* var regionName = ['UWZDE12345', 'Entenhausen'] */
+/* var regionName = ['UWZDE13245', 'Entenhausen'] */
 var regionName          = [['','']];
 
 // für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren: https://warnung.bund.de/assets/json/suche_channel.json
@@ -266,7 +270,8 @@ var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim
 //Logausgabe
 var DEBUG = false;
 var DEBUGSENDEMAIL = false;
-//jump 123456
+//ab hier bei Update
+// 123456
 
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
@@ -312,33 +317,33 @@ var _speakToInterval = null
 // Warning types
 var warningTypesString = [];
 warningTypesString[DWD] = [
-    'Gewitter',
-    'Sturm',
-    'Regen',
-    'Schnee',
-    'Nebel',
-    'Frost',
-    'Glatteis',
-    'Tauwetter',
-    'Hitzewarnungen',
-    'UV_Warnungen'/*,
-    'Kuestenwarnungen',
-    'Binnenseewarnungen'*/
+    ['Gewitter','⚡'],
+    ['Sturm', '🌪'],
+    ['Regen', '🌧'],
+    ['Schnee', '🌨'],
+    ['Nebel', '🌁'],
+    ['Frost', '🌡'],
+    ['Glatteis', '❄'],
+    ['Tauwetter', '⛄'],
+    ['Hitzewarnungen', '🔥'],
+    ['UV_Warnungen', '🔆']/*,
+    ['Kuestenwarnungen', ''],
+    ['Binnenseewarnungen', '']*/
 ];
 
 warningTypesString[UWZ] = [
-    "n_a",
-    "unbekannt",
-    "Sturm-Orkan",
-    "Schneefall",
-    "Starkregen",
-    "Extremfrost",
-    "Waldbrandgefahr",
-    "Gewitter",
-    "Glätte",
-    "Hitze",
-    "Glatteisregen",
-    "Bodenfrost"
+    ['n_a', ''],
+    ['unbekannt', ''],
+    ['Sturm-Orkan', '🌪'],
+    ['Schneefall', '🌨'],
+    ['Starkregen', '🌧'],
+    ['Extremfrost', '🌡'],
+    ['Waldbrandgefahr', '🔥'],
+    ['Gewitter', '⚡'],
+    ['Glätte', '❄'],
+    ['Hitze', '🔆'],
+    ['Glatteisregen', '❄'],
+    ['Bodenfrost', '🌡']
 ];
 
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
@@ -346,12 +351,14 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
 [
         { "name": 'level', "default": -1, "type": { read: true, write: false, type: "number", name: '' } },
         { "name": 'type', "default": -1, "type": { read: true, write: false, type: "number", name: '' } },
-        { "name": 'begin', "default": null, "type": { read: true, write: false, role: "value.datetime", type: "string", name: '' } },
-        { "name": 'end', "default": null, "type": { read: true, write: false, role: "value.datetime", type: "string", name: '' } },
+        { "name": 'begin', "default": 0, "type": { read: true, write: false, role: "value.time", type: "number", name: '' } },
+        { "name": 'end', "default": 0, "type": { read: true, write: false, role: "value.time", type: "number", name: '' } },
         { "name": 'headline', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'description', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'color', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
-]
+        { "name": 'symbol', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
+        { "name": 'hash', "default": 0, "type": { read: true, write: false, role: "value", type: "number", name: '' } }
+  ]
 // hash erzeugen
 String.prototype.hashCode = function() {
     var hash = 0, i, chr;
@@ -516,7 +523,6 @@ function changeMode(modeFromState) {
         myLog('MODE wurde geändert. MODE: '+MODE + ' firstRun:'+firstRun);
         InitDatabase(firstRun);
         dataSubscribe();
-        setAlertState();
         if (!firstRun) { // überspringe das beim Starten des Scripts
             for (var a = 0;a < konstanten.length;a++) {
                 for (let x = 0;x < MODES.length;x++) {
@@ -623,7 +629,7 @@ function setConfigModeStates(mode) {
         for (let b = 0;b < warningTypesString[mode[c].mode].length;b++) {
             for (let a = 0;a < stateAlert.length;a++)
             {
-                let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b]+'.'+stateAlert[a].name;
+                let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b][0]+'.'+stateAlert[a].name;
                 stateAlert[a].type.name = stateAlert[a].name;
                 if (!extendedExists(stateAlertIdFull)) {
                     createCustomState(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
@@ -632,7 +638,6 @@ function setConfigModeStates(mode) {
             }
         }
     }
-    if (allStateExist) setAlertState();
 }
 
 // Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
@@ -741,7 +746,7 @@ function setAlertState() {
         if (!(MODE & mode[a].mode)) continue;
         let stateAlertid = mainStatePath + 'alert.' + mode[a].text.toLowerCase() + '.';
         for (let b = 0; b < warningTypesString[mode[a].mode].length; b++) {
-            let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b] + '.';
+            let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b][0] + '.';
             let AlertLevel = -1;
             let AlertIndex = -1;
             for (let c = 0; c < warnDatabase.new.length; c++) {
@@ -751,14 +756,17 @@ function setAlertState() {
                 }
             }
             if (extendedExists(stateAlertIdFull + stateAlert[0].name)) {
-                if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel) {
+                if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel
+                || ( AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[8].name).val != warnDatabase.new[AlertIndex].hash)) {
                     setState(stateAlertIdFull + stateAlert[0].name, AlertLevel);
                     setState(stateAlertIdFull + stateAlert[1].name, b);
-                    setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? formatDate(new Date(warnDatabase.new[AlertIndex].start), formatierungString) : ''));
-                    setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex > -1 ? formatDate(new Date(warnDatabase.new[AlertIndex].end), formatierungString) : ''));
+                    setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0));
+                    setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].end).getTime() : 0));
                     setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''));
                     setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''));
                     setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''));
+                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].symbol : ''));
+                    setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0));
                 }
             }
         }
@@ -983,6 +991,7 @@ function checkWarningsMain() {
         let area = entry.areaID;
         let mode = entry.mode;
         let count = 0;
+        let symbol = entry.symbol ? entry.symbol + SPACE : '';
         if (isWarnIgnored(entry)) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
         if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.new.length > ignoreWarningCount)) {
@@ -995,13 +1004,13 @@ function checkWarningsMain() {
             } else {
                 prefix = 'Die Wetterwarnung';
             }
-            let pushMsg = prefix + getArtikelMode(mode) + "'" + headline + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
+            let pushMsg = symbol + prefix + getArtikelMode(mode) + "'" + headline + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
             // EMAIL
             emailHtmlClear += pushMsg + '<br>';
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(getPushModeFlag(mode) & PUSH, (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), pushMsg);
+            sendMessage(getPushModeFlag(mode) & PUSH, symbol + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), symbol + pushMsg);
             myLog('text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : '') + ' wurde aufgehoben' + '  .  ';
@@ -1023,6 +1032,7 @@ function checkWarningsMain() {
         let area = entry.areaID;
         let color = entry.color;
         let mode = entry.mode;
+        let symbol = entry.symbol ? entry.symbol + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if (hash && getIndexOfHash(warnDatabase.old, hash) == -1) {
@@ -1061,11 +1071,11 @@ function checkWarningsMain() {
                 let html = (bt ? sTime + '<br>' : '') + de;
                 html = html[0].toUpperCase() + html.substring(1);
 
-                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, he + getArtikelMode(mode) + area + ':', html, color, false);
+                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, symbol + he + getArtikelMode(mode) + area + ':', html, color, false);
                 html = he + getArtikelMode(mode) + area + ':' + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANHTML & ~EMAIL;
-                sendMessage(b, getTopic(mode), html, entry);
+                sendMessage(b, symbol + getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL;
             }
             // Plain text
@@ -1082,7 +1092,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, getTopic(mode), pushMsg, entry);
+                sendMessage(b, symbol + getTopic(mode), symbol + pushMsg, entry);
                 myLog('text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1154,7 +1164,6 @@ function checkWarningsMain() {
         if (DEBUGSENDEMAIL) sendMessage(uPushdienst & EMAIL, 'Debug checkWarningsMain() ' + scriptName, DebugMail);
         //log(DebugMail);
     }
-    setAlertState();
     /* Neue Werte sichern */
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
@@ -1534,6 +1543,7 @@ function addDatabaseData(id, value, mode, old) {
             change = true;
         }
     }
+    if (change) setAlertState();
     return change;
 
     // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
@@ -1597,6 +1607,7 @@ function getDatabaseData(warn, mode){
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
         result['web'] 			= '';
         result['webname'] 		= '';
+        result['symbol']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
@@ -1612,11 +1623,12 @@ function getDatabaseData(warn, mode){
         result['instruction'] 	= warn.instruction === undefined 						? '' 	: warn.instruction;
         result['type'] 			= warn.type === undefined 								? -1 	: warn.type;
         result['level'] 		= warn.payload.levelName === undefined 					? -1 	: getUWZLevel(warn.payload.levelName);
-        result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type];
+        result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type][0];
         result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
         result['color'] 		= getLevelColor(result.level);
         result['web'] 			= '';
         result['webname'] 		= '';
+        result['symbol']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
@@ -1644,7 +1656,7 @@ function getDatabaseData(warn, mode){
         result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
-
+        result['symbol']                = '';
         if ( result.level < minlevel ) return null;
     }
     result['color'] = getLevelColor(result.level);
