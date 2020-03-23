@@ -11,8 +11,9 @@ Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dw
 - 0.96.3 Scriptfehler bei ausfiltert von Datensätzen (DWD UWZ)  Betrifft minlevel und Höhenangaben.
 - 0.97.0 Symbole zu Nachrichten hinzugefügt. Datenzweig .alert angepasst muß bei Update gelöscht werden.
 - 0.97.1 Fehler in Warnungsverlängerung behoben.
-- V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
-- V.0.97.2 Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
+- 0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
+- 0.97.2 Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
+- 0.97.2.1 Doppeltes Symbole in aufgehobenen Einzelentwarnungen (Textnachricht) behoben.
 
 ## Scriptbeschreibung
 Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.

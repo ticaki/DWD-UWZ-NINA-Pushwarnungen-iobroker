@@ -1,4 +1,4 @@
-//Version 0.97.2
+//Version 0.97.2.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -6,7 +6,6 @@
 //
 // V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
 // V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
-// """""""" Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -972,7 +971,7 @@ function checkWarningsMain() {
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(getPushModeFlag(mode) & PUSH, symbol + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), symbol + pushMsg);
+            sendMessage(getPushModeFlag(mode) & PUSH, symbol + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), pushMsg);
             myLog('text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : '') + ' wurde aufgehoben' + '  .  ';
