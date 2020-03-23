@@ -1,10 +1,12 @@
-//Version 0.97.1
+//Version 0.97.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
 //
 // V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
+// V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
+// """""""" Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -208,9 +210,6 @@ const attentionWarningLevel         =    4 // Warnung gleich oder oberhalb diese
 const minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
 const maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
-//Filtere Meldungen selben Typs & Datenquelle, die von einer längeren Meldung mit gleichem oder höherem Level überdeckt werden.
-// gilt nicht für Warnung mit gleichem oder höherem Level als attentionWarningLevel. Ab 4 wirds beim DWD gefährlich
-const uFilterDuplicate = true; // weshalb? hatte 2 Meldungen alles gleich nur die Uhrzeit ->  von 0:00 - 14:00 und von 6:00 - 14:00
 //Formatierungsstring für Datum / Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
 const formatierungString =  "TT.MM.YY SS:mm";
 
@@ -907,44 +906,6 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
-    // Option nicht ausreichend getestet.
-    if (uFilterDuplicate) {
-        let dn = new Date();
-        for (let a = 0; a < warnDatabase.new.length; a++) {
-            let w = warnDatabase.new[a];
-            for (let b = a + 1; b < warnDatabase.new.length; b++) {
-                let w2 = warnDatabase.new[b];
-                if (
-                    w.mode !== w2.mode ||
-                    w.type !== w2.type ||
-                    w.level > attentionWarningLevel ||
-                    w2.level > attentionWarningLevel
-                ) continue;
-                if (w.start >= w2.start && w.end <= w2.end && w.level <= w2.level) {
-                    let i = getIndexOfHash(warnDatabase.old, w.hash);
-                    if (i != -1) warnDatabase.old.splice(i, 1);
-                    warnDatabase.new.splice(a--, 1);
-                    break;
-                } else if (w.start <= w2.start && w.end >= w2.end && w.level >= w2.level) {
-                    let i = getIndexOfHash(warnDatabase.old, w2.hash);
-                    if (i != -1) warnDatabase.old.splice(i, 1);
-                    warnDatabase.new.splice(b--, 1);
-                    // w endet vor w2 && w2 startet bevor w endet && w hat kleiner gleiches level wie w2 -> lösche w
-                    // Hochwassermeldungen werden laufend aufgehoben und durch neue erstzt;
-                } else if (w.end < w2.end && w2.start < w.end && w.level <= w2.level) {
-                    let i = getIndexOfHash(warnDatabase.old, w.hash);
-                    if (i != -1) warnDatabase.old.splice(i, 1);
-                    warnDatabase.new.splice(a--, 1);
-                    break;
-                    // siehe oben nur umgedreht
-                } else if (w2.end < w.end && w.start < w2.end && w2.level <= w.level) {
-                    let i = getIndexOfHash(warnDatabase.old, w2.hash);
-                    if (i != -1) warnDatabase.old.splice(i, 1);
-                    warnDatabase.new.splice(b--, 1);
-                }
-            }
-        }
-    }
 
     let ignoreWarningCount = 0,
         ignoreModes = 0;
@@ -962,7 +923,8 @@ function checkWarningsMain() {
             // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
             if (w2.end <= w.end && w2.end >= w.start  && w2.level <= w.level) {
                 let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) t = --a; }
+                if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) --a; }
+                myLog('Nr 5 Remove Msg with headline:'+w2.headline);
                 warnDatabase.old.splice(b--, 1);
             }
         }
@@ -974,8 +936,6 @@ function checkWarningsMain() {
             ignoreModes |= w.mode;
         }
     }
-
-
 
     warnDatabase.new.sort(function(a, b) { return a.level == b.level ? b.begin - a.begin : b.level - a.level; })
     var collectMode = 0;
@@ -1016,7 +976,9 @@ function checkWarningsMain() {
             myLog('text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : '') + ' wurde aufgehoben' + '  .  ';
-            speakMsgTemp.push([pushMsg, mode]);
+            if (forceSpeak || compareTime(START, ENDE, 'between')) {
+                sendMessage(getPushModeFlag(mode) & SPEAK, '', pushMsg, entry);
+            }
             myLog('Sprache old:' + pushMsg);
         }
     }
@@ -1056,7 +1018,7 @@ function checkWarningsMain() {
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
                     de = '';
-                if (entry.html) {
+                if (entry.html !== undefined) {
                     let html = entry.html;
                     if (html.headline) he = html.headline;
                     else he = headline;
@@ -1064,7 +1026,7 @@ function checkWarningsMain() {
                     else de = description;
                     if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
                     else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
-                    if (entry.html !== undefined) de += '<br><br>' + entry.html.web;
+                    if (entry.html.web) de += '<br><br>' + entry.html.web;
                 } else {
                     he = headline;
                     de = description;
@@ -1500,9 +1462,10 @@ function addDatabaseData(id, value, mode, old) {
                 warn.sender         = jvalue.sender === undefined ? "" : jvalue.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
                 // setzte start auf das Sendungsdatum, aber nicht im Hash berücksichtigen, ist keine neue Nachricht nur weil sich das datum ändert.
-                // Wenn sich der Rest den Inhaltes ändert, ist es eine neue Nachricht
                 warn.start          = warn.start || jvalue.sent === undefined     ? warn.start    : getDateObject(jvalue.sent).getTime();
                 warn.id = id;
+                // davon ausgehend das die Nachrichten immer gleich sortiert sind und der NINA-Adapter das nicht umsortiert sollte der Hash der ersten Nachrichten
+                // immer der selbe sein. Benutze diesen um die Gruppe an Nachrichten zu identifizieren.
                 if (!grouphash) grouphash = warn.hash;
                 warn.grouphash = grouphash;
                 tempArr.push(warn);
