@@ -1,4 +1,4 @@
-//Version 0.97.0
+//Version 0.97.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -949,7 +949,6 @@ function checkWarningsMain() {
     let ignoreWarningCount = 0,
         ignoreModes = 0;
     for (let a = 0; a < warnDatabase.new.length; a++) {
-        let t = a;
         let w = warnDatabase.new[a];
         for (let b = 0; b < warnDatabase.old.length; b++) {
             let w2 = warnDatabase.old[b];
@@ -961,13 +960,16 @@ function checkWarningsMain() {
                 w.hash == w2.hash
             ) continue;
             // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
-            if (w2.end <= w.end && w.start <= w2.end && w2.level <= w.level) {
+            if (w2.end <= w.end && w2.end >= w.start  && w2.level <= w.level) {
                 let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                if (i != -1) warnDatabase.new.splice(a--, 1);
+                if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) t = --a; }
                 warnDatabase.old.splice(b--, 1);
             }
         }
-        if (a == t && isWarnIgnored(w)) {
+    }
+    for (let a = 0; a < warnDatabase.new.length; a++) {
+        let w = warnDatabase.new[a];
+        if ( isWarnIgnored(w)) {
             ignoreWarningCount++
             ignoreModes |= w.mode;
         }
