@@ -763,7 +763,7 @@ function setAlertState() {
                     setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''));
                     setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''));
                     setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''));
-                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].symbol : ''));
+                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''));
                     setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0));
                 }
             }
@@ -952,7 +952,7 @@ function checkWarningsMain() {
         let area = entry.areaID;
         let mode = entry.mode;
         let count = 0;
-        let symbol = entry.symbol ? entry.symbol + SPACE : '';
+        let picture = entry.picture ? entry.picture + SPACE : '';
         if (isWarnIgnored(entry)) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
         if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.new.length > ignoreWarningCount)) {
@@ -965,13 +965,13 @@ function checkWarningsMain() {
             } else {
                 prefix = 'Die Wetterwarnung';
             }
-            let pushMsg = symbol + prefix + getArtikelMode(mode) + "'" + headline + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
+            let pushMsg = picture + prefix + getArtikelMode(mode) + "'" + headline + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
             // EMAIL
             emailHtmlClear += pushMsg + '<br>';
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(getPushModeFlag(mode) & PUSH, symbol + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), pushMsg);
+            sendMessage(getPushModeFlag(mode) & PUSH, picture + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), pushMsg);
             myLog('text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : '') + ' wurde aufgehoben' + '  .  ';
@@ -995,7 +995,7 @@ function checkWarningsMain() {
         let area = entry.areaID;
         let color = entry.color;
         let mode = entry.mode;
-        let symbol = entry.symbol ? entry.symbol + SPACE : '';
+        let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if (hash && getIndexOfHash(warnDatabase.old, hash) == -1) {
@@ -1034,11 +1034,11 @@ function checkWarningsMain() {
                 let html = (bt ? sTime + '<br>' : '') + de;
                 html = html[0].toUpperCase() + html.substring(1);
 
-                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, symbol + he + getArtikelMode(mode) + area + ':', html, color, false);
+                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, picture + he + getArtikelMode(mode) + area + ':', html, color, false);
                 html = he + getArtikelMode(mode) + area + ':' + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANHTML & ~EMAIL;
-                sendMessage(b, symbol + getTopic(mode), html, entry);
+                sendMessage(b, picture + getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL;
             }
             // Plain text
@@ -1055,7 +1055,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, symbol + getTopic(mode), symbol + pushMsg, entry);
+                sendMessage(b, picture + getTopic(mode), picture + pushMsg, entry);
                 myLog('text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1571,7 +1571,7 @@ function getDatabaseData(warn, mode){
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
         result['web'] 			= '';
         result['webname'] 		= '';
-        result['symbol']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
+        result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
@@ -1592,7 +1592,7 @@ function getDatabaseData(warn, mode){
         result['color'] 		= getLevelColor(result.level);
         result['web'] 			= '';
         result['webname'] 		= '';
-        result['symbol']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
+        result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
@@ -1620,7 +1620,7 @@ function getDatabaseData(warn, mode){
         result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
-        result['symbol']                = '';
+        result['picture']                = '';
         if ( result.level < minlevel ) return null;
     }
     result['color'] = getLevelColor(result.level);
