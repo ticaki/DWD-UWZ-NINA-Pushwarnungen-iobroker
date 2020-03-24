@@ -315,7 +315,7 @@ var _speakToInterval = null
 // Warning types
 var warningTypesString = [];
 warningTypesString[DWD] = [
-    ['Gewitter','⚡'],
+    ['Gewitter', '⚡'],
     ['Sturm', '🌪'],
     ['Regen', '🌧'],
     ['Schnee', '🌨'],
@@ -324,9 +324,10 @@ warningTypesString[DWD] = [
     ['Glatteis', '❄'],
     ['Tauwetter', '⛄'],
     ['Hitzewarnungen', '🔥'],
-    ['UV_Warnungen', '🔆']/*,
-    ['Kuestenwarnungen', ''],
-    ['Binnenseewarnungen', '']*/
+    ['UV_Warnungen', '🔆']
+    /*,
+        ['Kuestenwarnungen', ''],
+        ['Binnenseewarnungen', '']*/
 ];
 
 warningTypesString[UWZ] = [
@@ -356,7 +357,7 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
         { "name": 'color', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'symbol', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'hash', "default": 0, "type": { read: true, write: false, role: "value", type: "number", name: '' } }
-  ]
+]
 // hash erzeugen
 String.prototype.hashCode = function() {
     var hash = 0, i, chr;
@@ -371,10 +372,10 @@ String.prototype.hashCode = function() {
 
 var deviceList = 		{};
 
-for (let a=0;a<konstanten.length; a++) {
+for (let a = 0; a < konstanten.length; a++) {
     deviceList[konstanten[a].value] = {};
-    if ( konstanten[a].count !== undefined ) deviceList[konstanten[a].value].count = konstanten[a].count;
-    if ( konstanten[a].delay !== undefined ) deviceList[konstanten[a].value].delay = konstanten[a].delay;
+    if (konstanten[a].count !== undefined) deviceList[konstanten[a].value].count = konstanten[a].count;
+    if (konstanten[a].delay !== undefined) deviceList[konstanten[a].value].delay = konstanten[a].delay;
 }
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration
@@ -454,7 +455,6 @@ for (let a=0;a<konstanten.length; a++) {
         }
     }
 
-
     if ((uPushdienst & SAYIT) != 0) {
         testValueTypeLog(idSayIt, 'idSayIt', 'array');
         for (let a = 0; a < idSayIt.length; a++) {
@@ -518,20 +518,20 @@ function changeMode(modeFromState) {
     if (MODE != modeFromState || firstRun) {
         let oldMode = MODE;
         MODE = modeFromState;
-        myLog('MODE wurde geändert. MODE: '+MODE + ' firstRun:'+firstRun);
+        myLog('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
         InitDatabase(firstRun);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
-            for (var a = 0;a < konstanten.length;a++) {
-                for (let x = 0;x < MODES.length;x++) {
-                    let oid = mainStatePath+'config.auto.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
-                    let update = !!((switchFlags(MODE, oldMode, false)&MODES[x].mode));
+            for (var a = 0; a < konstanten.length; a++) {
+                for (let x = 0; x < MODES.length; x++) {
+                    let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
+                    let update = !!((switchFlags(MODE, oldMode, false) & MODES[x].mode));
                     if (extendedExists(oid)) {
-                        setState(oid, update || !!(getAutoPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                        setState(oid, update || !!(getAutoPushFlags(MODE & MODES[x].mode) & konstanten[a].value));
                     }
-                    oid = mainStatePath+'config.manuell.'+MODES[x].text.toLowerCase()+'.'+konstanten[a].name;
+                    oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
                     if (extendedExists(oid)) {
-                        setState(oid, update || !!(getManuellPushFlags(MODE&MODES[x].mode)&konstanten[a].value));
+                        setState(oid, update || !!(getManuellPushFlags(MODE & MODES[x].mode) & konstanten[a].value));
                     }
                 }
             }
@@ -540,32 +540,30 @@ function changeMode(modeFromState) {
         firstRun = false;
     }
     setConfigModeStates(modeFromState);
-}
-{
-
+} {
     // State der Pushnachrichten über pushover / telegram spiegelt
     if (!extendedExists(mirrorMessageState)) {
-        createCustomState(mirrorMessageState, '', {read: true, write: false, desc: "Beschreibung", type: "string",});
+        createCustomState(mirrorMessageState, '', { read: true, write: false, desc: "Beschreibung", type: "string", });
     }
 
     // MODE änderung über Datenpunkte string
     if (!extendedExists(aliveState)) {
-        createCustomState(aliveState, false, {read: true, write: false, desc: "Script läuft", type: "boolean", def: false });
+        createCustomState(aliveState, false, { read: true, write: false, desc: "Script läuft", type: "boolean", def: false });
     }
 
     if (!extendedExists(configModeState)) {
-        createCustomState(configModeState, 'DWD', {read: true, write: true, desc: "Modusauswahl DWD oder UWZ",type: "string",def: ''});
+        createCustomState(configModeState, 'DWD', { read: true, write: true, desc: "Modusauswahl DWD oder UWZ", type: "string", def: '' });
     } else {
-        on({id:configModeState, change:'ne', ack:false}, function(obj){
-            if (obj.state.val && typeof obj.state.val === 'string'
-            && (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ')|| obj.state.val.toUpperCase().includes('NINA'))) {
+        on({ id: configModeState, change: 'ne', ack: false }, function(obj) {
+            if (obj.state.val && typeof obj.state.val === 'string' &&
+                (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ') || obj.state.val.toUpperCase().includes('NINA'))) {
                 //setState(configModeState, MODE, true)
                 let mode = 0;
-                mode |= obj.state.val.toUpperCase().includes('DWD') ? DWD   : 0;
-                mode |= obj.state.val.toUpperCase().includes('UWZ') ? UWZ   : 0;
-                mode |= obj.state.val.toUpperCase().includes('NINA')? NINA  : 0;
-                if ( MODE != mode ) {
-                    myLog('Modus wird geändert von: '+mode+ ' String:' +obj.state.val);
+                mode |= obj.state.val.toUpperCase().includes('DWD') ? DWD : 0;
+                mode |= obj.state.val.toUpperCase().includes('UWZ') ? UWZ : 0;
+                mode |= obj.state.val.toUpperCase().includes('NINA') ? NINA : 0;
+                if (MODE != mode) {
+                    myLog('Modus wird geändert von: ' + mode + ' String:' + obj.state.val);
                     changeMode(mode);
                 } else {
                     changeMode(MODE);
@@ -575,22 +573,21 @@ function changeMode(modeFromState) {
             }
         });
     }
-
     // MODE änderung über Datenpunkte Boolean
-    for (let a = 0;a < MODES.length;a++) {
+    for (let a = 0; a < MODES.length; a++) {
         let tok = MODES[a].text.toLowerCase();
-        let id = mainStatePath+'config.'+tok;
+        let id = mainStatePath + 'config.' + tok;
         if (!extendedExists(id)) {
-            let mi = !!(MODE&MODES[a].mode);
-            createCustomState(id, mi, {read: true, write: true, desc: "Aktivere "+tok.toUpperCase()+'.', type: "boolean",def: mi});
+            let mi = !!(MODE & MODES[a].mode);
+            createCustomState(id, mi, { read: true, write: true, desc: "Aktivere " + tok.toUpperCase() + '.', type: "boolean", def: mi });
         } else {
-            on({id:id, change:'ne', ack:false}, function(obj){
+            on({ id: id, change: 'ne', ack: false }, function(obj) {
                 let arr = obj.id.split('.');
                 let tok = arr[arr.length - 1].toUpperCase();
-                let mode = MODES[MODES.findIndex(function(j){return j.text == tok})].mode;
+                let mode = MODES[MODES.findIndex(function(j) { return j.text == tok })].mode;
                 let oldMode = MODE;
                 oldMode = switchFlags(oldMode, mode, obj.state.val);
-                myLog('Modus wird geändert von: '+MODE);
+                myLog('Modus wird geändert von: ' + MODE);
                 changeMode(oldMode);
             });
             MODE = switchFlags(MODE, MODES[a].mode, getState(id).val);
@@ -599,9 +596,9 @@ function changeMode(modeFromState) {
     //Initialisierung falls oben nicht geschehen
     if (firstRun) changeMode(MODE);
     // Automodus ein und ausschalten
-    let id = mainStatePath+'config.auto.on';
+    let id = mainStatePath + 'config.auto.on';
     if (!extendedExists(id)) {
-        createCustomState(id, true, {read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.",type: "boolean",def: true});
+        createCustomState(id, true, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean", def: true });
     } else {
         autoSendWarnings = getState(id).val;
         setState(id, autoSendWarnings, true);
@@ -610,24 +607,23 @@ function changeMode(modeFromState) {
 
 // setzte alle MODE Datenpunkte
 function setConfigModeStates(mode) {
-    if (extendedExists(configModeState)) setState(configModeState, (mode&DWD?'DWD':'') + (mode&UWZ?'UWZ':'') + (mode&NINA?'NINA':''), true);
-    for (let a = 0;a < MODES.length;a++) {
+    if (extendedExists(configModeState)) setState(configModeState, (mode & DWD ? 'DWD' : '') + (mode & UWZ ? 'UWZ' : '') + (mode & NINA ? 'NINA' : ''), true);
+    for (let a = 0; a < MODES.length; a++) {
         let t = MODES[a].text.toLowerCase();
-        let id = mainStatePath+'config.'+t;
-        if (extendedExists(id)) setState(id,!!(mode&MODES[a].mode), true);
+        let id = mainStatePath + 'config.' + t;
+        if (extendedExists(id)) setState(id, !!(mode & MODES[a].mode), true);
     }
 }
 
 
 {
     let allStateExist = true;
-    let mode = [MODES[0],MODES[1]];
-    for (let c = 0;c < mode.length;c++) {
-        let stateAlertId = mainStatePath+'alert.'+mode[c].text.toLowerCase()+'.';
-        for (let b = 0;b < warningTypesString[mode[c].mode].length;b++) {
-            for (let a = 0;a < stateAlert.length;a++)
-            {
-                let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b][0]+'.'+stateAlert[a].name;
+    let mode = [MODES[0], MODES[1]];
+    for (let c = 0; c < mode.length; c++) {
+        let stateAlertId = mainStatePath + 'alert.' + mode[c].text.toLowerCase() + '.';
+        for (let b = 0; b < warningTypesString[mode[c].mode].length; b++) {
+            for (let a = 0; a < stateAlert.length; a++) {
+                let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b][0] + '.' + stateAlert[a].name;
                 stateAlert[a].type.name = stateAlert[a].name;
                 if (!extendedExists(stateAlertIdFull)) {
                     createCustomState(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
@@ -698,6 +694,7 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
 
     checkWarningsMain();
+
     onClickCheckRun = false;
     forceSpeak = false;
     uPushdienst = oPd;
@@ -754,8 +751,8 @@ function setAlertState() {
                 }
             }
             if (extendedExists(stateAlertIdFull + stateAlert[0].name)) {
-                if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel
-                || ( AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[8].name).val != warnDatabase.new[AlertIndex].hash)) {
+                if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
+                    (AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[8].name).val != warnDatabase.new[AlertIndex].hash)) {
                     setState(stateAlertIdFull + stateAlert[0].name, AlertLevel);
                     setState(stateAlertIdFull + stateAlert[1].name, b);
                     setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0));
@@ -907,7 +904,7 @@ function checkWarningsMain() {
     }
 
     let ignoreWarningCount = 0,
-        ignoreModes = 0;
+    ignoreModes = 0;
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
         for (let b = 0; b < warnDatabase.old.length; b++) {
@@ -1005,9 +1002,9 @@ function checkWarningsMain() {
             if (!gefahr) gefahr = level > attentionWarningLevel;
 
             let begin = entry.start ? getFormatDate(entry.start) : '',
-                end = entry.end ? getFormatDate(entry.end) : '';
+            end = entry.end ? getFormatDate(entry.end) : '';
             let sTime = SPACE,
-                bt = (begin || end);
+            bt = (begin || end);
             if (begin || end) sTime = "gültig ";
             if (begin) sTime += "vom " + begin + " Uhr";
             if ((begin && end)) sTime += SPACE;
@@ -1016,7 +1013,7 @@ function checkWarningsMain() {
             // html
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
-                    de = '';
+                de = '';
                 if (entry.html !== undefined) {
                     let html = entry.html;
                     if (html.headline) he = html.headline;
@@ -1043,7 +1040,6 @@ function checkWarningsMain() {
             }
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
-
                 let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '') + NEWLINE + description;
                 if (!!instruction && typeof instruction === 'string' && instruction.length > 2) {
                     pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
@@ -1061,7 +1057,6 @@ function checkWarningsMain() {
             }
             // Sprache
             if ((getPushModeFlag(mode) & SPEAK) != 0) {
-
                 sTime = SPACE;
                 if (begin || end) sTime += "gültig ";
                 if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
@@ -1162,8 +1157,10 @@ function sendMessage(pushdienst, topic, msg, entry) {
         newMsg.message = msg;
         newMsg.title = topic;
         if (entry) {
-            if (entry.web) { newMsg.url = entry.web;
-                newMsg.url_title = entry.webname };
+            if (entry.web) {
+                newMsg.url = entry.web ;
+                newMsg.url_title = entry.webname;
+            }
             newMsg.message = msg.replace(entry.headline, '<font color="' + entry.color + '">' + entry.headline + '</font>');
             //msg = msg.split(' '); msg[0]='<font color="'+entry.color+'">'+msg[0]+'</font>';msg = msg.join(' ');
             if (entry.level >= attentionWarningLevel) newMsg.priority = 1;
@@ -1373,31 +1370,21 @@ function onChange(dp, mode) {
 function InitDatabase(first) {
     if (first) warnDatabase = { new: [], old: [] };
     if (MODE & DWD) {
-        var idAll = $("state[state.id=" + dwdPath + ".*.object$]");
-        _helper(idAll, DWD, first);
-    } else {
-        warnDatabase.new = warnDatabase.new.filter(function(j) {
-            return j.mode != DWD;
-        });
+        _helper($("state[state.id=" + dwdPath + ".*.object$]"), DWD, first);
     }
-
     if (MODE & UWZ) {
-        var idAll = $("state[state.id=" + uwzPath + ".*.object$]");
-        _helper(idAll, UWZ, first);
-    } else {
-        warnDatabase.new = warnDatabase.new.filter(function(j) {
-            return j.mode != UWZ;
-        });
+        _helper($("state[state.id=" + uwzPath + ".*.object$]"), UWZ, first);
     }
     if (MODE & NINA) {
-        var idAll = $("state[state.id=" + ninaPath + ".*.rawJson$]");
-        _helper(idAll, NINA, first);
-    } else {
-        warnDatabase.new = warnDatabase.new.filter(function(j) {
-            return j.mode != NINA;
-        });
+        _helper($("state[state.id=" + ninaPath + ".*.rawJson$]"), NINA, first);
     }
-    if (!first) removeDuplicateHash();
+    warnDatabase.new = warnDatabase.new.filter(function(j) {
+        return (j.mode & MODE);
+    });
+    if (!first) {
+        warnDatabase.new = _filter(warnDatabase.new);
+        warnDatabase.old = _filter(warnDatabase.old);
+    }
     return;
 
     function _helper(arr, mode, first) {
@@ -1406,8 +1393,19 @@ function InitDatabase(first) {
             addDatabaseData(id, getState(id).val, mode, first);
         }
     }
+    function _filter(database) {
+        if (database && database.length > 0) {
+            database = database.filter(function(j, i){
+                let b = (-1 == database.findIndex(function(j2, i2){
+                    return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
+                }));
+                if (!b) myLog('filtere:'+JSON.stringify(j));
+                return b;}
+            )
+        }
+        return database;
+    }
 }
-
 
 // für Objekt zur Database hinzu
 function addDatabaseData(id, value, mode, old) {
@@ -1449,7 +1447,7 @@ function addDatabaseData(id, value, mode, old) {
         }
     } else if (mode == NINA) {
         if (jvalue.info === undefined || !Array.isArray(jvalue.info))
-            return false;
+        return false;
         let tempArr = [];
         let grouphash = 0;
         // sammele die neuen Daten
@@ -1471,12 +1469,14 @@ function addDatabaseData(id, value, mode, old) {
                 myLog("Added to tempdatabase");
             }
         }
-        // Vergleiche vorhandene und neue Daten wenn hash = hash aktualisiere ID, wenn nicht und ID = ID lösche Eintrag und
+        // Vergleiche vorhandene und neue Daten wenn hash = hash aktualisiere ID, wenn nicht und ID = ID setzte ID auf null
         if (tempArr.length > 0) {
             for (let a = 0; a < tempArr.length; a++) {
                 for (let b = 0; b < warnDatabase.new.length; b++) {
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
-                        if (uLogAusgabe && warnDatabase.new[b].id != tempArr[a].id) log( "Update database Nina warning old id<>new id. headline: " +warn.headline );
+                        if (uLogAusgabe && warnDatabase.new[b].id != tempArr[a].id) {
+                            log( "Update database Nina warning old id<>new id. headline: " +warn.headline );
+                        }
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--, 1);
                         break;
@@ -1485,7 +1485,7 @@ function addDatabaseData(id, value, mode, old) {
                         tempArr[a].grouphash != warnDatabase.new[b].grouphash
                     ) {
                         myLog(
-                            "warnDatabase.new set id to null because duplicate id and wrong grouphash: " +
+                            "warnDatabase.new set id to null - duplicate id and wrong grouphash: " +
                             warnDatabase.new[b].headline
                         );
                         warnDatabase.new[b].id = null;
@@ -1499,10 +1499,10 @@ function addDatabaseData(id, value, mode, old) {
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
                 if (uLogAusgabe)
-                    log(
-                        "Add Nina warning to database. headline: " +
-                        warn.headline
-                    );
+                log(
+                    "Add Nina warning to database. headline: " +
+                    warn.headline
+                );
             }
             change = true;
         }
@@ -1709,13 +1709,13 @@ function getDatabaseData(warn, mode){
         }
         return result;
     }
-    }
+}
 
-    function removeHtml(a) {
-        let b = a.replace(/<br\/>/ig, NEWLINE);
-        b = b.replace(/(&nbsp;|<([^>]+)>)/ig, '');
-        return b;
-    }
+function removeHtml(a) {
+    let b = a.replace(/<br\/>/ig, NEWLINE);
+    b = b.replace(/(&nbsp;|<([^>]+)>)/ig, '');
+    return b;
+}
 // Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
 // Folglich werden Entwarnung raus geschickt. Jetzt warten wir 10 * 9 = 90 Minuten entwarnen erst dann.
@@ -1763,27 +1763,6 @@ function removeDatabaseDataID(id, multitimes) {
     }
     return change;
 }
-function removeDuplicateHash() {
-    if (warnDatabase.new && warnDatabase.new.length > 0) {
-        warnDatabase.new = warnDatabase.new.filter(function(j, i){
-            let b = (-1 == warnDatabase.new.findIndex(function(j2, i2){
-                return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
-            }));
-            if (!b) myLog('new filtere:'+JSON.stringify(j));
-            return b;}
-        )
-    }
-    if (warnDatabase.old && warnDatabase.old.length > 0) {
-        warnDatabase.old = warnDatabase.old.filter(function(j, i){
-            let b = (-1 == warnDatabase.old.findIndex(function(j2, i2){
-                return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
-            }));
-            if (!b) myLog('old filtere:'+JSON.stringify(j));
-            return b;}
-        )
-    }
-}
-
 
 /* *************************************************************************
 * Datenbank ENDE
@@ -1862,7 +1841,7 @@ function replaceTokenForSpeak(beschreibung) {
 // Formatiere Date zu string
 function getFormatDate(a) {
     if (!a || (!(typeof a === 'number')) && !(typeof a === 'object')) return '';
-    return formatDate(new Date (a).getTime(), formatierungString);
+    return formatDate(new Date(a).getTime(), formatierungString);
 }
 // hilffunktion für Zeitausgabe über Sprache
 // @PARAM Rückgabe von getFormatDate
@@ -1894,7 +1873,7 @@ function getFormatDateSpeak(a) {
     c[0] = '';
     b[2] = c.join(SPACE);
     return b.join(SPACE);
-    }
+}
 
 
 /* *************************************************************************
@@ -1909,7 +1888,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
         var msg = obj.state.val;
         var user = msg.substring(1, msg.indexOf(']'));
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
-        if (msg.includes('Ww?') || msg.includes('Wetterwarnungen?')) {
+        if (msg.includes('Ww?') || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
             setState(mainStatePath + 'commands.' + konstanten[0].name, true);
         } else if (DEBUG && msg.includes('Wwdmail')) {
             let olddebug = DEBUGSENDEMAIL;
@@ -1919,9 +1898,9 @@ if ((uPushdienst & TELEGRAM) != 0) {
                     DEBUGSENDEMAIL = olddebug;
                 }, 200);
             });
-        } else if (msg.includes('Wwdon')) {
+        } else if (msg.includes('Wwdon') || msg == 'DWDUZWNINA#!§$debugan') {
             DEBUG = true;
-        } else if (msg.includes('Wwdoff')) {
+        } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
             DEBUG = false;
         }
     });
