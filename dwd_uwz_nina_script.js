@@ -1,4 +1,4 @@
-//Version 0.97.2.1
+//Version 0.97.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1157,7 +1157,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         newMsg.message = msg;
         newMsg.title = topic;
         if (entry) {
-            if (entry.web) {
+            if (entry.web && entry.web.length < 512) {
                 newMsg.url = entry.web ;
                 newMsg.url_title = entry.webname;
             }
