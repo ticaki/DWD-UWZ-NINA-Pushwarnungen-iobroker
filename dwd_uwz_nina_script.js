@@ -1261,7 +1261,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         // gibt den letzten Satz zur Sprachausgabe zurück.
         function _getMsgCountString(arr, dienst) {
             let msgAppend = '';
-            let len = arr.filter(function(a, b) { return !!(a.dienst & dienst); }).length - 1;
+            let len = arr.filter(function(a, b) { return !!(a.dienst & dienst) && a.part === 1; }).length - 1;
             if (len > 1) {
                 if (len - 1 == 1) {
                     msgAppend = ' Eine weitere neue Warnung.';
@@ -1280,19 +1280,33 @@ function sendMessage(pushdienst, topic, msg, entry) {
         function _addItem(arr, a, dienst) {
             if ((dienst & HOMETWO) != 0) {
                 let m = deviceList[HOMETWO].delay * a.length + 2000;
-                __addItem(arr, a, HOMETWO, m)
+                __addItem(arr, a, HOMETWO, m, 1)
             }
             if ((dienst & SAYIT) != 0) {
                 let m = deviceList[SAYIT].delay * a.length + 2000;
-                __addItem(arr, a, SAYIT, m)
+                __addItem(arr, a, SAYIT, m, 1)
             }
             if ((dienst & ALEXA) != 0) {
+                a = a.replace(';',',');
+                // füge in Alexa Mitteilungen alle max. 200 hinter einem . ;# ein
+                let b = 940, c = 1; s= 0;
+                while (a.length > b ) {
+                    let e = a.lastIndexOf('. ',b)+1; // versuche ". "
+                    if (e<500) e = a.lastIndexOf('.', b)+1; // versuche " "
+                    if (e<500) e = a.lastIndexOf(' ', b); // versuche " "
+                    if (e<500) e = 500; // sicherheit um endlosschleifen zu verhindern.
+                    let msg = a.substring(0, e) + ' Warnung wurde aufgeteilt!';
+                    let m = deviceList[ALEXA].delay * msg.length + 2000;
+                    __addItem(arr, msg, ALEXA, m, c)
+                    a = a.substring(e);
+                    c++;
+                }
                 let m = deviceList[ALEXA].delay * a.length + 2000;
-                __addItem(arr, a, ALEXA, m)
+                __addItem(arr, a, ALEXA, m , c)
             }
             return arr;
             // Hilfsunktion
-            function __addItem(arr, a, dienst, m) {
+            function __addItem(arr, a, dienst, m, count) {
                 let t = null;
                 for (let a = arr.length - 1; a >= 0; a--) {
                     if (dienst == arr[a].dienst) { t = arr[a].endTimeSpeak; break; }
@@ -1300,7 +1314,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 t = t || new Date();
                 let nt = new Date(t);
                 nt.setMilliseconds(t.getMilliseconds() + m);
-                arr.push({ msg: a, dienst: dienst, endTimeSpeak: nt, startTimeSpeak: t });
+                arr.push({ msg: a, dienst: dienst, endTimeSpeak: nt, startTimeSpeak: t, part: count});
             }
         }
     }
@@ -1596,12 +1610,12 @@ function getDatabaseData(warn, mode){
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
-        web = warn.web === undefined || !warn.web? '' : '<br>'+warn.web+'<br>';
+        web = warn.web === undefined || !warn.web || !isValidUrl(warn.web)? '' : '<br>'+warn.web+'<br>';
         result['mode'] = NINA;
         //result['identifier'] = warn.identifier === undefined ? '' : warn.identifier;
         //result['sender'] = warn.sender === undefined ? '' : warn.sender;
-        result['web'] 					= warn.web === undefined || !warn.web         ? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
-        result['webname'] 				= warn.web === undefined || !warn.web	      ? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
+        result['web'] 					= warn.web === undefined || !warn.web || !isValidUrl(warn.web)        ? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
+        result['webname'] 				= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
         result['description'] 			= warn.description === undefined              ? '' 	: removeHtml(warn.description);
         result['start'] 				= warn.onset === undefined 		              ? null 	: getDateObject(warn.onset).getTime() || null;
         result['end'] 					= warn.expires === undefined 			      ? null	: getDateObject(warn.expires).getTime() || null;
@@ -1616,7 +1630,7 @@ function getDatabaseData(warn, mode){
         result['level'] 				= warn.severity === undefined 			      ? -1	: getNinaLevel(warn.severity, result.typename);
         result['color'] 				= getLevelColor(result.level);
         result['html'] 					= {};
-        result['html']['web'] 			= warn.web === undefined || !warn.web 	      ? '' 	: warn.web;
+        result['html']['web'] 			= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? '' 	: warn.web;
         result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
@@ -2144,6 +2158,18 @@ function getRegEx(value, firstChar) {
     }
     return r;
 }
+
+function isValidUrl(str) {
+   var pattern = new RegExp('^((ft|htt)ps?:\\/\\/)?'+ // protocol
+  '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name and extension
+  '((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
+  '(\\:\\d+)?'+ // port
+  '(\\/[-a-z\\d%@_.~+&:]*)*'+ // path
+  '(\\?[;&a-z\\d%@_.,~+&:=-]*)?'+ // query string
+  '(\\#[-a-z\\d_]*)?$','i'); // fragment locator
+  return pattern.test(str.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,''));
+}
+
 /* *************************************************************************
 * Hilffunktion sonstiges
 *           ENDE
