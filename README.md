@@ -70,6 +70,10 @@ Bedeutung der Farben:
 - die Restlichen schalten für einen bestimmten Modus eine bestimmte Art an oder aus.
 4. Punkte unter manuell schalten für das manuelle Auslösen in einem bestimmten Modus die Möglichkeit an oder aus. (z.B. UWZ über alexa aber NINA nicht).
 
+### Vorbereitung bei der Verwendung von NINA
+- mindestens v0.0.22
+- in der Adapterkonfiguration diesen Punkt aktivieren: **Json der Warnung in den State rawJson speichern (erhöhter Speicherbedarf)**
+
 ### Konfigurationsparameter NACH dem ersten Start
 - DWD/UWZ/NINA muß gesetzt werden, ist alles deaktiviert.
 
