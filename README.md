@@ -187,7 +187,7 @@ var uPushoverSound          = '';
 var pushoverInstanz         = 'pushover.0';
 ```
 6. ioGo **(optional)**
-- ioGoUser: Tragt keinen, einen, oder mehrere Nutzer ein.
+- ioGoUser: Tragt keinen, einen, oder mehrere GeräteIDs ein.
 ```javascript
 var ioGoUser = [''];
 ```
