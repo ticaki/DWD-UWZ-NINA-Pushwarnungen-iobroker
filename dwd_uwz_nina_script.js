@@ -1,4 +1,4 @@
-//Version 0.97.3
+//Version 0.97.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -92,14 +92,14 @@ var mainStatePath = 'javascript.0.wetterwarnung_test.';
 /* ************************************************************************ */
 /* ************************************************************************ */
 var konstanten = [
-    {'name':'telegram','value':1},
-    {"name":'pushover',"value":2, count:0, delay:400},
+    {'name':'telegram','value':1,count:0, delay:200, maxChar: 4000 },
+    {"name":'pushover',"value":2, count:0, delay:1000, maxChar: 1000},
     {"name":'email',"value":4},
-    {"name":'sayit',"value":8, count:0, delay:0},
+    {"name":'sayit',"value":8, count:0, delay:0, maxChar: 940},
     {"name":'home24',"value":16, count:0, delay:0},
-    {"name":'alexa',"value":32, count:0, delay:0},
+    {"name":'alexa',"value":32, count:0, delay:0, maxChar: 940},
     {"name":'state',"value":64},
-    {"name":'iogo',"value":128}
+    {"name":'iogo',"value":128, maxChar: 940}
 ];
 const TELEGRAM = konstanten[0].value;
 const PUSHOVER = konstanten[1].value;
@@ -376,6 +376,7 @@ for (let a = 0; a < konstanten.length; a++) {
     deviceList[konstanten[a].value] = {};
     if (konstanten[a].count !== undefined) deviceList[konstanten[a].value].count = konstanten[a].count;
     if (konstanten[a].delay !== undefined) deviceList[konstanten[a].value].delay = konstanten[a].delay;
+    if (konstanten[a].maxChar !== undefined) deviceList[konstanten[a].value].maxChar = konstanten[a].maxChar;
 }
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration
@@ -968,7 +969,7 @@ function checkWarningsMain() {
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
-            sendMessage(getPushModeFlag(mode) & PUSH, picture + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung'), pushMsg);
+            sendMessage(getPushModeFlag(mode) & PUSH, picture + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung') + SPACE + (i + 1), pushMsg);
             myLog('text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : '') + ' wurde aufgehoben' + '  .  ';
@@ -1051,7 +1052,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, picture + getTopic(mode), picture + pushMsg, entry);
+                sendMessage(b, picture + getTopic(mode) + SPACE + count, picture + pushMsg, entry);
                 myLog('text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1138,17 +1139,25 @@ function sendMessage(pushdienst, topic, msg, entry) {
     if ((pushdienst & TELEGRAM) != 0) {
         let nMsg = {};
         if (entry && entry.web && entry.webname) nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
-        nMsg.text = msg;
         if (telegramUser.length > 0) {
             nMsg.user = telegramUser;
-            _sendTo(TELEGRAM, telegramInstanz, nMsg);
+            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                opt.text = msg;
+                _sendTo(TELEGRAM, telegramInstanz, opt);
+            });
         }
         if (telegramChatId.length > 0) {
             nMsg.ChatId = telegramChatId;
-            _sendTo(TELEGRAM, telegramInstanz, nMsg);
+            _sendSplitMesaage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                opt.text = msg;
+                _sendTo(TELEGRAM, telegramInstanz, opt);
+            });
         }
         if (!(telegramUser.length > 0 || telegramChatId.length > 0)) {
-            _sendTo(TELEGRAM, telegramInstanz, nMsg);
+            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                opt.text = msg;
+                _sendTo(TELEGRAM, telegramInstanz, opt);
+            });
         }
     }
     if ((pushdienst & PUSHOVER) != 0) {
@@ -1168,7 +1177,11 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (!usesound) newMsg.sound = 'none';
         else if (uPushoverSound) newMsg.sound = uPushoverSound;
         if (uPushoverDeviceName) newMsg.device = uPushoverDeviceName;
-        _sendTo(PUSHOVER, pushoverInstanz, newMsg);
+        _sendSplitMessage(PUSHOVER, newMsg.message.slice(), newMsg, function(msg, opt, c) {
+            opt.message = msg;
+            if (c > 1) opt.title += ' Teil ' + c;
+            _sendTo(PUSHOVER, pushoverInstanz, opt);
+        });
     }
     if ((pushdienst & IOGO) != 0) {
         let j = {};
@@ -1224,6 +1237,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
             if (_speakToArray.length > 1) {
                 let entry = _speakToArray[1];
                 if (entry.startTimeSpeak <= new Date()) {
+                    if ( entry.part > 1 ) entry.msg = 'Teil ' + entry.part+':  ' + entry.msg;
                     let nTime = new Date(new Date().getTime() + (deviceList[entry.dienst].delay * (entry.msg + _getMsgCountString(_speakToArray, entry.dienst)).length));
                     let value = nTime.getTime() - new Date(entry.endTimeSpeak).getTime();
                     for (let a = 1; a < _speakToArray.length; a++) {
@@ -1280,29 +1294,13 @@ function sendMessage(pushdienst, topic, msg, entry) {
         function _addItem(arr, a, dienst) {
             if ((dienst & HOMETWO) != 0) {
                 let m = deviceList[HOMETWO].delay * a.length + 2000;
-                __addItem(arr, a, HOMETWO, m, 1)
+                arr = __addItem(arr, a, HOMETWO, m, 1)
             }
             if ((dienst & SAYIT) != 0) {
-                let m = deviceList[SAYIT].delay * a.length + 2000;
-                __addItem(arr, a, SAYIT, m, 1)
+                arr = _sendSplitMessage(SAYIT, a.slice(), arr, _splitedSpeakMessage);
             }
             if ((dienst & ALEXA) != 0) {
-                a = a.replace(';',',');
-                // füge in Alexa Mitteilungen alle max. 200 hinter einem . ;# ein
-                let b = 940, c = 1; s= 0;
-                while (a.length > b ) {
-                    let e = a.lastIndexOf('. ',b)+1; // versuche ". "
-                    if (e<500) e = a.lastIndexOf('.', b)+1; // versuche " "
-                    if (e<500) e = a.lastIndexOf(' ', b); // versuche " "
-                    if (e<500) e = 500; // sicherheit um endlosschleifen zu verhindern.
-                    let msg = a.substring(0, e) + ' Warnung wurde aufgeteilt!';
-                    let m = deviceList[ALEXA].delay * msg.length + 2000;
-                    __addItem(arr, msg, ALEXA, m, c)
-                    a = a.substring(e);
-                    c++;
-                }
-                let m = deviceList[ALEXA].delay * a.length + 2000;
-                __addItem(arr, a, ALEXA, m , c)
+                arr = _sendSplitMessage(ALEXA, a.slice(), arr, _splitedSpeakMessage);
             }
             return arr;
             // Hilfsunktion
@@ -1315,8 +1313,41 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 let nt = new Date(t);
                 nt.setMilliseconds(t.getMilliseconds() + m);
                 arr.push({ msg: a, dienst: dienst, endTimeSpeak: nt, startTimeSpeak: t, part: count});
+                return arr;
+            }
+            function _splitedSpeakMessage(dienst, str, c, opt) {
+                let m = deviceList[dienst].delay * str.length + 2000;
+                return __addItem(opt, str, dienst, m, c);
             }
         }
+    }
+    function _sendSplitMessage(dienst, str, opt, callback) {
+        let c = 1;
+        let text = '\n* Warnung wurde aufgeteilt *';
+        let index = deviceList[dienst].maxChar !== undefined ? deviceList[dienst].maxChar-text.length : 0;
+        let e = 0;
+        do  {
+            let msg = str;
+            e = 0;
+            if (index != 0 && index < msg.length) {
+                e = _getLastIndexToSplit(msg, index);
+                msg = str.substring(0, e) + text;
+            }
+            log (msg);
+            if ( dienst & SPEAK ) {
+                opt = callback(dienst, msg, c++, opt);
+            }else {
+                callback(msg, cloneObj(opt), c++);
+            }
+            if (e != 0) str =  str.substring(e).trimLeft();
+        } while (e != 0 )
+        return opt;
+    }
+    function _getLastIndexToSplit(str, index) {
+        let f = str.substring(0,index).match(/..\n|..<br>|[a-zA-Z][a-z][\.\!\?\:](?= [A-Z])|[a-zA-Z][a-z]\.(?=[A-Z][a-zA-Z]{3})/gi);
+        let e = index;
+        if (f && f.length > 0) e = str.lastIndexOf(f[f.length-1],index) + f[f.length-1].length;
+        return e;
     }
 }
 /* *************************************************************************

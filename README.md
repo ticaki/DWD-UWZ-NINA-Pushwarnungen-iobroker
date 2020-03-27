@@ -14,6 +14,9 @@ Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dw
 - 0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
 - 0.97.2 Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
 - 0.97.2.1 Doppeltes Symbole in aufgehobenen Einzelentwarnungen (Textnachricht) behoben.
+- 0.97.3 var konstanten angepasst. Bei Update bin übernehmen, sonst normales kopieren
+- s.o. Telegram & Pushover & Alexa & SayIt maximale Zeichenzahl hinzugefügt. Ländere Nachrichten werden aufgeteilt.
+- s.o. Urls werden überprüft und verworfen, wenn sie nicht ins Muster passen.
 
 ## Scriptbeschreibung
 Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
@@ -187,7 +190,7 @@ var uPushoverSound          = '';
 var pushoverInstanz         = 'pushover.0';
 ```
 6. ioGo **(optional)**
-- ioGoUser: Tragt keinen, einen, oder mehrere GeräteIDs ein.
+- ioGoUser: Tragt keinen, einen, oder mehrere "ID des Gerätes" ein.
 ```javascript
 var ioGoUser = [''];
 ```
