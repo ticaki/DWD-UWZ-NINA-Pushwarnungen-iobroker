@@ -1,4 +1,4 @@
-//Version 0.97.5
+//Version 0.97.5.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1069,6 +1069,7 @@ function checkWarningsMain() {
                 let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE;
                 description = replaceTokenForSpeak(description);
                 if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) speakMsg += description;
+                else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
                 }
