@@ -222,7 +222,7 @@ var endTimeSpeak =          '22:30'; // ab diesem Zeitpunkt gibt es keine Sprach
 // Ein manuellen Auslösen von Sprachnachrichten, löscht alle noch nicht ausgegebenen Sprachnachrichten aus der Liste.
 var uManuellClickClearSpeakMessageList = true;
 // Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
-var uMaxCharToSpeak = 0; // 0 = aus - Zahle größer als 0 = maximal Zeichenanzahl (1000 ist ein guter Wert)
+var uMaxCharToSpeak = 0; // 0 = aus - Zahl größer als 0 = maximal Zeichenanzahl (1000 sind rund 86 Sekunden bla bla)
 //Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
 var forcedSpeak             = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
