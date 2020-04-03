@@ -1,4 +1,4 @@
-//Version 0.97.4
+//Version 0.97.5
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -6,6 +6,7 @@
 //
 // V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
 // V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
+// V.0.97.5 uMaxCharToSpeak hinzugefügt in Konfiguration
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -220,9 +221,8 @@ var endTimeSpeak =          '22:30'; // ab diesem Zeitpunkt gibt es keine Sprach
 
 // Ein manuellen Auslösen von Sprachnachrichten, löscht alle noch nicht ausgegebenen Sprachnachrichten aus der Liste.
 var uManuellClickClearSpeakMessageList = true;
-
-// Automatikmodus schalten geht über mainStatePath.config.auto.on
-//var autoSendWarnings = true;
+// Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
+var uMaxCharToSpeak = 0; // 0 = aus - Zahle größer als 0 = maximal Zeichenanzahl (1000 ist ein guter Wert)
 //Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
 var forcedSpeak             = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
@@ -1066,7 +1066,9 @@ function checkWarningsMain() {
                 if (!!instruction && typeof instruction === 'string' && instruction.length > 2) {
                     description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                 }
-                let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE + replaceTokenForSpeak(description);
+                let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE;
+                description = replaceTokenForSpeak(description);
+                if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) speakMsg += description;
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
                 }
@@ -1148,7 +1150,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         }
         if (telegramChatId.length > 0) {
             nMsg.ChatId = telegramChatId;
-            _sendSplitMesaage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
             });
@@ -1275,15 +1277,16 @@ function sendMessage(pushdienst, topic, msg, entry) {
         // gibt den letzten Satz zur Sprachausgabe zurück.
         function _getMsgCountString(arr, dienst) {
             let msgAppend = '';
-            let len = arr.filter(function(a, b) { return !!(a.dienst & dienst) && a.part === 1; }).length - 1;
-            if (len > 1) {
-                if (len - 1 == 1) {
+            let len = arr.slice(1).filter(function(a, b) { return (!!(a.dienst & dienst)) && a.part === 1; }).length - 1;
+            if (len > 0) {
+                if (len == 1) {
                     msgAppend = ' Eine weitere neue Warnung.';
                 } else {
                     msgAppend = ' Es gibt ' + (len) + ' weitere neue Warnungen.';
                 }
             } else {
-                if (warnDatabase.new.length == 0) { if (!onClickCheckRun) msgAppend = ' keine weitere Warnung.'; } else {
+                if (warnDatabase.new.length == 0) { if (!onClickCheckRun) msgAppend = ' keine weitere Warnung.'; }
+                else {
                     if (warnDatabase.new.length == 1) msgAppend = ' Insgesamt eine aktive Warnung.';
                     else msgAppend = ' Insgesamt ' + warnDatabase.new.length + ' aktive Warnungen.';
                 }
