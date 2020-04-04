@@ -1,4 +1,4 @@
-//Version 0.97.5.1
+//Version 0.97.6
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -7,6 +7,7 @@
 // V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
 // V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
 // V.0.97.5 uMaxCharToSpeak hinzugefügt in Konfiguration
+// V.0.97.6 4 neue Konfigurationsoptionen hinzugefügt
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -172,9 +173,9 @@ if (extendedExists(aliveState)) {
 var regionName          = [['','']];
 
 // für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren: https://warnung.bund.de/assets/json/suche_channel.json
-// ohne die kryptischen Zeichen.
-var uGemeinde = '';
-var uLandkreis = '';
+// ohne die kryptischen Zeichen. Das ersetzt nicht den NINA-Adapter
+var uGemeinde = ''; // hier steht zum Beispiel, Hamburg, Unterdorf
+var uLandkreis = ''; // hier Kreis Bitburg, Landkreis Fürth
 
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID       = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
@@ -221,8 +222,6 @@ var endTimeSpeak =          '22:30'; // ab diesem Zeitpunkt gibt es keine Sprach
 
 // Ein manuellen Auslösen von Sprachnachrichten, löscht alle noch nicht ausgegebenen Sprachnachrichten aus der Liste.
 var uManuellClickClearSpeakMessageList = true;
-// Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
-var uMaxCharToSpeak = 0; // 0 = aus - Zahl größer als 0 = maximal Zeichenanzahl (1000 sind rund 86 Sekunden bla bla)
 //Auslösen der Pushnachricht über States ignoriert Sprachausgabezeiten
 var forcedSpeak             = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
@@ -235,6 +234,16 @@ var windForceDetailsSpeak   = false;
 konstanten[3].delay /*SayIt*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 konstanten[4].delay /*Home24*/      = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
 konstanten[5].delay /*Alexa*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
+
+// Mit diesen Optionen verringert man die Nachrichtenlänge in dem Beschreibung oder Handlungsanweisungen
+// nicht der Nachricht hinzugefügt werden.
+var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für alle anderen Textnachrichten
+var uTextMitAnweisungen             = true; // uTextMitAnweisungen muß evenfalls true sein um Anweisungen zu erhalten
+var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
+var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
+
+// Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
+var uMaxCharToSpeak = 0; // 0 = aus - Zahl größer als 0 = maximal Zeichenanzahl (1000 sind rund 86 Sekunden bla bla)
 
 // Automodus Filter um Warnungen unterhalb attentionWarningLevel von DWD, UWZ oder NINA zu unterdrücken
 // Sprachausgabe bei auto und manuell unterdrückt.
@@ -1041,9 +1050,12 @@ function checkWarningsMain() {
             }
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
-                let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '') + NEWLINE + description;
-                if (!!instruction && typeof instruction === 'string' && instruction.length > 2) {
-                    pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '')
+                if (uTextMitBeschreibung) {
+                    pushMsg+= NEWLINE + description;
+                    if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
+                        pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                    }
                 }
 
                 // Anzahl Meldungen erst am Ende zu email hinzufügen
@@ -1063,12 +1075,15 @@ function checkWarningsMain() {
                 if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
                 if ((begin && end)) sTime += " ";
                 if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
-                if (!!instruction && typeof instruction === 'string' && instruction.length > 2) {
+                let i
+                if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                     description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                 }
                 let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE;
                 description = replaceTokenForSpeak(description);
-                if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) speakMsg += description;
+                if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
+                     if (uSpracheMitBeschreibung) speakMsg += description;
+                 }
                 else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
