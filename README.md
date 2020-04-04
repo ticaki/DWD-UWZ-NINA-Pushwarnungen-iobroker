@@ -15,8 +15,14 @@ Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dw
 - 0.97.2 Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
 - 0.97.2.1 Doppeltes Symbole in aufgehobenen Einzelentwarnungen (Textnachricht) behoben.
 - 0.97.3 var konstanten angepasst. Bei Update bin übernehmen, sonst normales kopieren
-- s.o. Telegram & Pushover & Alexa & SayIt maximale Zeichenzahl hinzugefügt. Ländere Nachrichten werden aufgeteilt.
+- s.o. Telegram & Pushover & Alexa & SayIt maximale Zeichenzahl hinzugefügt. Längere Nachrichten werden aufgeteilt.
 - s.o. Urls werden überprüft und verworfen, wenn sie nicht ins Muster passen.
+- 0.97.6.1 ups vergessen zu aktualiseren jetzt alles bis hier hin
+- s.o. Beschreibung und Handlungsanweisungen lassen sich ausschalten für Sprache und Textnachrichten
+- s.o. Telegram: Ww? hält sich an Textbegrenzungen. Wwww sendet Nachrichten in voller länge
+- s.o. Option um Sprachausgaben pro Zeichen zu begrenzen. Überschreitet die volle Nachricht dieses Limit wird Beschreiung und Anweisung weg gelassen.
+- s.o. Fehler: Zähler in Sprachausgabe gefixt
+- s.o. Sprachausgabefunktion umgebaut
 
 ## Scriptbeschreibung
 Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
