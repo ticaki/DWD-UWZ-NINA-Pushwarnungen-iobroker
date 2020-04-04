@@ -1,4 +1,4 @@
-//Version 0.97.6
+//Version 0.97.6.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1966,6 +1966,23 @@ if ((uPushdienst & TELEGRAM) != 0) {
             DEBUG = true;
         } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
             DEBUG = false;
+        } else if (msg === 'Wwww' || msg === 'DWDUZWNINA#!§$LONG') {
+            warnDatabase.old = [];
+            let oPd = uPushdienst;
+            uPushdienst &= TELEGRAM;
+            forceSpeak = forcedSpeak;
+            onClickCheckRun = true;
+            let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung;
+            uTextMitAnweisungen = true;
+            uTextMitBeschreibung = true;
+
+            checkWarningsMain();
+
+            uTextMitAnweisungen = oldA;
+            uTextMitBeschreibung = oldB;
+            onClickCheckRun = false;
+            forceSpeak = false;
+            uPushdienst = oPd;
         }
     });
 }
