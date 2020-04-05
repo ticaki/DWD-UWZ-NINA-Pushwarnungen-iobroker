@@ -1,4 +1,4 @@
-//Version 0.97.6.1
+//Version 0.97.6.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -284,7 +284,8 @@ var DEBUGSENDEMAIL = false;
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
 var MODE = 0; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
 
-
+var uTelegramMessageShort = 'Ww?';
+var uTelegramMessageLong  = 'Wwww';
 // Wandel Usereingabe in sauberes True / False um
 forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
@@ -1952,9 +1953,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
         var msg = obj.state.val;
         var user = msg.substring(1, msg.indexOf(']'));
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
-        if (msg.includes('Ww?') || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
-            setState(mainStatePath + 'commands.' + konstanten[0].name, true);
-        } else if (DEBUG && msg.includes('Wwdmail')) {
+        if (DEBUG && msg.includes('Wwdmail')) {
             let olddebug = DEBUGSENDEMAIL;
             DEBUGSENDEMAIL = true;
             setState(mainStatePath + 'commands.' + konstanten[2].name, true, function() {
@@ -1966,15 +1965,17 @@ if ((uPushdienst & TELEGRAM) != 0) {
             DEBUG = true;
         } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
             DEBUG = false;
-        } else if (msg === 'Wwww' || msg === 'DWDUZWNINA#!§$LONG') {
+        } else if (msg === uTelegramMessageLong || msg === 'DWDUZWNINA#!§$LONG' || msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
             warnDatabase.old = [];
             let oPd = uPushdienst;
             uPushdienst &= TELEGRAM;
             forceSpeak = forcedSpeak;
             onClickCheckRun = true;
             let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung;
-            uTextMitAnweisungen = true;
-            uTextMitBeschreibung = true;
+            let long = true;
+            if ( msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') long = false;
+            uTextMitAnweisungen = long;
+            uTextMitBeschreibung = long;
 
             checkWarningsMain();
 
