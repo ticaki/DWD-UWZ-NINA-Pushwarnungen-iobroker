@@ -280,12 +280,14 @@ var DEBUGSENDEMAIL = false;
 //ab hier bei Update
 // 123456
 
+
+var uTelegramMessageShort = 'Ww?';
+var uTelegramMessageLong  = 'Wwww';
+
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
 var MODE = 0; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
 
-var uTelegramMessageShort = 'Ww?';
-var uTelegramMessageLong  = 'Wwww';
 // Wandel Usereingabe in sauberes True / False um
 forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
