@@ -1,4 +1,4 @@
-//Version 0.97.7
+//Version 0.97.7.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -237,8 +237,10 @@ konstanten[5].delay /*Alexa*/       = 86; // Vorlese Geschwindigkeit pro Zeichen
 
 // Mit diesen Optionen verringert man die Nachrichtenlänge in dem Beschreibung oder Handlungsanweisungen
 // nicht der Nachricht hinzugefügt werden.
+var uHtmlMitBeschreibung            = true; // gilt für Email
+var uHtmlMitAnweisungen             = true; // uHtmlMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für alle anderen Textnachrichten
-var uTextMitAnweisungen             = true; // uTextMitAnweisungen muß evenfalls true sein um Anweisungen zu erhalten
+var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
 var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 
@@ -653,10 +655,10 @@ for (var a = 0; a < konstanten.length; a++) {
         if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name)) {
             createCustomState(mainStatePath + 'commands.' + konstanten[a].name, false, { read: true, write: true, desc: "Gebe Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
         }
-        if (konstanten[a].value != EMAIL && !extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
+        if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
             createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_short', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
         }
-        if (konstanten[a].value != EMAIL && !extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
+        if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
             createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_long', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
         }
         for (let x = 0; x < MODES.length; x++) {
@@ -716,12 +718,16 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
             }
         }
     }
-    let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung, oldC = uSpracheMitAnweisungen, oldD = uSpracheMitBeschreibung;
+    let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung,
+        oldC = uSpracheMitAnweisungen, oldD = uSpracheMitBeschreibung,
+        oldE = uHtmlMitAnweisungen, oldF = uHtmlMitBeschreibung;;
     if (msgLength != 0 ) {
         uTextMitAnweisungen     = msgLength == 2;
         uTextMitBeschreibung    = msgLength == 2;
         uSpracheMitAnweisungen  = msgLength == 2;
         uSpracheMitBeschreibung = msgLength == 2;
+        uHtmlMitAnweisungen     = msgLength == 2;
+        uHtmlMitBeschreibung    = msgLength == 2;
     }
 
     warnDatabase.old = [];
@@ -737,6 +743,8 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     uTextMitBeschreibung    = oldB;
     uSpracheMitAnweisungen  = oldC;
     uSpracheMitBeschreibung = oldD;
+    uHtmlMitAnweisungen     = oldC;
+    uHtmlMitBeschreibung    = oldD;
 
     onClickCheckRun = false;
     forceSpeak = false;
@@ -1061,15 +1069,20 @@ function checkWarningsMain() {
                     let html = entry.html;
                     if (html.headline) he = html.headline;
                     else he = headline;
-                    if (html.description) de = html.description;
-                    else de = description;
-                    if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
-                    else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
-                    if (entry.html.web) de += '<br><br>' + entry.html.web;
+                    if ( uHtmlMitBeschreibung ) {
+                        if (html.description) de = html.description;
+                        else de = description;
+                        if ( uHtmlMitAnweisungen ) {
+                            if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
+                            else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                        }
+                        if (entry.html.web) de += '<br><br>' + entry.html.web;
+                    }
                 } else {
                     he = headline;
-                    de = description;
-                    if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                    if (uHtmlMitBeschreibung) { de = description;
+                        if ( uHtmlMitAnweisungen && instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                    }
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
                 html = html[0].toUpperCase() + html.substring(1);
