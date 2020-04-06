@@ -1,4 +1,4 @@
-//Version 0.97.6.2
+//Version 0.97.7
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -651,7 +651,13 @@ function setConfigModeStates(mode) {
 for (var a = 0; a < konstanten.length; a++) {
     if ((uPushdienst & konstanten[a].value) != 0) {
         if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name)) {
-            createCustomState(mainStatePath + 'commands.' + konstanten[a].name, false, { read: true, write: true, desc: "Beschreibung", type: "boolean", role: "button", def: false });
+            createCustomState(mainStatePath + 'commands.' + konstanten[a].name, false, { read: true, write: true, desc: "Gebe Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+        }
+        if (konstanten[a].value != EMAIL && !extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
+            createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_short', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+        }
+        if (konstanten[a].value != EMAIL && !extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
+            createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_long', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
         }
         for (let x = 0; x < MODES.length; x++) {
             let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
@@ -697,8 +703,27 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     if (!obj.state.val) return;
     setState(obj.id, false, true);
     let b = obj.id.split('.');
+    let msgLength = 0;
     let d = konstanten.findIndex(function(c) { return (c.name === b[b.length - 1]); })
-    if (d == -1) return;
+    if (d == -1) {
+        d = konstanten.findIndex(function(c) { return (c.name + '_short' === b[b.length - 1]); });
+        msgLength = 1;
+        if (d == -1) {
+            d = konstanten.findIndex(function(c) { return (c.name + 'long' === b[b.length - 1]); });
+            msgLength = 2;
+            if (d == -1) {
+                return
+            }
+        }
+    }
+    let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung, oldC = uSpracheMitAnweisungen, oldD = uSpracheMitBeschreibung;
+    if (msgLength != 0 ) {
+        uTextMitAnweisungen     = msgLength == 2;
+        uTextMitBeschreibung    = msgLength == 2;
+        uSpracheMitAnweisungen  = msgLength == 2;
+        uSpracheMitBeschreibung = msgLength == 2;
+    }
+
     warnDatabase.old = [];
     let oPd = uPushdienst;
     uPushdienst &= konstanten[d].value;
@@ -707,6 +732,11 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
 
     checkWarningsMain();
+
+    uTextMitAnweisungen     = oldA;
+    uTextMitBeschreibung    = oldB;
+    uSpracheMitAnweisungen  = oldC;
+    uSpracheMitBeschreibung = oldD;
 
     onClickCheckRun = false;
     forceSpeak = false;

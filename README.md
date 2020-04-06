@@ -37,7 +37,7 @@ Unterstützt:
 Funktionen:
 - Filter die Warnungen nach doppelt, Gefahr(level) und Höhe
 - Umschalten über iobroker zwischen DWD/UWZ/NINA
-- Automatischer Versand und/oder manueller Nachrichtenversand
+- Automatischer Versand und/oder manueller Nachrichtenversand (in Lang- oder Kurzform)
 - Zeitschaltuhr für Sprachausgabe
 - Datenpunkte mit der Startzeit, Endzeit, Type, Schlagzeile, Beschreibung, Farbe für Level(bgcolor) und höchstem Warnlevel dieses Typs
 - Datenpunkthauptpfade sind konfigurierbar incl. 0_userdata
