@@ -120,6 +120,15 @@ uPushdienst+= TELEGRAM;
 ```javascript
 var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
 ```
+- Mit Hilfe dieser Variablen bestimmt ihr ob Email, Textnachrichten oder Sprachnachrichten voreingestellt ohne Beschreibung (false) und/oder Anweisungen (false) versand werden. 
+```javascript
+var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
+var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
+var uHtmlMitBeschreibung            = true; // gilt für Email
+var uHtmlMitAnweisungen             = true; // uHtmlMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
+var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für alle anderen Textnachrichten
+var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
+```
 
 #### Sprachausgabe weitere Einstellungen
 - Wenn die Sprachausgabe manuell ausgelöst wird, kann die Sprachausgabewarteschlage gelöscht (true) oder die abgerufenen Nachrichten angehangen werden (false).
@@ -130,6 +139,7 @@ var uManuellClickClearSpeakMessageList = true;
 ```javascript
 var windForceDetailsSpeak   = false;
 ```
+
 #### Zeitschaltuhr für Sprachausgabe
 - Ab wieviel Uhr darf die Sprachausgabe verwendet werden (Mo-Fr)
 ```javascript
