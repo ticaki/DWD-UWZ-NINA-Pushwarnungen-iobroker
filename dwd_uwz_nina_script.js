@@ -8,6 +8,7 @@
 // V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
 // V.0.97.5 uMaxCharToSpeak hinzugefügt in Konfiguration
 // V.0.97.6 4 neue Konfigurationsoptionen hinzugefügt
+// V.0.97.7.1 2 neue Konfigurationsoptionen hinzugefügt
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
