@@ -1,4 +1,4 @@
-//Version 0.97.7.1
+//Version 0.97.7.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -744,8 +744,8 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     uTextMitBeschreibung    = oldB;
     uSpracheMitAnweisungen  = oldC;
     uSpracheMitBeschreibung = oldD;
-    uHtmlMitAnweisungen     = oldC;
-    uHtmlMitBeschreibung    = oldD;
+    uHtmlMitAnweisungen     = oldE;
+    uHtmlMitBeschreibung    = oldF;
 
     onClickCheckRun = false;
     forceSpeak = false;

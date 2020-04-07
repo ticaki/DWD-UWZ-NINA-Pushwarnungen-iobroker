@@ -24,6 +24,7 @@ Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dw
 - s.o. Fehler: Zähler in Sprachausgabe gefixt
 - s.o. Sprachausgabefunktion umgebaut
 - 0.97.7.1 Konfigurationsoptionen hinzugefügt um Standard, lange und kurze Warnungen manuell zu versenden
+- 0.97.7.2 Email wurde nach manuellem Auslösen der neuen Versandformen nicht korrekt zurückgesetzt
 
 ## Scriptbeschreibung
 Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
