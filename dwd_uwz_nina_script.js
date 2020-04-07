@@ -1,4 +1,4 @@
-//Version 0.97.7.2
+//Version 0.97.7.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -712,7 +712,7 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
         d = konstanten.findIndex(function(c) { return (c.name + '_short' === b[b.length - 1]); });
         msgLength = 1;
         if (d == -1) {
-            d = konstanten.findIndex(function(c) { return (c.name + 'long' === b[b.length - 1]); });
+            d = konstanten.findIndex(function(c) { return (c.name + '_long' === b[b.length - 1]); });
             msgLength = 2;
             if (d == -1) {
                 return
@@ -1236,7 +1236,6 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 newMsg.url_title = entry.webname;
             }
             newMsg.message = msg.replace(entry.headline, '<font color="' + entry.color + '">' + entry.headline + '</font>');
-            //msg = msg.split(' '); msg[0]='<font color="'+entry.color+'">'+msg[0]+'</font>';msg = msg.join(' ');
             if (entry.level >= attentionWarningLevel) newMsg.priority = 1;
         }
         if (!usesound) newMsg.sound = 'none';
@@ -1805,7 +1804,7 @@ function getDatabaseData(warn, mode){
             '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
         ];
         if (level >= 0 && level <= 5) return color[level];
-        return null;
+        return 0;
     }
 
     function getUWZLevel(warnName) {
@@ -2093,8 +2092,7 @@ function getEndOfState(id) {
 
 // erweiterte existsState() funktion
 function extendedExists(id) {
-    let r = (id) && ($(id).length > 0) && (existsState(id));
-    return r;
+    return (id) && ($(id).length > 0) && (existsState(id));
 }
 
 // verhält sich wie createState()
