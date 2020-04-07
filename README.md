@@ -120,7 +120,7 @@ uPushdienst+= TELEGRAM;
 ```javascript
 var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
 ```
-- Mit Hilfe dieser Variablen bestimmt ihr ob Email, Textnachrichten oder Sprachnachrichten voreingestellt ohne Beschreibung (false) und/oder Anweisungen (false) versand werden. 
+- Mit Hilfe dieser Variablen bestimmt ihr ob Email, Textnachrichten oder Sprachnachrichten voreingestellt ohne Beschreibung (false) und/oder Anweisungen (false) versand werden.
 ```javascript
 var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
 var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
@@ -130,7 +130,7 @@ var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für 
 var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 ```
 
-#### Sprachausgabe weitere Einstellungen
+### Sprachausgabe weitere Einstellungen
 - Wenn die Sprachausgabe manuell ausgelöst wird, kann die Sprachausgabewarteschlage gelöscht (true) oder die abgerufenen Nachrichten angehangen werden (false).
 ```javascript
 var uManuellClickClearSpeakMessageList = true;
@@ -140,7 +140,7 @@ var uManuellClickClearSpeakMessageList = true;
 var windForceDetailsSpeak   = false;
 ```
 
-#### Zeitschaltuhr für Sprachausgabe
+### Zeitschaltuhr für Sprachausgabe
 - Ab wieviel Uhr darf die Sprachausgabe verwendet werden (Mo-Fr)
 ```javascript
 var startTimeSpeak =        '6:45';
@@ -157,7 +157,7 @@ var endTimeSpeak =          '22:30';
 ```javascript
 var forcedSpeak             = true;
 ```
-#### Filtermöglichkeiten für Warnungen
+### Filtermöglichkeiten für Warnungen
 1. minlevel hiermit bestimmt man ab welchem Level Warnungen von diesem Skript berücksichtigt werden. Dieser Wert sollte nicht höher als 3 eingestellt sein.
 ```javascript
 const minlevel                      =    1
@@ -180,7 +180,7 @@ const maxhoehe                      =    5000
 - optionale Punkte brauchen nicht angepasst zu werden, wenn die Möglichkeit oben aktiviert wurde.
 - nicht optionale Punkte **müssen** angepasst/überprüft werden, wenn die Möglichkeit oben aktiviert wurde.
 
-3. Einstellungen zu Telegram:  **(optional)**
+#### Einstellungen zu Telegram:  **(optional)**
 - Stelle hier Optional bestimmte Nutzer oder ChatID ein. Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 - Die Instanz nur anpassen, wenn deine davon abweicht. Das gilt für jede Instanzeinstellung
 ```javascript
@@ -189,7 +189,7 @@ var telegramChatId      = [''];
 var telegramInstanz     = 'telegram.0';
 ```
 
-4. eMail:  **(optional)**
+####  eMail:  **(optional)**
 - Stelle hier Optional 1 Emailadresse ein, von der versendet wird, und mehrere Emailadressen die empfangen sollen.
 ```javascript
 var senderEmailID       =   [""];// 1 Eintrag erlaubt [] oder ["email1"]
@@ -197,7 +197,7 @@ var empfaengerEmailID   =   [""];// Mehrere Empfänger möglich. [] oder ["email
 var emailInstanz        =   'email.0';
 ```
 
-5. Pushover:  **(optional)**
+####  Pushover:  **(optional)**
 - DeviceName, hier könnt ihr eines der angemeldeten Gerät bestimmen, das die Nachrichten erhalten soll. Ist kein Gerät bestimmt bekommen alle die Nachricht.
 - uPushoverSound bietet euch die Möglichkeit einen eigenen Sound für die Nachricht auszuwählen. Was ihr dort eintragen könnt findet ihr dort: https://pushover.net/api#sounds
 ```javascript
@@ -205,25 +205,25 @@ var uPushoverDeviceName     = '';
 var uPushoverSound          = '';  
 var pushoverInstanz         = 'pushover.0';
 ```
-6. ioGo **(optional)**
+####  ioGo **(optional)**
 - ioGoUser: Tragt keinen, einen, oder mehrere "ID des Gerätes" ein.
 ```javascript
 var ioGoUser = [''];
 ```
 
-6. Home24:
+####  Home24:
 - Das ist ungetestet, benutzt besser SayIt. Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere möglich
 ```javascript
 var idMediaplayer       = ["192.168.178.x:Port"]; // (muß einen sinnvollen Wert beinhalten, wenn aktiviert)
 ```
-7. SayIt
+####  SayIt
 - idSayIt muß korrekt ausgefüllt sein, mit dem Datenpfad zum .text Datenpunkt, mehrere möglich.
 - sayItVolumen muß die gleiche Anzahl an Einträgen haben wie idSayIt 0-100
 ```javascript
 var idSayIt             = ["sayit.0.tts.text"]; // (muß einen sinnvollen Wert beinhalten, wenn aktiviert)
 var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
 ```
-8 Alexa
+#### Alexa
 - idAlexaSerial beinhaltet die Seriennummer deines Echos/deiner Echos. var idAlexaSerial =['G090RV32984110Y', 'G090RV32984110Y'];
 - alexaVolumen 0-100 die gleiche Anzahl wie idAlexaSerial z.B. [30,30];
 ```javascript
