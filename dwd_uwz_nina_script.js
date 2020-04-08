@@ -1,4 +1,4 @@
-//Version 0.97.7.3
+//Version 0.97.7.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -189,6 +189,7 @@ var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Med
 /* Konfiguration Telegram */
 var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
 var telegramChatId      = [''];
+var uTelegramReplyMarkup  = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
 
 /* Konfiguration Pushover */
 var uPushoverDeviceName     = ''; // ein bestimmtes Gerät z.B: ['droid4'];
@@ -1204,6 +1205,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
     if ((pushdienst & TELEGRAM) != 0) {
         let nMsg = {};
         if (entry && entry.web && entry.webname) nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
+        if (uTelegramReplyMarkup) nMsg.reply_markup = uTelegramReplyMarkup;
         if (telegramUser.length > 0) {
             nMsg.user = telegramUser;
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
