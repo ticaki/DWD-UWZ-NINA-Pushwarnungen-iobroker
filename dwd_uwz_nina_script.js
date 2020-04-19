@@ -1,4 +1,4 @@
-//Version 0.97.7.4
+//Version 0.97.8
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -9,6 +9,7 @@
 // V.0.97.5 uMaxCharToSpeak hinzugefügt in Konfiguration
 // V.0.97.6 4 neue Konfigurationsoptionen hinzugefügt
 // V.0.97.7.1 2 neue Konfigurationsoptionen hinzugefügt
+// V.0.97.8 Neuen Datenpunkt für Ausgabe des Email Bodys eingefügt.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -102,7 +103,8 @@ var konstanten = [
     {"name":'home24',"value":16, count:0, delay:0},
     {"name":'alexa',"value":32, count:0, delay:0, maxChar: 940},
     {"name":'state',"value":64},
-    {"name":'iogo',"value":128, maxChar: 940}
+    {"name":'iogo',"value":128, maxChar: 940},
+    {"name":'state_html',"value":256}
 ];
 const TELEGRAM = konstanten[0].value;
 const PUSHOVER = konstanten[1].value;
@@ -112,6 +114,7 @@ const HOMETWO = konstanten[4].value;
 const ALEXA = konstanten[5].value;
 const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
+const STATE_HTML = konstanten[8].value;
 var uPushdienst = 0;
 const DWD = 1;
 const UWZ = 2;
@@ -140,6 +143,7 @@ if (extendedExists(aliveState)) {
 //uPushdienst+= ALEXA;             // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
 //uPushdienst+= STATE;             // Auskommentieren zum aktivieren. State befindet sich unter mainStatePath.message
 //uPushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
+//uPushdienst+= STATE_HTML;        // Auskommentieren zum aktivieren. State_html befindet sich unter mainStatePath.messageHtml als Tabelle
 
 /* ************************************************************************* */
 /*                 Beispiele zur weiteren Konfiguration                      */
@@ -299,13 +303,14 @@ windForceDetailsSpeak = !!windForceDetailsSpeak;
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
 const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
-const ALLMSG = EMAIL;
+const ALLMSG = EMAIL | STATE_HTML;
 const ALLMODES = DWD | UWZ | NINA;
-const CANHTML = EMAIL;
+const CANHTML = EMAIL + STATE_HTML;
 const CANPLAIN = PUSH + EMAIL;
 const placeHolder = 'XXXXPLACEHOLDERXXXX';
 const configModeState = mainStatePath + 'config.mode';
 const mirrorMessageState = mainStatePath + 'message';
+const mirrorMessageStateHtml = mainStatePath + 'messageHtml';
 const SPACE = ' ';
 const NEWLINE = '\n';
 var idAlexa = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.announcement';
@@ -560,7 +565,10 @@ function changeMode(modeFromState) {
 } {
     // State der Pushnachrichten über pushover / telegram spiegelt
     if (!extendedExists(mirrorMessageState)) {
-        createCustomState(mirrorMessageState, '', { read: true, write: false, desc: "Beschreibung", type: "string", });
+        createCustomState(mirrorMessageState, '', { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", });
+    }
+    if (!extendedExists(mirrorMessageStateHtml)) {
+        createCustomState(mirrorMessageStateHtml, '', { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", });
     }
 
     // MODE änderung über Datenpunkte string
@@ -1092,9 +1100,9 @@ function checkWarningsMain() {
                 emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, picture + he + getArtikelMode(mode) + area + ':', html, color, false);
                 html = he + getArtikelMode(mode) + area + ':' + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
-                let b = getPushModeFlag(mode) & CANHTML & ~EMAIL;
+                let b = getPushModeFlag(mode) & CANHTML & ~EMAIL & ~STATE_HTML;
                 sendMessage(b, picture + getTopic(mode), html, entry);
-                todoBitmask &= ~b & ~EMAIL;
+                todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
@@ -1107,7 +1115,7 @@ function checkWarningsMain() {
                 }
 
                 // Anzahl Meldungen erst am Ende zu email hinzufügen
-                if (todoBitmask & EMAIL) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
+                if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
                 /* ab Level 4 zusätzlicher Hinweis */
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
@@ -1263,6 +1271,9 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
     if ((pushdienst & STATE) != 0) {
         setState(mirrorMessageState, msg, true);
+    }
+    if ((pushdienst & STATE_HTML) != 0) {
+        setState(mirrorMessageStateHtml, msg, true);
     }
     if ((pushdienst & SPEAK) != 0) {
         _speakTo(pushdienst & SPEAK, msg);
