@@ -1,4 +1,4 @@
-//Version 0.97.8
+//Version 0.97.8.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -291,6 +291,19 @@ var DEBUGSENDEMAIL = false;
 
 var uTelegramMessageShort = 'Ww?';
 var uTelegramMessageLong  = 'Wwww';
+
+// Aus diesen Elementen wird die html warnung zusammengesetzt.
+// Prefix wird als ersten eingefügt, dann mehrfach html_headline und html_message, wenn verfügbar. Zum Schluß kommt html_end
+// html_headline_color wird verwendet wenn eine Farbe angegeben ist und bildet hier die Hintergrundfarbe.
+// Jede einzelne Warnung wird mit Headline, Message und Farbe(optional) aufgerufen, wenn headline oder message leer ist, wird
+// die Zeichenkette nicht hinzugefügt. ###color###, ###message###, ###headline### sind Platzhalter für die jeweilgen Zeichenketten. Farbe ist
+// ein hexdezimaler Wert als Zeichenkette.
+
+var html_prefix = '<table border="1" cellpadding="0" cellspacing="0" width="100%">';
+var html_headline_color = '<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"' + '###color###' + '\"><b>' + '###headline###' + '</b></td></tr>';
+var html_headline = '<tr><td style="padding: 5px 0 5px 0;"><b>' + '###headline###' + '</b></td></tr>';
+var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' + '</td></tr>';
+var html_end = '</table>';
 
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
@@ -1924,15 +1937,16 @@ function getStringIgnoreCount(c) {
 function replacePlaceholder(str, insertText) {
     return str.replace(placeHolder, insertText);
 }
+
 // baut eine html table für Email
 function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
-    if (!mailMsg) mailMsg = '<table border="1" cellpadding="0" cellspacing="0" width="100%">';
+    if (!mailMsg) mailMsg = html_prefix;
     if (headline) {
-        if (color) mailMsg += '<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"' + color + '\"><b>' + headline + '</b></td></tr>';
-        else mailMsg += '<tr><td style="padding: 5px 0 5px 0;"><b>' + headline + '</b></td></tr>';
+        if (color) mailMsg += html_headline_color.replace('###color###', color).replace('###headline###', headline);
+        else mailMsg += html_headline.replace('###headline###', headline);
     }
-    if (msg) mailMsg += '<tr><td style="padding: 5px 0 20px 0;">' + msg + '</td></tr>';
-    if (last) mailMsg += '</table>';
+    if (msg) mailMsg += html_message.replace('###message###', msg);
+    if (last) mailMsg += html_end;
     return mailMsg;
 }
 
