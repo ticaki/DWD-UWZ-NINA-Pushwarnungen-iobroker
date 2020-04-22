@@ -1,7 +1,7 @@
-//Version 0.97.8.1
+//Version 0.97.9
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
-// Das gilt solange die version 0.96.xxx ist, ab 0.97, 0.98, usw. muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
+// Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
 //
 // V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
@@ -10,6 +10,7 @@
 // V.0.97.6 4 neue Konfigurationsoptionen hinzugefügt
 // V.0.97.7.1 2 neue Konfigurationsoptionen hinzugefügt
 // V.0.97.8 Neuen Datenpunkt für Ausgabe des Email Bodys eingefügt.
+// V.0.97.9 Iogo maximale Zeichenbegrenzung und splitten langer Nachrichten eingebaut.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -103,7 +104,7 @@ var konstanten = [
     {"name":'home24',"value":16, count:0, delay:0},
     {"name":'alexa',"value":32, count:0, delay:0, maxChar: 940},
     {"name":'state',"value":64},
-    {"name":'iogo',"value":128, maxChar: 940},
+    {"name":'iogo',"value":128, maxChar: 940, count: 0, delay: 300},
     {"name":'state_html',"value":256}
 ];
 const TELEGRAM = konstanten[0].value;
@@ -1266,7 +1267,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (uPushoverDeviceName) newMsg.device = uPushoverDeviceName;
         _sendSplitMessage(PUSHOVER, newMsg.message.slice(), newMsg, function(msg, opt, c) {
             opt.message = msg;
-            if (c > 1) opt.title += ' Teil ' + c;
+            if (c > 1) { opt.title += ' Teil ' + c; opt.sound = 'none'; }
             _sendTo(PUSHOVER, pushoverInstanz, opt);
         });
     }
@@ -1280,7 +1281,10 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 j.user += ',' + ioGoUser[a];
             }
         }
-        _sendTo(IOGO, ioGoInstanz, j);
+        _sendSplitMessage(IOGO, j.text.slice(), j, function(msg, opt, c) {
+            opt.text = msg;
+            _sendTo(IOGO, ioGoInstanz, opt);
+        });
     }
     if ((pushdienst & STATE) != 0) {
         setState(mirrorMessageState, msg, true);
