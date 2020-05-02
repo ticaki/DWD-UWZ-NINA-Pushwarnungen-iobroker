@@ -1,4 +1,4 @@
-//Version 0.97.9
+//Version 0.97.10
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1717,7 +1717,6 @@ function getDatabaseData(warn, mode){
             warn.payload === undefined
             || warn.payload.altMin > maxhoehe
             || (warn.payload.altMax && warn.payload.altMax < minhoehe)
-            || warn.level < minlevel
 
         ) {myLog('Übergebenens Json UWZ verworfen');return null;}
         result['mode'] = UWZ;
@@ -1733,6 +1732,7 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
+        if ( result.level < minlevel ) {myLog('Übergebenens Json UWZ verworfen');return null;}
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
