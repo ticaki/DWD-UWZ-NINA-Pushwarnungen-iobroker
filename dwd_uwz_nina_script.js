@@ -1,4 +1,4 @@
-//Version 0.97.10
+//Version 0.97.11
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -555,6 +555,7 @@ function changeMode(modeFromState) {
         let oldMode = MODE;
         MODE = modeFromState;
         myLog('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
+        if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht .config einstellen.', 'warn');
         InitDatabase(firstRun);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
