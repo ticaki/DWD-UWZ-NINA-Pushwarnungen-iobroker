@@ -1,4 +1,4 @@
-//Version 0.97.11
+//Version 0.97.12
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1058,7 +1058,7 @@ function checkWarningsMain() {
     let gefahr = false;
     let count = 0;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
-    for (let i = 0; i < warnDatabase.new.length; i++) {
+    for (let i = warnDatabase.new.length-1; i >= 0; i--) {
         let entry = warnDatabase.new[i];
         let headline = entry.headline;
         let description = entry.description;
@@ -1071,7 +1071,8 @@ function checkWarningsMain() {
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
-        if (hash && getIndexOfHash(warnDatabase.old, hash) == -1) {
+        if (hash) {
+            let isOldMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
             let todoBitmask = uPushdienst;
             collectMode |= mode;
             count++;
@@ -1090,10 +1091,11 @@ function checkWarningsMain() {
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
                 de = '';
+                let prefix = isOldMessage ? '' : 'Neu: ';
                 if (entry.html !== undefined) {
                     let html = entry.html;
-                    if (html.headline) he = html.headline;
-                    else he = headline;
+                    if (html.headline) he = prefix + html.headline;
+                    else he = prefix + headline;
                     if ( uHtmlMitBeschreibung ) {
                         if (html.description) de = html.description;
                         else de = description;
@@ -1104,7 +1106,7 @@ function checkWarningsMain() {
                         if (entry.html.web) de += '<br><br>' + entry.html.web;
                     }
                 } else {
-                    he = headline;
+                    he = prefix + headline;
                     if (uHtmlMitBeschreibung) { de = description;
                         if ( uHtmlMitAnweisungen && instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                     }
@@ -1119,6 +1121,7 @@ function checkWarningsMain() {
                 sendMessage(b, picture + getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
+            if (isOldMessage) continue;
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
                 let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '')
