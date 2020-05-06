@@ -1,4 +1,4 @@
-//Version 0.97.12
+//Version 0.97.13
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1072,7 +1072,7 @@ function checkWarningsMain() {
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if (hash) {
-            let isOldMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
+            let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
             let todoBitmask = uPushdienst;
             collectMode |= mode;
             count++;
@@ -1091,7 +1091,7 @@ function checkWarningsMain() {
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
                 de = '';
-                let prefix = isOldMessage ? '' : 'Neu: ';
+                let prefix = isNewMessage ? 'Neu: ' : '';
                 if (entry.html !== undefined) {
                     let html = entry.html;
                     if (html.headline) he = prefix + html.headline;
@@ -1121,7 +1121,7 @@ function checkWarningsMain() {
                 sendMessage(b, picture + getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
-            if (isOldMessage) continue;
+            if (!isNewMessage) continue;
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
                 let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '')
