@@ -1,4 +1,4 @@
-//Version 0.97.13
+//Version 0.97.14
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1091,7 +1091,7 @@ function checkWarningsMain() {
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
                 de = '';
-                let prefix = isNewMessage ? 'Neu: ' : '';
+                let prefix = isNewMessage && !onClickCheckRun ? 'Neu: ' : '';
                 if (entry.html !== undefined) {
                     let html = entry.html;
                     if (html.headline) he = prefix + html.headline;
