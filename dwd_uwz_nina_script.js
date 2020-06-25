@@ -1,4 +1,4 @@
-//Version 0.97.15
+//Version 0.97.16
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1734,7 +1734,6 @@ function getDatabaseData(warn, mode){
         result['level'] 		= warn.payload.levelName === undefined 					? -1 	: getUWZLevel(warn.payload.levelName);
         result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type][0];
         result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
-        result['color'] 		= getLevelColor(result.level);
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
@@ -1760,7 +1759,6 @@ function getDatabaseData(warn, mode){
         result['headline'] 				= warn.headline === undefined 			      ? ''	: removeHtml(warn.headline);
         result['areaID'] 				= warn.area === undefined 				      ? ''	: getNinaArea(warn.area);
         result['level'] 				= warn.severity === undefined 			      ? -1	: getNinaLevel(warn.severity, result.typename);
-        result['color'] 				= getLevelColor(result.level);
         result['html'] 					= {};
         result['html']['web'] 			= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? '' 	: warn.web;
         result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
@@ -1840,7 +1838,7 @@ function getDatabaseData(warn, mode){
             '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
         ];
         if (level >= 0 && level <= 5) return color[level];
-        return 0;
+        else return color[0];
     }
 
     function getUWZLevel(warnName) {
