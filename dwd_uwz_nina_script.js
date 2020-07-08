@@ -1,4 +1,4 @@
-//Version 0.97.17
+//Version 0.97.17.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -994,12 +994,15 @@ function checkWarningsMain() {
                 w.hash == w2.hash
             ) continue;
             // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
-            if (w2.end <= w.end && w2.end >= w.start  && w2.level >= w.level) {
+            if (w2.end <= w.end && w2.end >= w.start) {
+                if ( w2.level >= w.level ) {
+                    w.repeatCounter += w2.repeatCounter + 1;
+                }
+                if (w.repeatCounter > 30 ) w.repeatCounter = 0;
                 let i = getIndexOfHash(warnDatabase.new, w2.hash);
                 if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) --a; }
                 myLog('Nr 5 Remove Msg with headline:'+w2.headline);
                 warnDatabase.old.splice(b--, 1);
-                if ( w.repeatCounter++ > 30 ) w.repeatCounter = 0;
             }
         }
     }
