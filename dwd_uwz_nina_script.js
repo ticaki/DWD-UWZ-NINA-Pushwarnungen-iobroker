@@ -994,7 +994,7 @@ function checkWarningsMain() {
                 w.hash == w2.hash
             ) continue;
             // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
-            if (w2.end <= w.end && w2.end >= w.start  && w2.level <= w.level) {
+            if (w2.end <= w.end && w2.end >= w.start  && w2.level >= w.level) {
                 let i = getIndexOfHash(warnDatabase.new, w2.hash);
                 if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) --a; }
                 myLog('Nr 5 Remove Msg with headline:'+w2.headline);
