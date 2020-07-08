@@ -1,4 +1,4 @@
-//Version 0.97.16
+//Version 0.97.17
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -999,6 +999,7 @@ function checkWarningsMain() {
                 if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) --a; }
                 myLog('Nr 5 Remove Msg with headline:'+w2.headline);
                 warnDatabase.old.splice(b--, 1);
+                if ( w.repeatCounter++ > 30 ) w.repeatCounter = 0;
             }
         }
     }
@@ -1061,6 +1062,7 @@ function checkWarningsMain() {
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
     for (let i = warnDatabase.new.length-1; i >= 0; i--) {
         let entry = warnDatabase.new[i];
+        if (entry.repeatCounter > 1 && !onClickCheckRun) continue;
         let headline = entry.headline;
         let description = entry.description;
         let level = entry.level;
@@ -1108,15 +1110,18 @@ function checkWarningsMain() {
                     }
                 } else {
                     he = prefix + headline;
-                    if (uHtmlMitBeschreibung) { de = description;
+                    if (uHtmlMitBeschreibung) {
+                        de = description;
                         if ( uHtmlMitAnweisungen && instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                     }
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
                 html = html[0].toUpperCase() + html.substring(1);
-
-                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, picture + he + getArtikelMode(mode) + area + ':', html, color, false);
-                html = he + getArtikelMode(mode) + area + ':' + html;
+                he += getArtikelMode(mode) + area + ':';
+                if (entry.repeatCounter == 1 && !onClickCheckRun) he += ' wurde verlängert.';
+                emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, picture + he, html, color, false);
+                if (entry.repeatCounter == 1 && !onClickCheckRun) html = he;
+                else html = he + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANHTML & ~EMAIL & ~STATE_HTML;
                 sendMessage(b, picture + getTopic(mode), html, entry);
@@ -1125,17 +1130,22 @@ function checkWarningsMain() {
             if (!isNewMessage) continue;
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
-                let pushMsg = headline + getArtikelMode(mode) + area + (bt ? NEWLINE + sTime : '')
-                if (uTextMitBeschreibung) {
-                    pushMsg+= NEWLINE + description;
-                    if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
-                        pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                let pushMsg = headline + getArtikelMode(mode) + area;
+                if (entry.repeatCounter == 1 && !onClickCheckRun) {
+                    pushMsg += ' wurde verlängert.';
+                } else {
+                    pushMsg += (bt ? NEWLINE + sTime : '');
+                    if (uTextMitBeschreibung) {
+                        pushMsg+= NEWLINE + description;
+                        if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
+                            pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                        }
                     }
-                }
 
-                // Anzahl Meldungen erst am Ende zu email hinzufügen
-                if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
-                /* ab Level 4 zusätzlicher Hinweis */
+                    // Anzahl Meldungen erst am Ende zu email hinzufügen
+                    if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
+                    /* ab Level 4 zusätzlicher Hinweis */
+                }
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
@@ -1146,20 +1156,25 @@ function checkWarningsMain() {
             // Sprache
             if ((getPushModeFlag(mode) & SPEAK) != 0) {
                 sTime = SPACE;
-                if (begin || end) sTime += "gültig ";
-                if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
-                if ((begin && end)) sTime += " ";
-                if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
-                let i
-                if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
-                    description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area;
+                if (entry.repeatCounter == 1 && !onClickCheckRun) {
+                    speakMsg += ' wurde verlängert.';
+                } else {
+                    if (begin || end) sTime += "gültig ";
+                    if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
+                    if ((begin && end)) sTime += " ";
+                    if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
+                    let i
+                    if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
+                        description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                    }
+                    speakMsg =  + sTime + '.' + SPACE;
+                    description = replaceTokenForSpeak(description);
+                    if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
+                         if (uSpracheMitBeschreibung) speakMsg += description;
+                    }
+                    else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                 }
-                let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area + sTime + '.' + SPACE;
-                description = replaceTokenForSpeak(description);
-                if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
-                     if (uSpracheMitBeschreibung) speakMsg += description;
-                 }
-                else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
                 }
@@ -1771,6 +1786,7 @@ function getDatabaseData(warn, mode){
     result['id']='';
     result['pending'] = 0;
     result['hash'] = 0;
+    result['repeatCounter'] = 0;
     myLog('result: ' + JSON.stringify(result));
     return result;
 
