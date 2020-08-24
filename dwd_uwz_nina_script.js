@@ -1,4 +1,4 @@
-//Version 0.97.17.1
+//Version 0.97.17.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -982,6 +982,28 @@ function checkWarningsMain() {
 
     let ignoreWarningCount = 0,
     ignoreModes = 0;
+    // Enferne neue Einträge die doppelt sind sortiert nach level und Höhe
+    for (let a = 0; a < warnDatabase.new.length; a++) {
+        let w = warnDatabase.new[a];
+        for (let b = 0; b < warnDatabase.new.length; b++) {
+            let w2 = warnDatabase.new[b];
+            if (
+                w.mode !== DWD ||
+                w2.mode !== DWD ||
+                w.type !== w2.type ||
+                a == b ||
+                w2.start > w.start ||
+                w2.end > w.end
+            ) continue;
+            if ( w.level > w2.level ) {
+                warnDatabase.new.splice(b--, 1);
+            } else if (w.altitudeStart > w2.altitudeStart && w.level == w2.level) {
+                w.altitudeStart = w2.altitudeStart;
+                warnDatabase.new.splice(b--, 1);
+            }
+        }
+    }
+    // Entferne Einträge die verlängert wurden in OldDB
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
         for (let b = 0; b < warnDatabase.old.length; b++) {
@@ -998,11 +1020,15 @@ function checkWarningsMain() {
                 if ( w2.level >= w.level ) {
                     w.repeatCounter += w2.repeatCounter + 1;
                 }
-                if (w.repeatCounter > 30 ) w.repeatCounter = 0;
+                if (w.repeatCounter > 30 ) {
+                    log('reset repeatCounter... push message.');
+                    w.repeatCounter = 0;
+                }
                 let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                if (i != -1) { warnDatabase.new.splice(i, 1); if (i < a) --a; }
+                if (i != -1) { warnDatabase.new.splice(i, 1); if (i <= a) --a; }
                 myLog('Nr 5 Remove Msg with headline:'+w2.headline);
                 warnDatabase.old.splice(b--, 1);
+                break;
             }
         }
     }
@@ -1167,11 +1193,10 @@ function checkWarningsMain() {
                     if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
                     if ((begin && end)) sTime += " ";
                     if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
-                    let i
+                    speakMsg += SPACE + sTime + '.' + SPACE;
                     if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                         description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                     }
-                    speakMsg =  + sTime + '.' + SPACE;
                     description = replaceTokenForSpeak(description);
                     if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
                          if (uSpracheMitBeschreibung) speakMsg += description;
