@@ -1,4 +1,4 @@
-//Version 0.97.17.2
+//Version 0.97.17.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1285,7 +1285,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
             });
         }
         if (telegramChatId.length > 0) {
-            nMsg.ChatId = telegramChatId;
+            nMsg.chatId = telegramChatId;
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
