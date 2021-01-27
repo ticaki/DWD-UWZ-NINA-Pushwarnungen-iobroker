@@ -1285,7 +1285,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
             });
         }
         if (telegramChatId.length > 0) {
-            nMsg.chatId = telegramChatId;
+            nMsg.chatId = telegramChatId[0];
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
