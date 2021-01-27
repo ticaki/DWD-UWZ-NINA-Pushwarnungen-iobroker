@@ -1,4 +1,4 @@
-//Version 0.97.17.3
+//Version 0.97.17.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -193,7 +193,7 @@ var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Med
 
 /* Konfiguration Telegram */
 var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
-var telegramChatId      = [''];
+var telegramChatId      = ['']; // nur der erste Eintrag wird genutzt
 var uTelegramReplyMarkup  = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
 var uTelegramAllowNotification = true; // Erlaube Telegramnotification (Benachrichtigungston/Hinweise auf dem Empfangsgerät)
 
@@ -1165,7 +1165,7 @@ function checkWarningsMain() {
                 } else {
                     pushMsg += (bt ? NEWLINE + sTime : '');
                     if (uTextMitBeschreibung) {
-                        pushMsg+= NEWLINE + description;
+                        pushMsg+= NEWLINE + NEWLINE + description;
                         if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                             pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                         }
@@ -1559,13 +1559,13 @@ function onChange(dp, mode) {
 function InitDatabase(first) {
     if (first) warnDatabase = { new: [], old: [] };
     if (MODE & DWD) {
-        _helper($("state[state.id=" + dwdPath + ".*.object$]"), DWD, first);
+        _helper($("state[state.id=" + dwdPath + ".*.object]"), DWD, first);
     }
     if (MODE & UWZ) {
-        _helper($("state[state.id=" + uwzPath + ".*.object$]"), UWZ, first);
+        _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, first);
     }
     if (MODE & NINA) {
-        _helper($("state[state.id=" + ninaPath + ".*.rawJson$]"), NINA, first);
+        _helper($("state[state.id=" + ninaPath + ".*.rawJson]"), NINA, first);
     }
     warnDatabase.new = warnDatabase.new.filter(function(j) {
         return (j.mode & MODE);
