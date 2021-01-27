@@ -1069,7 +1069,7 @@ function checkWarningsMain() {
             } else {
                 prefix = 'Die Wetterwarnung';
             }
-            let pushMsg = picture + prefix + getArtikelMode(mode) + "'" + headline + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
+            let pushMsg = picture + prefix + getArtikelMode(mode) + "'" + headline + SPACE + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
             // EMAIL
             emailHtmlClear += pushMsg + '<br>';
             // PUSH
@@ -1624,7 +1624,7 @@ function addDatabaseData(id, value, mode, old) {
         if (jvalue) {
             warn = getDatabaseData(jvalue, mode);
             if (warn) {
-                warn.areaID = " für " + warn.areaID;
+                warn.areaID = "für " + warn.areaID;
                 warn.hash = JSON.stringify(warn).hashCode();
                 warn.id = id;
                 warnDatabase.new.push(warn);
