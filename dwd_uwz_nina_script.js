@@ -192,7 +192,7 @@ var empfaengerEmailID   = [""]; // mit Empfänger Emailadresse füllen. Mehrere 
 var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
 
 /* Konfiguration Telegram */
-var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
+var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans, Gretel']; Nutzer vom Adapter übernehmen [];
 var telegramChatId      = ['']; // nur der erste Eintrag wird genutzt
 var uTelegramReplyMarkup  = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
 var uTelegramAllowNotification = true; // Erlaube Telegramnotification (Benachrichtigungston/Hinweise auf dem Empfangsgerät)
