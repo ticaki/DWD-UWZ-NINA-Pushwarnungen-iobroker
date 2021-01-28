@@ -193,10 +193,10 @@ var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Med
 
 /* Konfiguration Telegram */
 var telegramUser                = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans, Gretel']; Nutzer vom Adapter übernehmen [];
-var telegramChatId              = ['']; // nur der erste Eintrag wird genutzt
+var telegramChatId              = ['']; // Mehrfach Einträge möglich ['Gruppe1','Gruppe2']
 var uTelegramReplyMarkup        = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
 var uTelegramAllowNotification  = true; // Erlaube Telegramnotification (Benachrichtigungston/Hinweise auf dem Empfangsgerät)
-var uTelegramUseStdUser         = false;
+var uTelegramUseStdUser         = false; // Verwende immer auch die im Adapter gespeicherten Benutzer.
 
 /* Konfiguration Pushover */
 var uPushoverDeviceName     = ''; // ein bestimmtes Gerät z.B: ['droid4'];
