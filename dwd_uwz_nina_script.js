@@ -1,4 +1,4 @@
-//Version 0.97.17.4
+//Version 0.97.18
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -192,10 +192,11 @@ var empfaengerEmailID   = [""]; // mit Empfänger Emailadresse füllen. Mehrere 
 var idMediaplayer       = [""]; // Eingabe IP-Adresse incl. Port für Home24-Mediaplayer mehrere Möglich - ungetestet
 
 /* Konfiguration Telegram */
-var telegramUser        = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans, Gretel']; Nutzer vom Adapter übernehmen [];
-var telegramChatId      = ['']; // nur der erste Eintrag wird genutzt
-var uTelegramReplyMarkup  = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
-var uTelegramAllowNotification = true; // Erlaube Telegramnotification (Benachrichtigungston/Hinweise auf dem Empfangsgerät)
+var telegramUser                = ['']; // Einzelnutzer ['Hans']; Multinutzer ['Hans, Gretel']; Nutzer vom Adapter übernehmen [];
+var telegramChatId              = ['']; // nur der erste Eintrag wird genutzt
+var uTelegramReplyMarkup        = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
+var uTelegramAllowNotification  = true; // Erlaube Telegramnotification (Benachrichtigungston/Hinweise auf dem Empfangsgerät)
+var uTelegramUseStdUser         = false;
 
 /* Konfiguration Pushover */
 var uPushoverDeviceName     = ''; // ein bestimmtes Gerät z.B: ['droid4'];
@@ -1285,13 +1286,18 @@ function sendMessage(pushdienst, topic, msg, entry) {
             });
         }
         if (telegramChatId.length > 0) {
-            nMsg.chatId = telegramChatId[0];
-            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
-                opt.text = msg;
-                _sendTo(TELEGRAM, telegramInstanz, opt);
+            let c = 0;
+            telegramChatId.forEach(function(chatid) {
+                setTimeout(function(chatid){
+                    nMsg.chatId = chatid;
+                    _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                        opt.text = msg;
+                        _sendTo(TELEGRAM, telegramInstanz, opt);
+                    });
+                },c++ * 333 + 3, chatid);
             });
         }
-        if (!(telegramUser.length > 0 || telegramChatId.length > 0)) {
+        if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser) {
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
