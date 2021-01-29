@@ -1,4 +1,4 @@
-//Version 0.97.18
+//Version 0.97.18.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1279,7 +1279,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (uTelegramReplyMarkup) nMsg.reply_markup = uTelegramReplyMarkup;
         if (!uTelegramAllowNotification) nMsg.disable_notification = true;
         if (telegramUser.length > 0) {
-            nMsg.user = telegramUser;
+            nMsg.user = telegramUser.join(',');
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
@@ -1288,13 +1288,11 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (telegramChatId.length > 0) {
             let c = 0;
             telegramChatId.forEach(function(chatid) {
-                setTimeout(function(chatid){
-                    nMsg.chatId = chatid;
-                    _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
-                        opt.text = msg;
-                        _sendTo(TELEGRAM, telegramInstanz, opt);
-                    });
-                },c++ * 333 + 3, chatid);
+                nMsg.chatId = chatid;
+                _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                    opt.text = msg;
+                    _sendTo(TELEGRAM, telegramInstanz, opt);
+                });
             });
         }
         if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser) {
@@ -1472,10 +1470,10 @@ function sendMessage(pushdienst, topic, msg, entry) {
         }
     }
     function _sendSplitMessage(dienst, str, opt, callback) {
-        let c = 1;
         let text = '\n* Warnung wurde aufgeteilt *';
         let index = deviceList[dienst].maxChar !== undefined ? deviceList[dienst].maxChar-text.length : 0;
         let e = 0;
+        let c = 1;
         do  {
             let msg = str;
             e = 0;
