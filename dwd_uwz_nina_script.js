@@ -1,4 +1,4 @@
-//Version 0.97.18.2
+//Version 0.97.18.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1285,8 +1285,9 @@ function sendMessage(pushdienst, topic, msg, entry) {
             });
         }
         if (telegramUser.length > 0) {
-            nMsg.user = telegramUser.join(',');
-            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+            let nMsg2 = cloneObj(nMsg);
+            nMsg2.user = telegramUser.join(',');
+            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg2, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
             });
@@ -1294,8 +1295,9 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (telegramChatId.length > 0) {
             let c = 0;
             telegramChatId.forEach(function(chatid) {
-                nMsg.chatId = chatid;
-                _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                let nMsg2 = cloneObj(nMsg);
+                nMsg2.chatId = chatid;
+                _sendSplitMessage(TELEGRAM, msg.slice(), nMsg2, function(msg, opt) {
                     opt.text = msg;
                     _sendTo(TELEGRAM, telegramInstanz, opt);
                 });
