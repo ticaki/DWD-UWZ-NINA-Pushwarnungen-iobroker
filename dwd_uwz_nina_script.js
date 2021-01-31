@@ -1,4 +1,4 @@
-//Version 0.97.18.1
+//Version 0.97.18.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1278,6 +1278,12 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (entry && entry.web && entry.webname) nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
         if (uTelegramReplyMarkup) nMsg.reply_markup = uTelegramReplyMarkup;
         if (!uTelegramAllowNotification) nMsg.disable_notification = true;
+        if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser) {
+            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
+                opt.text = msg;
+                _sendTo(TELEGRAM, telegramInstanz, opt);
+            });
+        }
         if (telegramUser.length > 0) {
             nMsg.user = telegramUser.join(',');
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
@@ -1293,12 +1299,6 @@ function sendMessage(pushdienst, topic, msg, entry) {
                     opt.text = msg;
                     _sendTo(TELEGRAM, telegramInstanz, opt);
                 });
-            });
-        }
-        if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser) {
-            _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
-                opt.text = msg;
-                _sendTo(TELEGRAM, telegramInstanz, opt);
             });
         }
     }
