@@ -1,4 +1,4 @@
-//Version 0.97.18.3
+//Version 0.97.18.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -831,15 +831,15 @@ function setAlertState() {
             if (extendedExists(stateAlertIdFull + stateAlert[0].name)) {
                 if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
                     (AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[8].name).val != warnDatabase.new[AlertIndex].hash)) {
-                    setState(stateAlertIdFull + stateAlert[0].name, AlertLevel);
-                    setState(stateAlertIdFull + stateAlert[1].name, b);
-                    setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0));
-                    setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].end).getTime() : 0));
-                    setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''));
-                    setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''));
-                    setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''));
-                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''));
-                    setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0));
+                    setState(stateAlertIdFull + stateAlert[0].name, AlertLevel, true);
+                    setState(stateAlertIdFull + stateAlert[1].name, b, true);
+                    setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0), true);
+                    setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].end).getTime() : 0), true);
+                    setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''), true);
+                    setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''), true);
+                    setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''), true);
+                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''), true);
+                    setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0), true);
                 }
             }
         }
