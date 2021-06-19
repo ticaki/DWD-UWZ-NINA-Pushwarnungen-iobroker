@@ -1,4 +1,4 @@
-//Version 0.97.18.4
+//Version 0.97.18.5
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -823,7 +823,7 @@ function setAlertState() {
             let AlertLevel = -1;
             let AlertIndex = -1;
             for (let c = 0; c < warnDatabase.new.length; c++) {
-                if (warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
+                if (warnDatabase.new[c].mode == mode[a].mode && warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
                     AlertLevel = warnDatabase.new[c].level;
                     AlertIndex = c;
                 }
