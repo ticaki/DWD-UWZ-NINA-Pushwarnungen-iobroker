@@ -1,4 +1,4 @@
-//Version 0.97.18.5
+//Version 0.97.19
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1607,9 +1607,9 @@ function addDatabaseData(id, value, mode, old) {
     var warn = null;
     let change = false;
     let jvalue = null;
-    myLog("addDatabaseData() ID + JSON:" + id + SPACE + JSON.stringify(value));
-    if (value && value != {} && value !== undefined && value != "{}")
-    jvalue = JSON.parse(value);
+    myLog("addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
+    if (!value || value !== undefined || value == {} || value == "{}") return;
+    jvalue = JSON.parse(JSON.stringify(value));
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
         if (jvalue) {
@@ -2079,9 +2079,10 @@ function getFormatDateSpeak(a) {
 /* ************************************************************************* */
 
 if ((uPushdienst & TELEGRAM) != 0) {
-    on({ id: telegramInstanz + '.communicate.request', change: "any", ack: false }, function(obj) {
+    on({ id: telegramInstanz + '.communicate.request', change: "any"}, function(obj) {
         var msg = obj.state.val;
         var user = msg.substring(1, msg.indexOf(']'));
+        myLog('Telegramnachricht erhalten. Nutzer: ' + user + ' Nachricht: ' + msg);
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
         if (DEBUG && msg.includes('Wwdmail')) {
             let olddebug = DEBUGSENDEMAIL;
