@@ -1,4 +1,4 @@
-//Version 0.97.19
+//Version 0.97.19.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1607,8 +1607,12 @@ function addDatabaseData(id, value, mode, old) {
     var warn = null;
     let change = false;
     let jvalue = null;
+    // letzter Teil ist unschön, ändern wenn verstanden
+    if (!value || value === undefined || value == {} || value.length <= 4 || (mode == DWD && value.description === undefined)) {
+        myLog("addDatabaseData() ID:" + id + ' - ' + 'nope');
+        return;
+    }
     myLog("addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
-    if (!value || value !== undefined || value == {} || value == "{}") return;
     jvalue = JSON.parse(JSON.stringify(value));
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
