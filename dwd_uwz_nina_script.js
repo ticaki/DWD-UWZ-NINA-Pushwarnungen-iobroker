@@ -1,4 +1,4 @@
-//Version 0.97.19.2
+//Version 0.97.19.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -382,6 +382,9 @@ warningTypesString[UWZ] = [
     ['Bodenfrost', '🌡']
 ];
 
+
+
+
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
 const stateAlert = // Änderungen auch in setAlertState() anpassen
 [
@@ -438,7 +441,7 @@ for (let a = 0; a < konstanten.length; a++) {
         b++;
         if (Array.isArray(regionName) && regionName[a].length != 0) {
             if (regionName[a].length != 2) {
-                if (uLogAusgabe) log('Konfiguration enthält Fehler. var regionName - Eintrag: ' + (b) + ' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
+                log('Konfiguration enthält Fehler. var regionName - Eintrag: ' + (b) + ' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
                 stopScript(scriptName);
             } else {
                 if (!regionName[a][0] && !regionName[a][1]) regionName.splice(a--, 1)
@@ -1238,7 +1241,7 @@ function checkWarningsMain() {
 
         // Einen Mode ermitteln der aktiv ist und der das Versenden erlauben würde.
         if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
-        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus' : 'Automatikmodus') + ' gefunden!');
+        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus' : 'Automatikmodus') + ' gefunden!', 'error');
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if (forceSpeak || compareTime(START, ENDE, 'between')) { // Ansage über Sayit nur im definierten Zeitbereich
@@ -1483,7 +1486,6 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 e = _getLastIndexToSplit(msg, index);
                 msg = str.substring(0, e) + text;
             }
-            log (msg);
             if ( dienst & SPEAK ) {
                 opt = callback(dienst, msg, c++, opt);
             }else {
