@@ -560,7 +560,7 @@ function changeMode(modeFromState) {
         let oldMode = MODE;
         MODE = modeFromState;
         myLog('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
-        if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht .config einstellen.', 'warn');
+        if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - Pfad des Skripts - config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
         InitDatabase(firstRun);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
