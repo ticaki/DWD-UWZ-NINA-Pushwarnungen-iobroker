@@ -1,16 +1,9 @@
-//Version 0.97.19.3
+//Version 0.97.19.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
 //
-// V.0.97 Vor dem Start des Scriptes den Datenzweig .alert löschen.
-// V.0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
-// V.0.97.5 uMaxCharToSpeak hinzugefügt in Konfiguration
-// V.0.97.6 4 neue Konfigurationsoptionen hinzugefügt
-// V.0.97.7.1 2 neue Konfigurationsoptionen hinzugefügt
-// V.0.97.8 Neuen Datenpunkt für Ausgabe des Email Bodys eingefügt.
-// V.0.97.9 Iogo maximale Zeichenbegrenzung und splitten langer Nachrichten eingebaut.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
