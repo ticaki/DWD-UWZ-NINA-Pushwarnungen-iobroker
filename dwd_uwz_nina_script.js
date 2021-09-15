@@ -502,7 +502,7 @@ for (let a = 0; a < konstanten.length; a++) {
             if (
                 !extendedExists(idSayIt[a])
             ) {
-                if (uLogAusgabe) log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
+                log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
                 stopScript(scriptName);
             }
         }
@@ -984,8 +984,7 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
 
-    let ignoreWarningCount = 0,
-    ignoreModes = 0;
+    let ignoreWarningCount = 0;
     // Enferne neue Einträge die doppelt sind sortiert nach level und Höhe
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
@@ -1000,10 +999,12 @@ function checkWarningsMain() {
                 w2.end > w.end
             ) continue;
             if ( w.level > w2.level ) {
-                warnDatabase.new.splice(b--, 1);
+                warnDatabase.new.splice(b, 1);
+                if (a >= b--) {a--; break;}
             } else if (w.altitudeStart > w2.altitudeStart && w.level == w2.level) {
                 w.altitudeStart = w2.altitudeStart;
-                warnDatabase.new.splice(b--, 1);
+                warnDatabase.new.splice(b, 1);
+                if (a >= b--) {a--; break;}
             }
         }
     }
@@ -1040,7 +1041,6 @@ function checkWarningsMain() {
         let w = warnDatabase.new[a];
         if ( isWarnIgnored(w)) {
             ignoreWarningCount++
-            ignoreModes |= w.mode;
         }
     }
 
@@ -1608,22 +1608,16 @@ function InitDatabase(first) {
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
     let change = false;
-    let jvalue = null;
     // kompatibilität zur Stableversion
     if ( value && typeof value === 'string' ) {
         value = JSON.parse(value);
     }
-    // letzter Teil ist unschön, ändern wenn verstanden
-    if (!value || value === undefined || value == {} || value.length <= 4 || (mode == DWD && value.description === undefined)) {
-        myLog("addDatabaseData() ID:" + id + ' - ' + 'nope');
-        return;
-    }
+    if (!value || value === undefined || value == {} || value.length <= 4 ) value = {};
     myLog("addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
-    jvalue = JSON.parse(JSON.stringify(value));
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
-        if (jvalue) {
-            warn = getDatabaseData(jvalue, mode);
+        if (value.headline !== undefined) {
+            warn = getDatabaseData(value, mode);
             if (warn) {
                 warn.areaID = getRegionNameUWZ(id);
                 warn.hash = JSON.stringify(warn).hashCode();
@@ -1637,8 +1631,8 @@ function addDatabaseData(id, value, mode, old) {
         }
     } else if (mode == DWD) {
         change = removeDatabaseDataID(id);
-        if (jvalue) {
-            warn = getDatabaseData(jvalue, mode);
+        if (value.headline !== undefined) {
+            warn = getDatabaseData(value, mode);
             if (warn) {
                 warn.areaID = "für " + warn.areaID;
                 warn.hash = JSON.stringify(warn).hashCode();
@@ -1651,20 +1645,20 @@ function addDatabaseData(id, value, mode, old) {
             }
         }
     } else if (mode == NINA) {
-        if (jvalue.info === undefined || !Array.isArray(jvalue.info))
+        if (value.info === undefined || !Array.isArray(value.info))
         return false;
         let tempArr = [];
         let grouphash = 0;
         // sammele die neuen Daten
-        for (let a = 0; a < jvalue.info.length; a++) {
-            warn = getDatabaseData(jvalue.info[a], mode);
+        for (let a = 0; a < value.info.length; a++) {
+            warn = getDatabaseData(value.info[a], mode);
             // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
             if (warn && (!warn.end || new Date(warn.end) > new Date())) {
-                warn.identifier     = jvalue.identifier === undefined ? "" : jvalue.identifier;
-                warn.sender         = jvalue.sender === undefined ? "" : jvalue.sender;
+                warn.identifier     = value.identifier === undefined ? "" : value.identifier;
+                warn.sender         = value.sender === undefined ? "" : value.sender;
                 warn.hash = JSON.stringify(warn).hashCode();
                 // setzte start auf das Sendungsdatum, aber nicht im Hash berücksichtigen, ist keine neue Nachricht nur weil sich das datum ändert.
-                warn.start          = warn.start || jvalue.sent === undefined     ? warn.start    : getDateObject(jvalue.sent).getTime();
+                warn.start          = warn.start || value.sent === undefined     ? warn.start    : getDateObject(value.sent).getTime();
                 warn.id = id;
                 // davon ausgehend das die Nachrichten immer gleich sortiert sind und der NINA-Adapter das nicht umsortiert sollte der Hash der ersten Nachrichten
                 // immer der selbe sein. Benutze diesen um die Gruppe an Nachrichten zu identifizieren.
@@ -1740,18 +1734,9 @@ function isWarnIgnored(warn) {
     return false;
 }
 
-function getIndexOfHash(db, hash, mode, id) {
-    if (id === undefined && mode === undefined) return db.findIndex(function(j) {
+function getIndexOfHash(db, hash) {
+    return db.findIndex(function(j) {
         return j.hash === hash;
-    });
-    else if (id === undefined) return db.findIndex(function(j) {
-        return j.hash === hash && j.mode == mode;
-    });
-    else if (mode === undefined) return db.findIndex(function(j) {
-        return j.hash === hash && j.id == id;
-    });
-    else return db.findIndex(function(j) {
-        return j.hash === hash && j.mode == mode && j.id == id;
     });
 }
 
@@ -2039,7 +2024,7 @@ function replaceTokenForSpeak(beschreibung) {
             rueckgabe = rueckgabe.replace(/Bft/g, " Windstärke");
             rueckgabe = rueckgabe.replace(/m\/s/g, " Meter pro Sekunde");
         }
-    } catch (e) { log(e, 'warn'); }
+    } catch (e) { log('replaceTokenForSpeak' + e, 'warn'); }
     return rueckgabe;
 }
 
