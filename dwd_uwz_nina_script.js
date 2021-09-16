@@ -1,4 +1,4 @@
-//Version 0.97.19.4
+//Version 0.97.20
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -322,6 +322,9 @@ const mirrorMessageState = mainStatePath + 'message';
 const mirrorMessageStateHtml = mainStatePath + 'messageHtml';
 const SPACE = ' ';
 const NEWLINE = '\n';
+
+var START = new Date();
+var ENDE = new Date();
 var idAlexa = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.announcement';
 var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.speak-volume';
 var autoSendWarnings = true;
@@ -339,9 +342,11 @@ var dwdpushdienst = uPushdienst,
 let dwdManpushdienst = uPushdienst,
     ninaManpushdienst = uPushdienst,
     uwzManpushdienst = uPushdienst;
-var firstRun = true;;
+var firstRun = true;
 var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enthalten
-var _speakToInterval = null
+var _speakToInterval = null;
+var deviceList = 		{};
+
 // Warning types
 var warningTypesString = [];
 warningTypesString[DWD] = [
@@ -390,7 +395,7 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
         { "name": 'color', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'symbol', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'hash', "default": 0, "type": { read: true, write: false, role: "value", type: "number", name: '' } }
-]
+];
 // hash erzeugen
 String.prototype.hashCode = function() {
     var hash = 0, i, chr;
@@ -403,14 +408,12 @@ String.prototype.hashCode = function() {
     return hash;
 };
 
-var deviceList = 		{};
-
 for (let a = 0; a < konstanten.length; a++) {
     deviceList[konstanten[a].value] = {};
     if (konstanten[a].count !== undefined) deviceList[konstanten[a].value].count = konstanten[a].count;
     if (konstanten[a].delay !== undefined) deviceList[konstanten[a].value].delay = konstanten[a].delay;
     if (konstanten[a].maxChar !== undefined) deviceList[konstanten[a].value].maxChar = konstanten[a].maxChar;
-}
+};
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration
 /* ************************************************************************* */
@@ -931,8 +934,6 @@ function getModeState() {
 /* ************************************************************************* */
 
 // Zeitsteuerung für SayIt & Alexa
-var START = new Date();
-var ENDE = new Date();
 setWeekend();
 
 function setWeekend() {
@@ -1605,7 +1606,7 @@ function addDatabaseData(id, value, mode, old) {
     if ( value && typeof value === 'string' ) {
         value = JSON.parse(value);
     }
-    if (!value || value === undefined || value == {} || value.length <= 4 ) value = {};
+    if (!value || value === undefined ) value = {};
     myLog("addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
@@ -1619,7 +1620,7 @@ function addDatabaseData(id, value, mode, old) {
                 if (old) warnDatabase.old.push(warn);
                 change = true;
                 if (uLogAusgabe)
-                log("Add UWZ warning to database. headline: " + warn.headline);
+                    log("Add UWZ warning to database. headline: " + warn.headline);
             }
         }
     } else if (mode == DWD) {
@@ -1634,7 +1635,7 @@ function addDatabaseData(id, value, mode, old) {
                 if (old) warnDatabase.old.push(warn);
                 change = true;
                 if (uLogAusgabe)
-                log("Add DWD warning to database. headline: " + warn.headline);
+                    log("Add DWD warning to database. headline: " + warn.headline);
             }
         }
     } else if (mode == NINA) {
@@ -1690,11 +1691,12 @@ function addDatabaseData(id, value, mode, old) {
                 warn = tempArr[a];
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                if (uLogAusgabe)
-                log(
-                    "Add Nina warning to database. headline: " +
-                    warn.headline
-                );
+                if (uLogAusgabe) {
+                    log(
+                        "Add Nina warning to database. headline: " +
+                        warn.headline
+                    );
+                }
             }
             change = true;
         }
@@ -1809,7 +1811,7 @@ function getDatabaseData(warn, mode){
     result['pending'] = 0;
     result['hash'] = 0;
     result['repeatCounter'] = 0;
-    myLog('result: ' + JSON.stringify(result));
+    myLog('getDatabaseData(warn, mode) result: ' + JSON.stringify(result));
     return result;
 
     function getNinaArea(value) {
@@ -1928,19 +1930,14 @@ schedule('18 */10 * * * *', function() {
 });
 
 // entferne Eintrag aus der Database
-function removeDatabaseDataID(id, multitimes) {
+function removeDatabaseDataID(id) {
     if (!id || (typeof id !== 'string')) return false;
-    if (multitimes === undefined) multitimes = false;
     let change = false;
     if (warnDatabase.new && warnDatabase.new.length > 0) {
-        let i=-2;
-        while (i!=-1) {
-            i = warnDatabase.new.findIndex(function(j){return j.id == id});
-            if (i!=-1) {
-                warnDatabase.new.splice(i, 1);
-                change = true;
-            }
-            if (!multitimes) break;
+        let i = warnDatabase.new.findIndex(function(j){return j.id == id});
+        if (i!=-1) {
+            warnDatabase.new.splice(i, 1);
+            change = true;
         }
     }
     return change;
