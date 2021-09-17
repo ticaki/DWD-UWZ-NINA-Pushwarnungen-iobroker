@@ -819,8 +819,7 @@ function setAlertState() {
         let stateAlertid = mainStatePath + 'alert.' + mode[a].text.toLowerCase() + '.';
         for (let b = 0; b < warningTypesString[mode[a].mode].length; b++) {
             let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b][0] + '.';
-            let AlertLevel = -1;
-            let AlertIndex = -1;
+            let AlertLevel = -1, AlertIndex = -1;
             for (let c = 0; c < warnDatabase.new.length; c++) {
                 if (warnDatabase.new[c].mode == mode[a].mode && warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
                     AlertLevel = warnDatabase.new[c].level;
@@ -910,6 +909,7 @@ function getManuellPushFlags(mode) {
     return 0;
 }
 
+// b: true - g add f / false - g remove f
 function switchFlags(g, f, b) {
     if (b) g |= f;
     else g &= ~f;
@@ -1602,11 +1602,10 @@ function InitDatabase(first) {
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
     let change = false;
-    // kompatibilität zur Stableversion
-    if ( value && typeof value === 'string' ) {
-        value = JSON.parse(value);
-    }
+    // value muß ein Object sein, value: String/Object, abfrage auf Null/undefiniert ist nur zur Sicherheit.
     if (!value || value === undefined ) value = {};
+    // Kompatibilität zur Stableversion
+    if (typeof value === 'string' ) value = JSON.parse(value);
     myLog("addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
     if (mode == UWZ) {
         change = removeDatabaseDataID(id);
@@ -1639,6 +1638,7 @@ function addDatabaseData(id, value, mode, old) {
             }
         }
     } else if (mode == NINA) {
+        // Nina benutzt keine eindeutigen Ids für Warnungen, so dass das löschen woanders erfolgen muß.
         if (value.info === undefined || !Array.isArray(value.info))
         return false;
         let tempArr = [];
@@ -1648,12 +1648,12 @@ function addDatabaseData(id, value, mode, old) {
             warn = getDatabaseData(value.info[a], mode);
             // Warnungen nur aufnehmen wenn sie nicht beendet sind. Null berücksichtigt.
             if (warn && (!warn.end || new Date(warn.end) > new Date())) {
-                warn.identifier     = value.identifier === undefined ? "" : value.identifier;
-                warn.sender         = value.sender === undefined ? "" : value.sender;
-                warn.hash = JSON.stringify(warn).hashCode();
+                warn.identifier     = value.identifier  === undefined ? "" : value.identifier;
+                warn.sender         = value.sender      === undefined ? "" : value.sender;
+                warn.hash           = JSON.stringify(warn).hashCode();
                 // setzte start auf das Sendungsdatum, aber nicht im Hash berücksichtigen, ist keine neue Nachricht nur weil sich das datum ändert.
                 warn.start          = warn.start || value.sent === undefined     ? warn.start    : getDateObject(value.sent).getTime();
-                warn.id = id;
+                warn.id             = id;
                 // davon ausgehend das die Nachrichten immer gleich sortiert sind und der NINA-Adapter das nicht umsortiert sollte der Hash der ersten Nachrichten
                 // immer der selbe sein. Benutze diesen um die Gruppe an Nachrichten zu identifizieren.
                 if (!grouphash) grouphash = warn.hash;
@@ -1928,7 +1928,6 @@ schedule('18 */10 * * * *', function() {
         checkWarningsMain();
     }
 });
-
 // entferne Eintrag aus der Database
 function removeDatabaseDataID(id) {
     if (!id || (typeof id !== 'string')) return false;
@@ -1942,7 +1941,6 @@ function removeDatabaseDataID(id) {
     }
     return change;
 }
-
 /* *************************************************************************
 * Datenbank ENDE
 /* ************************************************************************* */
@@ -1963,7 +1961,6 @@ function getArtikelMode(mode, speak = false) {
     }
     return r;
 }
-
 // Gibt einen fertigen Zähler string zurück. 1 / 3 wenn es Sinn macht und manuelle Auslösung
 function getStringWarnCount(i, c) {
     return SPACE + 'Insgesamt ' + ((i && onClickCheckRun && c > 1) ? (i.toString() + '/') : '') + ((c == 1) ? 'eine gültige Warnung.' : (c.toString() + ' gültige Warnungen.'));
@@ -1980,7 +1977,6 @@ function getStringIgnoreCount(c) {
 function replacePlaceholder(str, insertText) {
     return str.replace(placeHolder, insertText);
 }
-
 // baut eine html table für Email
 function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
     if (!mailMsg) mailMsg = html_prefix;
@@ -1992,7 +1988,6 @@ function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
     if (last) mailMsg += html_end;
     return mailMsg;
 }
-
 /* Entfernt "°C" und anders aus Sprachmeldung und ersetzt es durch "Grad" */
 /* noch nicht für UWZ angepasst */
 function replaceTokenForSpeak(beschreibung) {
@@ -2017,7 +2012,6 @@ function replaceTokenForSpeak(beschreibung) {
     } catch (e) { log('replaceTokenForSpeak' + e, 'warn'); }
     return rueckgabe;
 }
-
 // Formatiere Date zu string
 function getFormatDate(a) {
     if (!a || (!(typeof a === 'number')) && !(typeof a === 'object')) return '';
@@ -2054,15 +2048,12 @@ function getFormatDateSpeak(a) {
     b[2] = c.join(SPACE);
     return b.join(SPACE);
 }
-
-
 /* *************************************************************************
 * Aufbereitung von Texten für die verschiedenen Pushmöglichkeiten ENDE
 /* ************************************************************************* */
 /* *************************************************************************
 * Anfrage über Telegramm mit Ww? und WetterWarnungen?
 /* ************************************************************************* */
-
 if ((uPushdienst & TELEGRAM) != 0) {
     on({ id: telegramInstanz + '.communicate.request', change: "any"}, function(obj) {
         var msg = obj.state.val;
@@ -2128,7 +2119,6 @@ onStop(function(callback) {
     }
     callback();
 }, 200)
-
 // stop das Skript und setzt den Alivestatus
 function restartScript() {
     setTimeout(function() {
@@ -2160,12 +2150,10 @@ function getCustomRoot(id) {
 function getEndOfState(id) {
     return id.replace(getCustomRoot(id) + '.', '');
 }
-
 // erweiterte existsState() funktion
 function extendedExists(id) {
     return (id) && ($(id).length > 0) && (existsState(id));
 }
-
 // verhält sich wie createState()
 function createCustomState(id, def, type, callback = undefined) {
     if (!extendedExists(id)) {
