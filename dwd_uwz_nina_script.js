@@ -1,4 +1,4 @@
-//Version 0.97.20
+//Version 0.97.21
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -331,6 +331,7 @@ var autoSendWarnings = true;
 var forceSpeak = false;
 var timer = null;
 var onClickCheckRun = false;
+var onClickCheckRunCmd = '';
 var warnDatabase = { new: [], old: [] };
 var subDWDhandler = null;
 var subUWZhandler = null;
@@ -761,6 +762,7 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     uPushdienst &= konstanten[d].value;
     forceSpeak = forcedSpeak;
     onClickCheckRun = true;
+    onClickCheckRunCmd = obj.id;
     if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
 
     checkWarningsMain();
@@ -773,6 +775,7 @@ subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, 
     uHtmlMitBeschreibung    = oldF;
 
     onClickCheckRun = false;
+    onClickCheckRunCmd = '';
     forceSpeak = false;
     uPushdienst = oPd;
 });
@@ -1235,7 +1238,7 @@ function checkWarningsMain() {
 
         // Einen Mode ermitteln der aktiv ist und der das Versenden erlauben würde.
         if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
-        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus' : 'Automatikmodus') + ' gefunden!', 'error');
+        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus über ID: ' + onClickCheckRunCmd : 'Automatikmodus') + ' gefunden!', 'error');
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if (forceSpeak || compareTime(START, ENDE, 'between')) { // Ansage über Sayit nur im definierten Zeitbereich
@@ -2078,6 +2081,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
             uPushdienst &= TELEGRAM;
             forceSpeak = forcedSpeak;
             onClickCheckRun = true;
+            onClickCheckRunCmd = 'Textnachricht über Telegram'
             let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung;
             let long = true;
             if ( msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') long = false;
@@ -2089,6 +2093,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
             uTextMitAnweisungen = oldA;
             uTextMitBeschreibung = oldB;
             onClickCheckRun = false;
+            onClickCheckRunCmd = '';
             forceSpeak = false;
             uPushdienst = oPd;
         }
