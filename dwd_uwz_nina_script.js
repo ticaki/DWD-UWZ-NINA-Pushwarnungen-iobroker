@@ -1,4 +1,4 @@
-//Version 0.97.21
+//Version 0.97.22
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -511,6 +511,7 @@ for (let a = 0; a < konstanten.length; a++) {
         }
     }
 }
+
 /***************************************************************************************
 * function testValueTypeLog(test, teststring, typ, need = false)
 * @param {any} test           Variable deren Typ / Inhalt getestet werden soll
@@ -545,6 +546,7 @@ function testValueTypeLog(test, teststring, typ, need = false) {
         stopScript(scriptName);
     }
 }
+
 /* *************************************************************************
 * Überprüfe Nutzerkonfiguration ENDE
 /* *************************************************************************
@@ -557,7 +559,7 @@ function changeMode(modeFromState) {
         let oldMode = MODE;
         MODE = modeFromState;
         myLog('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
-        if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - Pfad des Skripts - config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
+        if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - '+ mainStatePath + '.config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
         InitDatabase(firstRun);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
@@ -588,11 +590,10 @@ function changeMode(modeFromState) {
         createCustomState(mirrorMessageStateHtml, '', { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", });
     }
 
-    // MODE änderung über Datenpunkte string
     if (!extendedExists(aliveState)) {
         createCustomState(aliveState, false, { read: true, write: false, desc: "Script läuft", type: "boolean", def: false });
     }
-
+    // MODE änderung über Datenpunkte string
     if (!extendedExists(configModeState)) {
         createCustomState(configModeState, 'DWD', { read: true, write: true, desc: "Modusauswahl DWD oder UWZ", type: "string", def: '' });
     } else {
@@ -659,7 +660,6 @@ function setConfigModeStates(mode) {
 
 
 {
-    let allStateExist = true;
     let mode = [MODES[0], MODES[1]];
     for (let c = 0; c < mode.length; c++) {
         let stateAlertId = mainStatePath + 'alert.' + mode[c].text.toLowerCase() + '.';
@@ -669,7 +669,6 @@ function setConfigModeStates(mode) {
                 stateAlert[a].type.name = stateAlert[a].name;
                 if (!extendedExists(stateAlertIdFull)) {
                     createCustomState(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
-                    allStateExist = false;
                 }
             }
         }
@@ -686,7 +685,7 @@ for (var a = 0; a < konstanten.length; a++) {
             createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_short', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
         }
         if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
-            createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_long', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+            createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_long', false, { read: true, write: true, desc: "Gebe lange Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
         }
         for (let x = 0; x < MODES.length; x++) {
             let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
@@ -995,13 +994,19 @@ function checkWarningsMain() {
                 w2.start > w.start ||
                 w2.end > w.end
             ) continue;
-            if ( w.level > w2.level ) {
+            if (w.level > w2.level) {
                 warnDatabase.new.splice(b, 1);
-                if (a >= b--) {a--; break;}
+                if (a >= b--) {
+                    a--;
+                    break;
+                }
             } else if (w.altitudeStart > w2.altitudeStart && w.level == w2.level) {
                 w.altitudeStart = w2.altitudeStart;
                 warnDatabase.new.splice(b, 1);
-                if (a >= b--) {a--; break;}
+                if (a >= b--) {
+                    a--;
+                    break;
+                }
             }
         }
     }
@@ -1019,16 +1024,19 @@ function checkWarningsMain() {
             ) continue;
             // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
             if (w2.end <= w.end && w2.end >= w.start) {
-                if ( w2.level >= w.level ) {
+                if (w2.level >= w.level) {
                     w.repeatCounter += w2.repeatCounter + 1;
                 }
-                if (w.repeatCounter > 30 ) {
+                if (w.repeatCounter > 30) {
                     log('reset repeatCounter... push message.');
                     w.repeatCounter = 0;
                 }
                 let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                if (i != -1) { warnDatabase.new.splice(i, 1); if (i <= a) --a; }
-                myLog('Nr 5 Remove Msg with headline:'+w2.headline);
+                if (i != -1) {
+                    warnDatabase.new.splice(i, 1);
+                    if (i <= a) --a;
+                }
+                myLog('Nr 5 Remove Msg with headline:' + w2.headline);
                 warnDatabase.old.splice(b--, 1);
                 break;
             }
@@ -1036,12 +1044,14 @@ function checkWarningsMain() {
     }
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
-        if ( isWarnIgnored(w)) {
+        if (isWarnIgnored(w)) {
             ignoreWarningCount++
         }
     }
 
-    warnDatabase.new.sort(function(a, b) { return a.level == b.level ? b.begin - a.begin : b.level - a.level; })
+    warnDatabase.new.sort(function(a, b) {
+        return a.level == b.level ? b.begin - a.begin : b.level - a.level;
+    })
     var collectMode = 0;
     let emailHtmlWarn = '';
     let emailHtmlClear = '';
@@ -1090,7 +1100,7 @@ function checkWarningsMain() {
     let gefahr = false;
     let count = 0;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
-    for (let i = warnDatabase.new.length-1; i >= 0; i--) {
+    for (let i = warnDatabase.new.length - 1; i >= 0; i--) {
         let entry = warnDatabase.new[i];
         if (entry.repeatCounter > 1 && !onClickCheckRun) continue;
         let headline = entry.headline;
@@ -1112,9 +1122,9 @@ function checkWarningsMain() {
             if (!gefahr) gefahr = level > attentionWarningLevel;
 
             let begin = entry.start ? getFormatDate(entry.start) : '',
-            end = entry.end ? getFormatDate(entry.end) : '';
+                end = entry.end ? getFormatDate(entry.end) : '';
             let sTime = SPACE,
-            bt = (begin || end);
+                bt = (begin || end);
             if (begin || end) sTime = "gültig ";
             if (begin) sTime += "vom " + begin + " Uhr";
             if ((begin && end)) sTime += SPACE;
@@ -1123,16 +1133,16 @@ function checkWarningsMain() {
             // html
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
-                de = '';
+                    de = '';
                 let prefix = isNewMessage && !onClickCheckRun ? 'Neu: ' : '';
                 if (entry.html !== undefined) {
                     let html = entry.html;
                     if (html.headline) he = prefix + html.headline;
                     else he = prefix + headline;
-                    if ( uHtmlMitBeschreibung ) {
+                    if (uHtmlMitBeschreibung) {
                         if (html.description) de = html.description;
                         else de = description;
-                        if ( uHtmlMitAnweisungen ) {
+                        if (uHtmlMitAnweisungen) {
                             if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
                             else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                         }
@@ -1142,7 +1152,7 @@ function checkWarningsMain() {
                     he = prefix + headline;
                     if (uHtmlMitBeschreibung) {
                         de = description;
-                        if ( uHtmlMitAnweisungen && instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                        if (uHtmlMitAnweisungen && instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
                     }
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
@@ -1166,7 +1176,7 @@ function checkWarningsMain() {
                 } else {
                     pushMsg += (bt ? NEWLINE + sTime : '');
                     if (uTextMitBeschreibung) {
-                        pushMsg+= NEWLINE + NEWLINE + description;
+                        pushMsg += NEWLINE + NEWLINE + description;
                         if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                             pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                         }
@@ -1200,9 +1210,8 @@ function checkWarningsMain() {
                     }
                     description = replaceTokenForSpeak(description);
                     if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
-                         if (uSpracheMitBeschreibung) speakMsg += description;
-                    }
-                    else speakMsg += ' Weiterführende Informationen sind vorhanden.';
+                        if (uSpracheMitBeschreibung) speakMsg += description;
+                    } else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                 }
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
@@ -1223,7 +1232,6 @@ function checkWarningsMain() {
         }
     }
     if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
-
 
     if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && (emailHtmlWarn + emailHtmlClear)) {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear ? 'Aufgehobene Warnungen' : null), emailHtmlClear, 'silver', false);
@@ -1263,6 +1271,7 @@ function checkWarningsMain() {
     /* Neue Werte sichern */
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
+
 /* *************************************************************************
 * Hauptfunktion zur Auswahl der Warnungen zum Versenden und Aufbereiten der
 * Nachrichten ENDE
@@ -1311,7 +1320,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         newMsg.title = topic;
         if (entry) {
             if (entry.web && entry.web.length < 512) {
-                newMsg.url = entry.web ;
+                newMsg.url = entry.web;
                 newMsg.url_title = entry.webname;
             }
             newMsg.message = msg.replace(entry.headline, '<font color="' + entry.color + '">' + entry.headline + '</font>');
@@ -1322,7 +1331,8 @@ function sendMessage(pushdienst, topic, msg, entry) {
         if (uPushoverDeviceName) newMsg.device = uPushoverDeviceName;
         _sendSplitMessage(PUSHOVER, newMsg.message.slice(), newMsg, function(msg, opt, c) {
             opt.message = msg;
-            if (c > 1) { opt.title += ' Teil ' + c; opt.sound = 'none'; }
+            if (c > 1) { opt.title += ' Teil ' + c;
+                opt.sound = 'none'; }
             _sendTo(PUSHOVER, pushoverInstanz, opt);
         });
     }
@@ -1386,7 +1396,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
             if (_speakToArray.length > 1) {
                 let entry = _speakToArray[1];
                 if (entry.startTimeSpeak <= new Date()) {
-                    if ( entry.part > 1 ) entry.msg = 'Teil ' + entry.part+':  ' + entry.msg;
+                    if (entry.part > 1) entry.msg = 'Teil ' + entry.part + ':  ' + entry.msg;
                     let nTime = new Date(new Date().getTime() + (deviceList[entry.dienst].delay * (entry.msg + _getMsgCountString(_speakToArray, entry.dienst)).length));
                     let value = nTime.getTime() - new Date(entry.endTimeSpeak).getTime();
                     for (let a = 1; a < _speakToArray.length; a++) {
@@ -1432,8 +1442,9 @@ function sendMessage(pushdienst, topic, msg, entry) {
                     msgAppend = ' Es gibt ' + (len) + ' weitere neue Warnungen.';
                 }
             } else {
-                if (warnDatabase.new.length == 0) { if (!onClickCheckRun) msgAppend = ' keine weitere Warnung.'; }
-                else {
+                if (warnDatabase.new.length == 0) {
+                    if (!onClickCheckRun) msgAppend = ' keine weitere Warnung.';
+                } else {
                     if (warnDatabase.new.length == 1) msgAppend = ' Insgesamt eine aktive Warnung.';
                     else msgAppend = ' Insgesamt ' + warnDatabase.new.length + ' aktive Warnungen.';
                 }
@@ -1462,43 +1473,47 @@ function sendMessage(pushdienst, topic, msg, entry) {
                 t = t || new Date();
                 let nt = new Date(t);
                 nt.setMilliseconds(t.getMilliseconds() + m);
-                arr.push({ msg: a, dienst: dienst, endTimeSpeak: nt, startTimeSpeak: t, part: count});
+                arr.push({ msg: a, dienst: dienst, endTimeSpeak: nt, startTimeSpeak: t, part: count });
                 return arr;
             }
+
             function _splitedSpeakMessage(dienst, str, c, opt) {
                 let m = deviceList[dienst].delay * str.length + 2000;
                 return __addItem(opt, str, dienst, m, c);
             }
         }
     }
+
     function _sendSplitMessage(dienst, str, opt, callback) {
         let text = '\n* Warnung wurde aufgeteilt *';
-        let index = deviceList[dienst].maxChar !== undefined ? deviceList[dienst].maxChar-text.length : 0;
+        let index = deviceList[dienst].maxChar !== undefined ? deviceList[dienst].maxChar - text.length : 0;
         let e = 0;
         let c = 1;
-        do  {
+        do {
             let msg = str;
             e = 0;
             if (index != 0 && index < msg.length) {
                 e = _getLastIndexToSplit(msg, index);
                 msg = str.substring(0, e) + text;
             }
-            if ( dienst & SPEAK ) {
+            if (dienst & SPEAK) {
                 opt = callback(dienst, msg, c++, opt);
-            }else {
+            } else {
                 callback(msg, cloneObj(opt), c++);
             }
-            if (e != 0) str =  str.substring(e).trimLeft();
-        } while (e != 0 )
+            if (e != 0) str = str.substring(e).trimLeft();
+        } while (e != 0)
         return opt;
     }
+
     function _getLastIndexToSplit(str, index) {
-        let f = str.substring(0,index).match(/..\n|..<br>|[a-zA-Z][a-z][\.\!\?\:](?= [A-Z])|[a-zA-Z][a-z]\.(?=[A-Z][a-zA-Z]{3})/gi);
+        let f = str.substring(0, index).match(/..\n|..<br>|[a-zA-Z][a-z][\.\!\?\:](?= [A-Z])|[a-zA-Z][a-z]\.(?=[A-Z][a-zA-Z]{3})/gi);
         let e = index;
-        if (f && f.length > 0) e = str.lastIndexOf(f[f.length-1],index) + f[f.length-1].length;
+        if (f && f.length > 0) e = str.lastIndexOf(f[f.length - 1], index) + f[f.length - 1].length;
         return e;
     }
 }
+
 /* *************************************************************************
 * Senden der Nachricht über die verschiedenen Möglichkeiten
 *                           ENDE
