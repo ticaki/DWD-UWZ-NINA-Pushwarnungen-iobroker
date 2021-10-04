@@ -1,4 +1,4 @@
-//Version 0.97.22
+//Version 0.97.23
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -347,6 +347,7 @@ var firstRun = true;
 var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enthalten
 var _speakToInterval = null;
 var deviceList = 		{};
+var restart = false;
 
 // Warning types
 var warningTypesString = [];
@@ -391,6 +392,7 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
         { "name": 'type', "default": -1, "type": { read: true, write: false, type: "number", name: '' } },
         { "name": 'begin', "default": 0, "type": { read: true, write: false, role: "value.time", type: "number", name: '' } },
         { "name": 'end', "default": 0, "type": { read: true, write: false, role: "value.time", type: "number", name: '' } },
+        { "name": 'current', "default": false, "type": { read: true, write: false, role: "state", type: "boolean", name: '' } },
         { "name": 'headline', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'description', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'color', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
@@ -590,9 +592,6 @@ function changeMode(modeFromState) {
         createCustomState(mirrorMessageStateHtml, '', { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", });
     }
 
-    if (!extendedExists(aliveState)) {
-        createCustomState(aliveState, false, { read: true, write: false, desc: "Script läuft", type: "boolean", def: false });
-    }
     // MODE änderung über Datenpunkte string
     if (!extendedExists(configModeState)) {
         createCustomState(configModeState, 'DWD', { read: true, write: true, desc: "Modusauswahl DWD oder UWZ", type: "string", def: '' });
@@ -831,19 +830,58 @@ function setAlertState() {
             if (extendedExists(stateAlertIdFull + stateAlert[0].name)) {
                 if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
                     (AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[8].name).val != warnDatabase.new[AlertIndex].hash)) {
+                    let cwarn = false;
+                    if (AlertIndex > -1) {
+                        let start = warnDatabase.new[AlertIndex].start ? new Date(warnDatabase.new[AlertIndex].start) : new Date(new Date().setHours(new Date().getHours() - 2));
+                        let end = warnDatabase.new[AlertIndex].end ? new Date(warnDatabase.new[AlertIndex].end) : new Date(new Date().setHours(new Date().getHours() + 2));
+                        cwarn = end.getTime() - start.getTime() > 0 ? timeIsBetween(new Date(), start, end) : false;
+                        if (!cwarn && warnDatabase.new[AlertIndex].alerttimeout === undefined) {
+                            if (!warnDatabase.new[AlertIndex].alertendtimeout) {
+                                if (end && end.getTime() - (new Date().getTime()) > 0) {
+                                    warnDatabase.new[AlertIndex].alertendtimeout = setTimeout(setAlertState, end.getTime() - (new Date().getTime())+100);
+                                }
+                                if (start && start.getTime() - (new Date().getTime()) > 0) {
+                                    warnDatabase.new[AlertIndex].alertstarttimeout = setTimeout(setAlertState, start.getTime() - (new Date().getTime())+100)
+                                }
+                            }
+                        }
+                    }
                     setState(stateAlertIdFull + stateAlert[0].name, AlertLevel, true);
                     setState(stateAlertIdFull + stateAlert[1].name, b, true);
                     setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0), true);
                     setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].end).getTime() : 0), true);
-                    setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''), true);
-                    setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''), true);
-                    setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''), true);
-                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''), true);
-                    setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0), true);
+                    setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? cwarn : false), true);
+                    setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''), true);
+                    setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''), true);
+                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''), true);
+                    setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''), true);
+                    setState(stateAlertIdFull + stateAlert[9].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0), true);
                 }
             }
         }
     }
+}
+
+function timeIsBetween(fTime,start,ende) {//Dateobjekt,hh:mm,hh:mm
+    var eTime = new Date(), sTime = new Date();
+    if (typeof start == 'object') {
+        sTime = new Date(start);
+    } else {
+        start = start.split(':');
+        sTime.setHours(parseInt(start[0]), parseInt(start[1]), 0);
+    }
+    if (typeof ende === 'object') {
+        eTime = new Date(ende);
+    } else {
+        ende = ende.split(':');
+        eTime.setHours(parseInt(ende[0]), parseInt(ende[1]), 0);
+    }
+    if (sTime.getTime()>eTime.getTime()) {
+        if (fTime.getTime() < eTime.getTime()) sTime.setDate(eTime.getDate()-1);
+        if (fTime.getTime() > sTime.getTime()) eTime.setDate(sTime.getDate()+1);
+    }
+    if ( compareTime(sTime, eTime, 'between', fTime) ) return true;
+    return false;
 }
 /* *************************************************************************
 * Erstellung von Datenpunkten ENDE
@@ -2121,31 +2159,25 @@ if ((uPushdienst & TELEGRAM) != 0) {
 /* *************************************************************************
 * Restartfunktion
 /* ************************************************************************* */
-// wenn alive schon false, starte das Skript neu
+// wenn restart true ist, starte das Skript neu
 onStop(function(callback) {
-    if (extendedExists(aliveState)) {
-        if (!getState(aliveState).val) {
-            log('wird neugestartet!');
-            setState(aliveState, false, true, function() {
-                setTimeout(function() {
-                    startScript(scriptName);
-                    log('Neustart wurde ausgeführt');
-                }, 1000)
-            });
-        } else {
-            log('wurde beendet!');
-            setState(aliveState, false, true);
-        }
+    if (restart) {
+        log('wird neugestartet!');
+        setTimeout(function() {
+            startScript(scriptName);
+            log('Neustart wurde ausgeführt');
+        }, 1000)
+    } else {
+        log('wurde beendet!');
     }
     callback();
 }, 200)
-// stop das Skript und setzt den Alivestatus
+// stop das Skript
 function restartScript() {
     setTimeout(function() {
-        setState(aliveState, false, false, function() {
-            myLog('Wird über restartScript() beendet.!');
-            stopScript(scriptName);
-        });
+        myLog('Wird über restartScript() beendet.!');
+        restart = true;
+        stopScript(scriptName);
     }, 200);
 }
 /* *************************************************************************
