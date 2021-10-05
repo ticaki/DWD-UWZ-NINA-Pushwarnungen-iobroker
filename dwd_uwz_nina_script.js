@@ -1,4 +1,4 @@
-//Version 0.97.24
+//Version 0.97.24.1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1591,7 +1591,7 @@ function onChangeDWD(dp) {
         onChangeTimeoutObj[dp.id] = null;
         myLog('onchange DWD id:' + dp.id);
         onChange(dp, DWD);
-    },500);
+    },500, dp);
 }
 
 function onChangeUWZ(dp) {
@@ -1600,7 +1600,7 @@ function onChangeUWZ(dp) {
         onChangeTimeoutObj[dp.id] = null;
         myLog('onchange UWZ id:' + dp.id);
         onChange(dp, UWZ);
-    },500);
+    },500, dp);
 }
 
 function onChangeNina(dp) {
@@ -1609,7 +1609,7 @@ function onChangeNina(dp) {
         onChangeTimeoutObj[dp.id] = null;
         myLog('onchange NINA ' + dp.id);
         onChange(dp, NINA);
-    },500);
+    },500, dp);
 }
 
 // funktion die von on() aufgerufen wird
@@ -1677,6 +1677,9 @@ function addDatabaseData(id, value, mode, old) {
     if (typeof value === 'string' ) value = JSON.parse(value);
     myLog("addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
     if (mode == UWZ) {
+        let i = warnDatabase.new.findIndex(function(j){return j.id == id});
+        let hash = null;
+        if (i > -1) hash = warnDatabase.new[i].hash;
         change = removeDatabaseDataID(id);
         if (value.headline !== undefined) {
             warn = getDatabaseData(value, mode);
@@ -1686,12 +1689,15 @@ function addDatabaseData(id, value, mode, old) {
                 warn.id = id;
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                change = true;
+                change = hash != warn.hash;
                 if (uLogAusgabe)
                     log("Add UWZ warning to database. headline: " + warn.headline);
             }
         }
     } else if (mode == DWD) {
+        let i = warnDatabase.new.findIndex(function(j){return j.id == id});
+        let hash = null;
+        if (i > -1) hash = warnDatabase.new[i].hash;
         change = removeDatabaseDataID(id);
         if (value.headline !== undefined) {
             warn = getDatabaseData(value, mode);
@@ -1701,7 +1707,7 @@ function addDatabaseData(id, value, mode, old) {
                 warn.id = id;
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                change = true;
+                change = hash != warn.hash;
                 if (uLogAusgabe)
                     log("Add DWD warning to database. headline: " + warn.headline);
             }
