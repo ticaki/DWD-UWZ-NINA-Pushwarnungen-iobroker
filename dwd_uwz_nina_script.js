@@ -1,4 +1,4 @@
-//Version 0.97.23
+//Version 0.97.24
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -348,6 +348,7 @@ var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enth
 var _speakToInterval = null;
 var deviceList = 		{};
 var restart = false;
+var onChangeTimeoutObj = {};
 
 // Warning types
 var warningTypesString = [];
@@ -1585,18 +1586,30 @@ function dataSubscribe() {
 }
 
 function onChangeDWD(dp) {
-    myLog('onchange DWD id:' + dp.id);
-    onChange(dp, DWD);
+    if (onChangeTimeoutObj[dp.id]) clearTimeout(onChangeTimeoutObj[dp.id]);
+    onChangeTimeoutObj[dp.id] = setTimeout( function(dp) {
+        onChangeTimeoutObj[dp.id] = null;
+        myLog('onchange DWD id:' + dp.id);
+        onChange(dp, DWD);
+    },500);
 }
 
 function onChangeUWZ(dp) {
-    myLog('onchange UWZ id:' + dp.id);
-    onChange(dp, UWZ);
+    if (onChangeTimeoutObj[dp.id]) clearTimeout(onChangeTimeoutObj[dp.id]);
+    onChangeTimeoutObj[dp.id] = setTimeout( function(dp) {
+        onChangeTimeoutObj[dp.id] = null;
+        myLog('onchange UWZ id:' + dp.id);
+        onChange(dp, UWZ);
+    },500);
 }
 
 function onChangeNina(dp) {
-    myLog('onchange NINA ' + dp.id);
-    onChange(dp, NINA);
+    if (onChangeTimeoutObj[dp.id]) clearTimeout(onChangeTimeoutObj[dp.id]);
+    onChangeTimeoutObj[dp.id] = setTimeout( function(dp) {
+        onChangeTimeoutObj[dp.id] = null;
+        myLog('onchange NINA ' + dp.id);
+        onChange(dp, NINA);
+    },500);
 }
 
 // funktion die von on() aufgerufen wird
