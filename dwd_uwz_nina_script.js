@@ -197,7 +197,7 @@ var uPushoverSound          = ''; // Sounds siehe: https://pushover.net/api#soun
 
 //Konfiguration von ioGo
 var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
-var ioGoExpiry = 0;         // Nachricht wird nach Sekunden entfernt
+var ioGoExpiry = 0;     // Nachricht wird nach Sekunden entfernt. 0: aus
 /* Konfiguration Sprachausgabe über SayIt */
 var idSayIt             = ["sayit.0.tts.text"]; // mehrfach Einträge möglich
 var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
