@@ -1,4 +1,4 @@
-//Version 0.97.24.1
+//Version 0.97.24.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -197,7 +197,7 @@ var uPushoverSound          = ''; // Sounds siehe: https://pushover.net/api#soun
 
 //Konfiguration von ioGo
 var ioGoUser = ['']; // // Einzelnutzer ['Hans']; Multinutzer ['Hans', 'Gretel']; Nutzer vom Adapter übernehmen [];
-
+var ioGoExpiry = 0;         // Nachricht wird nach Sekunden entfernt
 /* Konfiguration Sprachausgabe über SayIt */
 var idSayIt             = ["sayit.0.tts.text"]; // mehrfach Einträge möglich
 var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
@@ -1285,7 +1285,7 @@ function checkWarningsMain() {
 
         // Einen Mode ermitteln der aktiv ist und der das Versenden erlauben würde.
         if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
-        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus über ID: ' + onClickCheckRunCmd : 'Automatikmodus') + ' gefunden!', 'error');
+        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus über ID: ' + onClickCheckRunCmd : 'Automatikmodus') + ' gefunden!', 'warn');
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if (forceSpeak || compareTime(START, ENDE, 'between')) { // Ansage über Sayit nur im definierten Zeitbereich
@@ -1379,6 +1379,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         let j = {};
         j.text = msg;
         j.title = topic;
+        if (ioGoExpiry > 0 ) j.expiry = ioGoExpiry;
         if (ioGoUser.length > 0) {
             j.user = ioGoUser[0];
             for (let a = 1; a < ioGoUser.length; a++) {
@@ -1690,8 +1691,10 @@ function addDatabaseData(id, value, mode, old) {
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
                 change = hash != warn.hash;
-                if (uLogAusgabe)
-                    log("Add UWZ warning to database. headline: " + warn.headline);
+                if (uLogAusgabe) {
+                    if (!change) log("No change! headline: " + warn.headline);
+                    else log("Add UWZ warning to database. headline: " + warn.headline);
+                }
             }
         }
     } else if (mode == DWD) {
@@ -1708,8 +1711,10 @@ function addDatabaseData(id, value, mode, old) {
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
                 change = hash != warn.hash;
-                if (uLogAusgabe)
-                    log("Add DWD warning to database. headline: " + warn.headline);
+                if (uLogAusgabe) {
+                    if (!change) log("No change! headline: " + warn.headline);
+                    else log("Add DWD warning to database. headline: " + warn.headline);
+                }
             }
         }
     } else if (mode == NINA) {
