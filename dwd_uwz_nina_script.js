@@ -1035,6 +1035,7 @@ function checkWarningsMain() {
             ) continue;
             if (w.level > w2.level) {
                 warnDatabase.new.splice(b, 1);
+                myLog('Nr 3 Remove Msg with headline:' + w2.headline + ' hold:' + w.headline);
                 if (a >= b--) {
                     a--;
                     break;
@@ -1042,6 +1043,7 @@ function checkWarningsMain() {
             } else if (w.altitudeStart > w2.altitudeStart && w.level == w2.level) {
                 w.altitudeStart = w2.altitudeStart;
                 warnDatabase.new.splice(b, 1);
+                myLog('Nr 4 Remove Msg with headline:' + w2.headline + ' hold:' + w.headline);
                 if (a >= b--) {
                     a--;
                     break;
@@ -1098,6 +1100,7 @@ function checkWarningsMain() {
     collectMode = 0;
     let debugdata = '';
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
+    myLog('Nr 6 Build messages');
     for (let i = 0; i < warnDatabase.old.length; i++) {
         let entry = warnDatabase.old[i];
         let description = entry.description;
@@ -1110,6 +1113,7 @@ function checkWarningsMain() {
         if (isWarnIgnored(entry)) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
         if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.new.length > ignoreWarningCount)) {
+            myLog('Old Msg with headline:' + headline + ' onClickCheckRun:' + onClickCheckRun +' hash:' +hash);
             let prefix = ''
             let end = entry.end ? getFormatDate(entry.end) : null;
             collectMode |= mode;
@@ -1152,6 +1156,7 @@ function checkWarningsMain() {
         let mode = entry.mode;
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
+        myLog('New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash);
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if (hash) {
             let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
@@ -1308,6 +1313,7 @@ function checkWarningsMain() {
         //log(DebugMail);
     }
     /* Neue Werte sichern */
+    myLog('done');
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
 
@@ -1321,7 +1327,9 @@ function checkWarningsMain() {
 //Versende die Warnungen über die Schienen
 function sendMessage(pushdienst, topic, msg, entry) {
     if (entry === undefined) entry = null;
+
     if ((pushdienst & TELEGRAM) != 0) {
+        myLog('send Msg with Telegram');
         let nMsg = {};
         if (entry && entry.web && entry.webname) nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
         if (uTelegramReplyMarkup) nMsg.reply_markup = uTelegramReplyMarkup;
@@ -1353,6 +1361,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         }
     }
     if ((pushdienst & PUSHOVER) != 0) {
+        myLog('send Msg with Pushover');
         let newMsg = { html: 1 };
         let usesound = ((deviceList[PUSHOVER].count == undefined || deviceList[PUSHOVER].count == 0) || !(!entry || entry.level < attentionWarningLevel));
         newMsg.message = msg;
@@ -1376,6 +1385,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         });
     }
     if ((pushdienst & IOGO) != 0) {
+        myLog('send Msg with Iogo');
         let j = {};
         j.text = msg;
         j.title = topic;
@@ -1398,9 +1408,11 @@ function sendMessage(pushdienst, topic, msg, entry) {
         setState(mirrorMessageStateHtml, msg, true);
     }
     if ((pushdienst & SPEAK) != 0) {
+        myLog('send Msg with Speak');
         _speakTo(pushdienst & SPEAK, msg);
     }
     if ((pushdienst & EMAIL) != 0) {
+        myLog('send Msg with Email');
         let j = {};
         j.html = msg;
         j.subject = topic;
@@ -1416,6 +1428,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
 
     function _sendTo(dienst, a, b) {
+        myLog('send Msg _sendTo dienst:' + dienst);
         if (deviceList[dienst].count == undefined) {
             sendTo(a, b);
         } else {
