@@ -1,4 +1,4 @@
-//Version 0.97.24.2
+//Version 0.97.24.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1682,7 +1682,7 @@ function addDatabaseData(id, value, mode, old) {
         let hash = null;
         if (i > -1) hash = warnDatabase.new[i].hash;
         change = removeDatabaseDataID(id);
-        if (value.headline !== undefined) {
+        if (value.payload.levelName !== undefined) {
             warn = getDatabaseData(value, mode);
             if (warn) {
                 warn.areaID = getRegionNameUWZ(id);
