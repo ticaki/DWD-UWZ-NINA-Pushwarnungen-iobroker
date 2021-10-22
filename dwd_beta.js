@@ -1,4 +1,4 @@
-//Version 0.3
+//Version 0.4
 
 /********************* Hier die Warnzellen-Id's eintragen ***************************************************************************/
 /* nur Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
@@ -59,7 +59,7 @@ async function writeResultEntry(warnObj, _i) {
     var baseChannelId = channelId + (_i == 0 ? '' : _i) + '.';
     const oldObject = await getStateAsync(baseChannelId + "object");
     if (oldObject && JSON.stringify(warnObj) == JSON.stringify(oldObject.val)) {
-        dwmlog('Datensatz ' + _i+1 + ' ist schon vorhanden', 4);
+        dwmlog('Datensatz ' + (_i+1) + ' ist schon vorhanden', 4);
         return;
     }
 
@@ -116,7 +116,11 @@ async function work() {
                 }
             })
             .catch(error => {
-                if (error.response.status == 404) {
+                if (error == undefined) {
+                    dwmlog('Fehler im Datenabruf ohne Errorlog',1)
+                } else if (error.response == undefined) {
+                    dwmlog(error, 1);
+                } else if (error.response.status == 404) {
                     dwmlog(error.message, 1);
                 } else {
                     dwmlog(error.response.data, 1);
