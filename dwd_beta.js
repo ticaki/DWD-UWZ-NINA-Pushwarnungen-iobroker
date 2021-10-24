@@ -11,7 +11,7 @@ var debugchannel = 'info';
 
 var channelId = '0_userdata.0.Wetterwarnung.DWD.'+instance+'.warning';
 
-var intervalMinutes = 5;
+var intervalMinutes = 10;
 var numOfWarnings = 5;
 
 
@@ -109,6 +109,8 @@ async function work() {
                 dwmlog("AREA: " + warncellid[i], 4);
                 dwmlog("UWZ Body: " + JSON.stringify(results.data), 4);
                 dwmlog("Status: " + results.status, 4);
+                if (!results) log ('!results');
+                if (results === undefined) log('results === undefined')
                 if (results.status == 200) {
                     processData(+warncellid[i], results.data);
                 } else {
@@ -130,6 +132,7 @@ async function work() {
             })
     }
 }
+
 function dwmlog(message, level, channel) {
     if (channel === undefined) {
         channel = debugchannel;
