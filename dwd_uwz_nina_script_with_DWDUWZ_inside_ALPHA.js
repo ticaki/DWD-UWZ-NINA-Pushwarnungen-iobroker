@@ -1,4 +1,4 @@
-//Version 0.97.99.1
+//Version 0.97.99.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -377,6 +377,8 @@ var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enth
 var _speakToInterval = null;
 var deviceList = 		{};
 var onChangeTimeoutObj = {};
+var onStopped = false;
+const randomID = Math.random()*10000;
 
 // Warning types
 var warningTypesString = [];
@@ -476,7 +478,7 @@ for (let a = 0; a < konstanten.length; a++) {
     if (konstanten[a].maxChar !== undefined) deviceList[konstanten[a].value].maxChar = konstanten[a].maxChar;
 };
 /* *************************************************************************
-* Überprüfe Nutzerkonfiguration
+* Überprüfe Nutzerkonfiguration.
 /* ************************************************************************* */
 
 
@@ -1096,6 +1098,9 @@ function convertStringToDate(s) {
 
 // Hauptfunktion entscheiden was wohin gesendet wird
 function checkWarningsMain() {
+    myLog('start checkWarningsMain()')
+    myLog('New: ' + JSON.stringify(warnDatabase.new));
+    myLog('Old: ' + JSON.stringify(warnDatabase.old));
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend || !startTimeSpeak || !endTimeSpeak);
     setWeekend();
     let DebugMail = '';
@@ -1113,12 +1118,15 @@ function checkWarningsMain() {
         for (let b = 0; b < warnDatabase.new.length; b++) {
             let w2 = warnDatabase.new[b];
             if (
-                w.mode !== DWD ||
-                w2.mode !== DWD ||
-                w.type !== w2.type ||
-                a == b ||
-                w2.start > w.start ||
-                w2.end > w.end
+                (
+                    w.mode !== DWD ||
+                    w2.mode !== DWD ||
+                    w.type !== w2.type ||
+                    a == b ||
+                    w2.start > w.start ||
+                    w2.end > w.end
+                )
+                && w2.start < w.end
             ) continue;
             if (w.level > w2.level) {
                 warnDatabase.new.splice(b, 1);
@@ -1671,7 +1679,7 @@ function dataSubscribe() {
         subDWDhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeDWD);
     }
     if (subUWZhandler) unsubscribe(subUWZhandler);
-    if (MODE & UWZ) {
+    if (MODE & UWZ && !enableInternUWZ) {
         let r = getRegEx(uwzPath, '^');
         r += '.*\.object$';
         myLog('subscribe path:' + r);
@@ -1729,9 +1737,10 @@ function onChange(dp, mode) {
 /* ************************************************************************* */
 // Erstes befüllen der Database
 async function InitDatabase(first) {
+    myLog('InitDatabase() first: ' + first);
     if (first) {
         warnDatabase = { new: [], old: [] };
-        if (enableInternDWD && !internalDWDInterval) {
+        if (enableInternDWD && !internalDWDInterval && first) {
             await getDataFromServer(first);
             internalDWDInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
@@ -1739,7 +1748,7 @@ async function InitDatabase(first) {
     if (MODE & DWD && !enableInternDWD) {
         _helper($("state[state.id=" + dwdPath + ".*.object]"), DWD, first);
     }
-    if (MODE & UWZ) {
+    if (MODE & UWZ && !enableInternUWZ) {
         _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, first);
     }
     if (MODE & NINA) {
@@ -1766,7 +1775,7 @@ async function InitDatabase(first) {
                 let b = (-1 == database.findIndex(function(j2, i2){
                     return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
                 }));
-                if (!b) myLog('filtere:'+JSON.stringify(j));
+                if (!b) myLog('filtere: '+JSON.stringify(j));
                 return b;}
             )
         }
@@ -1775,10 +1784,14 @@ async function InitDatabase(first) {
 }
 // Daten vom Server abfragen
 async function getDataFromServer(first) {
+    if (first === undefined) first = false;
     if (enableInternDWD) await _getDataFromServer(internDWDUrl, DWD, first);
     if (enableInternUWZ) await _getDataFromServer(internUWZUrl, UWZ, first);
+    myLog('getDataFromServer() Json: ' + JSON.stringify(warnDatabase))
     async function _getDataFromServer(url, m, first) {
+        myLog('Rufe Daten vom Server ab. ScriptID: ' + randomID + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : '')));
         for (var i = 0; i < dwdWarncellId.length; i++) {
+            if (onStopped) return;
             await axios.get(url)
                 .then(results => {
                     if(DWD & m) myLog("AREA: " + dwdWarncellId[i]);
@@ -1795,18 +1808,18 @@ async function getDataFromServer(first) {
                             stopScript();
                         }
                     } else {
-                        if (uLogAusgabe) log ('Status: ' + results.status);
+                        if (uLogAusgabe) log ('getDataFromServer() 1. Status: ' + results.status);
                     }
                 })
                 .catch(error => {
                     if (error == undefined) {
-                        if (uLogAusgabe) log('Fehler im Datenabruf ohne Errorlog')
+                        if (uLogAusgabe) log('getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
                     } else if (error.response == undefined) {
-                        if (uLogAusgabe) log(error);
+                        if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
                     } else if (error.response.status == 404) {
-                        if (uLogAusgabe) log(error.message);
+                        if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message);
                     } else {
-                        if (uLogAusgabe) log(error.response.data);
+                        if (uLogAusgabe) log('getDataFromServer() 5. ' + error.response.data);
                         if (uLogAusgabe) log(error.response.status);
                         if (uLogAusgabe) log(error.response.headers);
                     }
@@ -1851,7 +1864,10 @@ async function getDataFromServer(first) {
         }
         let tempObj = {};
         if (MODE & DWD & m) {
-            addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, m, first);
+            if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, m, first)) {
+                if (timer) clearTimeout(timer);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+            }
 
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
 
@@ -1876,7 +1892,10 @@ async function getDataFromServer(first) {
             }
         }
         if (MODE & UWZ & m) {
-            addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first);
+            if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
+                if (timer) clearTimeout(timer);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+            }
             tempObj[statesUWZintern[6].id] = warnObj;
 
             tempObj[statesUWZintern[0].id] = warnObj.dtgStart !== undefined ? new Date(warnObj.dtgStart * 1000) : Number('');
@@ -2285,14 +2304,14 @@ function removeHtml(a) {
 }
 // Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
-// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 10 * 9 = 90 Minuten entwarnen erst dann.
+// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 20 * 5 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
-schedule('18 */10 * * * *', function() {
+schedule('30 19,39,59 * * * *', function() {
     let c = false;
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
         if (!extendedExists(w.id)) {
-            if (warnDatabase.new[a].pending++ >= 8) { //  9 Durchläufe
+            if (warnDatabase.new[a].pending++ >= 4) { //  9 Durchläufe
                 if (uLogAusgabe) log('Remove old warning with id: ' + warnDatabase.new[a].id + ' and headline: ' + warnDatabase.new[a].headline);
                 warnDatabase.new.splice(a--, 1);
                 c = true;
@@ -2489,9 +2508,16 @@ if ((uPushdienst & TELEGRAM) != 0) {
 /* ************************************************************************* */
 // Neustart des Skripts
 function restartScript() {
-        log('Neustart durch Skript wird ausgeführt');
+        log('Neustart durch Skripts wird ausgeführt!');
         startScript();
 }
+
+onStop(function (callback) {
+    onStopped = true;
+    if (uLogAusgabe) log('Skripts gestoppt: ID:' + randomID);
+    if (internalDWDInterval) clearInterval(internalDWDInterval);
+    callback();
+})
 /* *************************************************************************
 * Restartfunktion
 *           ENDE
@@ -2682,7 +2708,7 @@ function cloneObj(j) {
 function myLog(msg, channel){
     if (DEBUG) {
         if (channel=== undefined) channel = 'info';
-        log(msg,channel);
+        log('DEBUG: ' + msg,channel);
     }
 }
 function checkConfigVariable(v) {
