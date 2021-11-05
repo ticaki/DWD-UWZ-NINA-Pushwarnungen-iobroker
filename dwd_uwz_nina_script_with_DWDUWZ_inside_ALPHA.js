@@ -1,4 +1,4 @@
-//Version 0.97.99.3
+//Version 0.97.99.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -113,6 +113,7 @@ var uPushdienst = 0;
 const DWD = 1;
 const UWZ = 2;
 const NINA = 4;
+const DWD2 = 8; // only for request
 const MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}];
 if(mainStatePath[mainStatePath.length - 1] != '.') mainStatePath += '.';
 const aliveState = mainStatePath+'alive';
