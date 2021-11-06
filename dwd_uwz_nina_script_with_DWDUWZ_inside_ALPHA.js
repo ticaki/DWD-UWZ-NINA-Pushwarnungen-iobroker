@@ -1,4 +1,4 @@
-//Version 0.97.99.4
+//Version 0.97.99.5 Alpha 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -326,6 +326,7 @@ windForceDetailsSpeak = !!windForceDetailsSpeak;
 checkConfigVariable('dwdWarncellId');
 checkConfigVariable('dwdBundesland');
 checkConfigVariable('uwzWarncellId');
+checkConfigVariable('DWD2');
 
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
@@ -419,7 +420,7 @@ warningTypesString[DWD] = [
     warningTypesString[DWD2] = {};
     for (let a = 0; a<tempwarningTypesString.length;a++) {
         for (let b= 1; b<tempwarningTypesString[a].length;b++) {
-            warningTypesString[DWD2][String(tempwarningTypesString[a][b])] = tempwarningTypesString[a][0];
+            warningTypesString[DWD2][String(tempwarningTypesString[a][b])] = a;
         }
     }
 }
@@ -458,17 +459,17 @@ for (let a = 0; a < warningTypesString[UWZ].length; a++) {
     wtsObj[String(a)] = warningTypesString[UWZ][a][0];
 }
 const statesUWZintern = [
-    { id:"begin",default:0, options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false}},
-    { id:"end", default:0, options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false}},
-    { id:"longText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false}},
-    { id:"shortText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false}},
-    { id:"uwzLevel",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false}},
-    { id:"uwzColor", default:-1, options: {name: "Link to chart",type: "number",read: true,write: false}},
-/*6*/    { id:"object", default: null, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false}},
-    { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false}},
+    { id:"begin",default:0, options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"end", default:0, options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"longText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
+    { id:"shortText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
+    { id:"uwzLevel",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false,}},
+    { id:"uwzColor", default:-1, options: {name: "Link to chart",type: "number",read: true,write: false,}},
+/*6*/    { id:"object", default: null, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false,}},
+    { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text",type: "string",read: true,write: false}},
-    { id:"HTMLLong", default: "", options: {name: "Warning text",type: "string",read: true,write: false}},
-    { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false, states: wtsObj}}
+    { id:"HTMLLong", default: "", options: {name: "Warning text",type: "string",read: true,write: false,}},
+    { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false, states: wtsObj,}}
 ];
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
 const stateAlert = // Änderungen auch in setAlertState() anpassen
@@ -687,39 +688,47 @@ async function changeMode(modeFromState) {
         firstRun = false;
     }
     setConfigModeStates(modeFromState);
-} {
-    // State der Pushnachrichten über pushover / telegram spiegelt
-    if (!extendedExists(mirrorMessageState)) {
-        createCustomState(mirrorMessageState, '', { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", });
-    }
-    if (!extendedExists(mirrorMessageStateHtml)) {
-        createCustomState(mirrorMessageStateHtml, '', { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", });
-    }
-    // erstelle Datenpunkte für DWD/UWZ standalone
-    for (let i = 0; i < numOfWarnings; i++) {
-        var p = internalDWDPath + (i == 0 ? '' : i) + '.';
-        for (let a = 0; a < statesDWDintern.length; a++) {
-            let dp = statesDWDintern[a];
-            let id = p + dp.id;
-            if (!extendedExists(id)) createCustomState(id, dp.default, dp.options);
+}
+init();
+async function init() { // erster fund von create custom
+    try {
+        // State der Pushnachrichten über pushover / telegram spiegelt
+        if (!await existsStateAsync(mirrorMessageState)) {
+            createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
         }
-        p = internalUWZPath + (i == 0 ? '' : i) + '.';
-        for (let a = 0; a < statesUWZintern.length; a++) {
-            let dp = statesUWZintern[a];
-            let id = p + dp.id;
-            if (!extendedExists(id)) createCustomState(id, dp.default, dp.options);
+        if (!await existsStateAsync(mirrorMessageStateHtml)) {
+            await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
         }
-    }
+        // erstelle Datenpunkte für DWD/UWZ standalone
+        for (let i = 0; i < numOfWarnings; i++) {
+            var p = internalDWDPath + (i == 0 ? '' : i) + '.';
+            for (let a = 0; a < statesDWDintern.length; a++) {
+                let dp = statesDWDintern[a];
+                let id = p + dp.id;
+                if (!await existsStateAsync(id)) {
+                    await createStateAsync(id, dp.options,);
+                }
+            }
+            p = internalUWZPath + (i == 0 ? '' : i) + '.';
+            for (let a = 0; a < statesUWZintern.length; a++) {
+                let dp = statesUWZintern[a];
+                let id = p + dp.id;
+                if (!await existsStateAsync(id)) {
+                    await createStateAsync(id, dp.options,);
+                }
+            }
+        }
 
-    // MODE änderung über Datenpunkte string
-    if (!extendedExists(configModeState)) {
-        createCustomState(configModeState, 'DWD', { read: true, write: true, desc: "Modusauswahl DWD oder UWZ", type: "string", def: '' });
-    } else {
+        // MODE änderung über Datenpunkte string
+        if (!await existsStateAsync(configModeState)) {
+            await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD oder UWZ oder Nina", type: "string", def: '' });
+        }
         on({ id: configModeState, change: 'ne', ack: false }, function(obj) {
             if (obj.state.val && typeof obj.state.val === 'string' &&
                 (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ') || obj.state.val.toUpperCase().includes('NINA'))) {
                 //setState(configModeState, MODE, true)
                 let mode = 0;
+                if (firstRun) return;
                 mode |= obj.state.val.toUpperCase().includes('DWD') ? DWD : 0;
                 mode |= obj.state.val.toUpperCase().includes('UWZ') ? UWZ : 0;
                 mode |= obj.state.val.toUpperCase().includes('NINA') ? NINA : 0;
@@ -733,15 +742,15 @@ async function changeMode(modeFromState) {
                 changeMode(MODE);
             }
         });
-    }
-    // MODE änderung über Datenpunkte Boolean
-    for (let a = 0; a < MODES.length; a++) {
-        let tok = MODES[a].text.toLowerCase();
-        let id = mainStatePath + 'config.' + tok;
-        if (!extendedExists(id)) {
-            let mi = !!(MODE & MODES[a].mode);
-            createCustomState(id, mi, { read: true, write: true, desc: "Aktivere " + tok.toUpperCase() + '.', type: "boolean", def: mi });
-        } else {
+
+        // MODE änderung über Datenpunkte Boolean
+        for (let a = 0; a < MODES.length; a++) {
+            let tok = MODES[a].text.toLowerCase();
+            let id = mainStatePath + 'config.' + tok;
+            if (!await existsStateAsync(id)) {
+                let mi = !!(MODE & MODES[a].mode);
+                await createStateAsync(id, { read: true, write: true, desc: "Aktivere " + tok.toUpperCase() + '.', type: "boolean", def: mi });
+            }
             on({ id: id, change: 'ne', ack: false }, function(obj) {
                 let arr = obj.id.split('.');
                 let tok = arr[arr.length - 1].toUpperCase();
@@ -752,17 +761,65 @@ async function changeMode(modeFromState) {
                 changeMode(oldMode);
             });
             MODE = switchFlags(MODE, MODES[a].mode, getState(id).val);
+
         }
-    }
-    //Initialisierung falls oben nicht geschehen
-    if (firstRun) changeMode(MODE);
-    // Automodus ein und ausschalten
-    let id = mainStatePath + 'config.auto.on';
-    if (!extendedExists(id)) {
-        createCustomState(id, true, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean", def: true });
-    } else {
+        // Automodus ein und ausschalten
+        let id = mainStatePath + 'config.auto.on';
+        if (!await existsStateAsync(id)) {
+            await createStateAsync(id, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean", def: true });
+        }
         autoSendWarnings = getState(id).val;
-        setState(id, autoSendWarnings, true);
+        await setStateAsync(id, autoSendWarnings, true);
+
+        let mode = [MODES[0], MODES[1]];
+        for (let c = 0; c < mode.length; c++) {
+            let stateAlertId = mainStatePath + 'alert.' + mode[c].text.toLowerCase() + '.';
+            for (let b = 0; b < warningTypesString[mode[c].mode].length; b++) {
+                for (let a = 0; a < stateAlert.length; a++) {
+                    let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b][0] + '.' + stateAlert[a].name;
+                    stateAlert[a].type.name = stateAlert[a].name;
+                    if (!await existsStateAsync(stateAlertIdFull)) {
+                        await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
+                    }
+                }
+            }
+        }
+        // Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
+        for (var a = 0; a < konstanten.length; a++) {
+            if ((uPushdienst & konstanten[a].value) != 0) {
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name)) {
+                    await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name, { read: true, write: true, desc: "Gebe Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+                }
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
+                    await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_short', { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+                }
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
+                    await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_long', { read: true, write: true, desc: "Gebe lange Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+                }
+                for (let x = 0; x < MODES.length; x++) {
+                    let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
+                    if (!await existsStateAsync(oid)) {
+                        await createStateAsync(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
+                    }
+                    setConfigKonstanten(oid, getState(oid).val, true);
+
+                    oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
+                    if (!await existsStateAsync(oid)) {
+                        await createStateAsync(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
+                    }
+                    setConfigKonstanten(oid, getState(oid).val, false);
+                    // letzer fund von Create Custom
+                }
+            }
+        }
+        if (firstRun) changeMode(MODE);
+        subscribeStates();
+        setWeekend();
+        activateSchedule();
+    }
+    catch(error) {
+        log(error);
+        stopScript();
     }
 }
 
@@ -777,126 +834,82 @@ function setConfigModeStates(mode) {
 }
 
 
-{
-    let mode = [MODES[0], MODES[1]];
-    for (let c = 0; c < mode.length; c++) {
-        let stateAlertId = mainStatePath + 'alert.' + mode[c].text.toLowerCase() + '.';
-        for (let b = 0; b < warningTypesString[mode[c].mode].length; b++) {
-            for (let a = 0; a < stateAlert.length; a++) {
-                let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b][0] + '.' + stateAlert[a].name;
-                stateAlert[a].type.name = stateAlert[a].name;
-                if (!extendedExists(stateAlertIdFull)) {
-                    createCustomState(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
+function subscribeStates() {// on() für alles unter config.auto
+    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.auto', '^') + '.*'), change: 'ne', ack: false }, function(obj) {
+        if (obj.id == mainStatePath + 'config.auto.on') {
+            myLog('Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
+            autoSendWarnings = !!obj.state.val;
+            setState(obj.id, autoSendWarnings, true);
+            for (var a = 0; a < konstanten.length; a++) {
+                for (let x = 0; x < MODES.length; x++) {
+                    let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
+                    if (extendedExists(oid)) {
+                        setState(oid, obj.state.val);
+                    }
                 }
             }
+        } else {
+            myLog('else auto trigger: ' + obj.id + ' Value:' + obj.state.val);
+            setConfigKonstanten(obj.id, obj.state.val, true);
         }
-    }
-}
-
-// Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
-for (var a = 0; a < konstanten.length; a++) {
-    if ((uPushdienst & konstanten[a].value) != 0) {
-        if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name)) {
-            createCustomState(mainStatePath + 'commands.' + konstanten[a].name, false, { read: true, write: true, desc: "Gebe Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
-        }
-        if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
-            createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_short', false, { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
-        }
-        if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
-            createCustomState(mainStatePath + 'commands.' + konstanten[a].name + '_long', false, { read: true, write: true, desc: "Gebe lange Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
-        }
-        for (let x = 0; x < MODES.length; x++) {
-            let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
-            if (!extendedExists(oid)) {
-                createCustomState(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
-            } else {
-                setConfigKonstanten(oid, getState(oid).val, true);
-            }
-            oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
-            if (!extendedExists(oid)) {
-                createCustomState(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
-            } else {
-                setConfigKonstanten(oid, getState(oid).val, false);
-            }
-        }
-    }
-}
-// on() für alles unter config.auto
-subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.auto', '^') + '.*'), change: 'ne', ack: false }, function(obj) {
-    if (obj.id == mainStatePath + 'config.auto.on') {
-        myLog('Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
-        autoSendWarnings = !!obj.state.val;
-        setState(obj.id, autoSendWarnings, true);
-        for (var a = 0; a < konstanten.length; a++) {
-            for (let x = 0; x < MODES.length; x++) {
-                let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
-                if (extendedExists(oid)) {
-                    setState(oid, obj.state.val);
-                }
-            }
-        }
-    } else {
-        myLog('else auto trigger: ' + obj.id + ' Value:' + obj.state.val);
-        setConfigKonstanten(obj.id, obj.state.val, true);
-    }
-});
-// on() für alles unter config.manuell
-subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.manuell', '^') + '.*'), change: 'ne', ack: false }, function(obj) {
-    myLog('Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
-    setConfigKonstanten(obj.id, obj.state.val, false);
-});
-subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, function(obj) {
-    if (!obj.state.val) return;
-    setState(obj.id, false, true);
-    let b = obj.id.split('.');
-    let msgLength = 0;
-    let d = konstanten.findIndex(function(c) { return (c.name === b[b.length - 1]); })
-    if (d == -1) {
-        d = konstanten.findIndex(function(c) { return (c.name + '_short' === b[b.length - 1]); });
-        msgLength = 1;
+    });
+    // on() für alles unter config.manuell
+    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.manuell', '^') + '.*'), change: 'ne', ack: false }, function(obj) {
+        myLog('Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
+        setConfigKonstanten(obj.id, obj.state.val, false);
+    });
+    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, function(obj) {
+        if (!obj.state.val) return;
+        setState(obj.id, false, true);
+        let b = obj.id.split('.');
+        let msgLength = 0;
+        let d = konstanten.findIndex(function(c) { return (c.name === b[b.length - 1]); })
         if (d == -1) {
-            d = konstanten.findIndex(function(c) { return (c.name + '_long' === b[b.length - 1]); });
-            msgLength = 2;
+            d = konstanten.findIndex(function(c) { return (c.name + '_short' === b[b.length - 1]); });
+            msgLength = 1;
             if (d == -1) {
-                return
+                d = konstanten.findIndex(function(c) { return (c.name + '_long' === b[b.length - 1]); });
+                msgLength = 2;
+                if (d == -1) {
+                    return
+                }
             }
         }
-    }
-    let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung,
-        oldC = uSpracheMitAnweisungen, oldD = uSpracheMitBeschreibung,
-        oldE = uHtmlMitAnweisungen, oldF = uHtmlMitBeschreibung;;
-    if (msgLength != 0 ) {
-        uTextMitAnweisungen     = msgLength == 2;
-        uTextMitBeschreibung    = msgLength == 2;
-        uSpracheMitAnweisungen  = msgLength == 2;
-        uSpracheMitBeschreibung = msgLength == 2;
-        uHtmlMitAnweisungen     = msgLength == 2;
-        uHtmlMitBeschreibung    = msgLength == 2;
-    }
+        let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung,
+            oldC = uSpracheMitAnweisungen, oldD = uSpracheMitBeschreibung,
+            oldE = uHtmlMitAnweisungen, oldF = uHtmlMitBeschreibung;;
+        if (msgLength != 0 ) {
+            uTextMitAnweisungen     = msgLength == 2;
+            uTextMitBeschreibung    = msgLength == 2;
+            uSpracheMitAnweisungen  = msgLength == 2;
+            uSpracheMitBeschreibung = msgLength == 2;
+            uHtmlMitAnweisungen     = msgLength == 2;
+            uHtmlMitBeschreibung    = msgLength == 2;
+        }
 
-    warnDatabase.old = [];
-    let oPd = uPushdienst;
-    uPushdienst &= konstanten[d].value;
-    forceSpeak = forcedSpeak;
-    onClickCheckRun = true;
-    onClickCheckRunCmd = obj.id;
-    if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
+        warnDatabase.old = [];
+        let oPd = uPushdienst;
+        uPushdienst &= konstanten[d].value;
+        forceSpeak = forcedSpeak;
+        onClickCheckRun = true;
+        onClickCheckRunCmd = obj.id;
+        if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
 
-    checkWarningsMain();
+        checkWarningsMain();
 
-    uTextMitAnweisungen     = oldA;
-    uTextMitBeschreibung    = oldB;
-    uSpracheMitAnweisungen  = oldC;
-    uSpracheMitBeschreibung = oldD;
-    uHtmlMitAnweisungen     = oldE;
-    uHtmlMitBeschreibung    = oldF;
+        uTextMitAnweisungen     = oldA;
+        uTextMitBeschreibung    = oldB;
+        uSpracheMitAnweisungen  = oldC;
+        uSpracheMitBeschreibung = oldD;
+        uHtmlMitAnweisungen     = oldE;
+        uHtmlMitBeschreibung    = oldF;
 
-    onClickCheckRun = false;
-    onClickCheckRunCmd = '';
-    forceSpeak = false;
-    uPushdienst = oPd;
-});
-
+        onClickCheckRun = false;
+        onClickCheckRunCmd = '';
+        forceSpeak = false;
+        uPushdienst = oPd;
+    });
+}
 // Hilfsfunktion zu on()
 function setConfigKonstanten(id, val, auto) {
     let b = id.split('.');
@@ -1093,7 +1106,6 @@ function getModeState() {
 /* ************************************************************************* */
 
 // Zeitsteuerung für SayIt & Alexa
-setWeekend();
 
 function setWeekend() {
     if (forceSpeak) return;
@@ -2249,6 +2261,7 @@ function getDatabaseData(warn, mode){
                 log(warningTypesString[DWD2]);
             } else {
                 result.type = warningTypesString[DWD2][String(result.type)];
+                result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
             }
         }
         result['level']         = warn.SEVERITY === undefined 		? -1 	: getCapLevel(warn.SEVERITY);
@@ -2403,30 +2416,32 @@ function removeHtml(a) {
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
 // Folglich werden Entwarnung raus geschickt. Jetzt warten wir 20 * 5 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
-schedule('30 19,39,59 * * * *', function() {
-    let c = false;
-    for (let a = 0; a < warnDatabase.new.length; a++) {
-        let w = warnDatabase.new[a];
-        if (!extendedExists(w.id)) {
-            if (warnDatabase.new[a].pending++ >= 4) { //  9 Durchläufe
-                if (uLogAusgabe) log('Remove old warning with id: ' + warnDatabase.new[a].id + ' and headline: ' + warnDatabase.new[a].headline);
+function activateSchedule() {
+    schedule('30 19,39,59 * * * *', function() {
+        let c = false;
+        for (let a = 0; a < warnDatabase.new.length; a++) {
+            let w = warnDatabase.new[a];
+            if (!extendedExists(w.id)) {
+                if (warnDatabase.new[a].pending++ >= 4) { //  9 Durchläufe
+                    if (uLogAusgabe) log('Remove old warning with id: ' + warnDatabase.new[a].id + ' and headline: ' + warnDatabase.new[a].headline);
+                    warnDatabase.new.splice(a--, 1);
+                    c = true;
+                }
+            } else {
+                w.pending = 0;
+            }
+            if (w.end && new Date(w.end) < new Date()) {
+                if (uLogAusgabe) log('Remove expired warning with id: ' + warnDatabase.new[a].id + ', headline: ' + warnDatabase.new[a].headline + ' expire:' + new Date(w.end));
                 warnDatabase.new.splice(a--, 1);
                 c = true;
             }
-        } else {
-            w.pending = 0;
         }
-        if (w.end && new Date(w.end) < new Date()) {
-            if (uLogAusgabe) log('Remove expired warning with id: ' + warnDatabase.new[a].id + ', headline: ' + warnDatabase.new[a].headline + ' expire:' + new Date(w.end));
-            warnDatabase.new.splice(a--, 1);
-            c = true;
+        if (c && autoSendWarnings) {
+            if (timer) clearTimeout(timer);
+            checkWarningsMain();
         }
-    }
-    if (c && autoSendWarnings) {
-        if (timer) clearTimeout(timer);
-        checkWarningsMain();
-    }
-});
+    });
+}
 
 // entferne Eintrag aus der Database
 function removeDatabaseDataID(id) {
@@ -2603,11 +2618,6 @@ if ((uPushdienst & TELEGRAM) != 0) {
 /* *************************************************************************
 * Restartfunktion
 /* ************************************************************************* */
-// Neustart des Skripts
-function restartScript() {
-        log('Neustart durch Skripts wird ausgeführt!');
-        startScript();
-}
 
 onStop(function (callback) {
     onStopped = true;
@@ -2623,168 +2633,9 @@ onStop(function (callback) {
 * Erstellung von States incl. 0_userdata & Zugehöriges
 /* ************************************************************************* */
 // gibt die ersten beiden Teile von ID zurück
-function getCustomRoot(id) {
-    let sRoot = id.split('.');
-    if (!Array.isArray(sRoot)) {
-        log('Fehler: ' + id + ' ist fehlerhaft. Es fehlt ein . ', 'error');
-        stopScript(scriptName);
-    }
-    if (sRoot[0] === '0_userdata') sRoot = '0_userdata.0';
-    else sRoot = 'javascript.' + id.split('.')[1];
-    return sRoot;
-}
-// gibt das zurück was nicht zu getCustomRoot() gehört
-function getEndOfState(id) {
-    return id.replace(getCustomRoot(id) + '.', '');
-}
 // erweiterte existsState() funktion
 function extendedExists(id) {
     return (id) && ($(id).length > 0) && (existsState(id));
-}
-// verhält sich wie createState()
-function createCustomState(id, def, type, callback = undefined) {
-    if (!extendedExists(id)) {
-        myLog('getCustomRoot: ' + getCustomRoot(id));
-        myLog('Try to create stats: ' + id);
-        if (def == null && type.type == 'string') type.def = '';
-        else type.def = def;
-        createUserStates(getCustomRoot(id), false, [
-            [getEndOfState(id), type],
-        ], callback);
-        // Restart Skript nach dem States erzeugt wurden
-        // Nutze Timeout um erst am Ende aller CreateStates das Skript neuzustarten
-        if (timeoutFromCreateState) clearTimeout(timeoutFromCreateState);
-        timeoutFromCreateState = setTimeout(function() {
-            restartScript();
-        }, 600);
-    }
-}
-/**
- * Create states under 0_userdata.0 or javascript.x
- * Current Version:     https://github.com/Mic-M/iobroker.createUserStates
- * Support:             https://forum.iobroker.net/topic/26839/
- * Autor:               Mic (ioBroker) | Mic-M (github)
- * Version:             1.2 (20 October 2020)
- * Example:             see https://github.com/Mic-M/iobroker.createUserStates#beispiel
- * -----------------------------------------------
- * PLEASE NOTE: Per https://github.com/ioBroker/ioBroker.javascript/issues/474, the used function setObject()
- *              executes the callback PRIOR to completing the state creation. Therefore, we use a setTimeout and counter.
- * -----------------------------------------------
- * @param {string} where          Where to create the state: '0_userdata.0' or 'javascript.x'.
- * @param {boolean} force         Force state creation (overwrite), if state is existing.
- * @param {array} statesToCreate  State(s) to create. single array or array of arrays
- * @param {object} [callback]     Optional: a callback function -- This provided function will be executed after all states are created.
- */
-function createUserStates(where, force, statesToCreate, callback = undefined) {
-
-    const WARN = false; // Only for 0_userdata.0: Throws warning in log, if state is already existing and force=false. Default is false, so no warning in log, if state exists.
-    const LOG_DEBUG = false; // To debug this function, set to true
-    // Per issue #474 (https://github.com/ioBroker/ioBroker.javascript/issues/474), the used function setObject() executes the callback
-    // before the state is actual created. Therefore, we use a setTimeout and counter as a workaround.
-    const DELAY = 50; // Delay in milliseconds (ms). Increase this to 100, if it is not working.
-
-    // Validate "where"
-    if (where.endsWith('.')) where = where.slice(0, -1); // Remove trailing dot
-    if ( (where.match(/^((javascript\.([1-9][0-9]|[0-9]))$|0_userdata\.0$)/) == null) ) {
-        log('This script does not support to create states under [' + where + ']', 'error');
-        return;
-    }
-
-    // Prepare "statesToCreate" since we also allow a single state to create
-    if(!Array.isArray(statesToCreate[0])) statesToCreate = [statesToCreate]; // wrap into array, if just one array and not inside an array
-
-    // Add "where" to STATES_TO_CREATE
-    for (let i = 0; i < statesToCreate.length; i++) {
-        let lpPath = statesToCreate[i][0].replace(/\.*\./g, '.'); // replace all multiple dots like '..', '...' with a single '.'
-        lpPath = lpPath.replace(/^((javascript\.([1-9][0-9]|[0-9])\.)|0_userdata\.0\.)/,'') // remove any javascript.x. / 0_userdata.0. from beginning
-        lpPath = where + '.' + lpPath; // add where to beginning of string
-        statesToCreate[i][0] = lpPath;
-    }
-
-    if (where != '0_userdata.0') {
-        // Create States under javascript.x
-        let numStates = statesToCreate.length;
-        statesToCreate.forEach(function(loopParam) {
-            if (LOG_DEBUG) log('[Debug] Now we are creating new state [' + loopParam[0] + ']');
-            let loopInit = (loopParam[1]['def'] == undefined) ? null : loopParam[1]['def']; // mimic same behavior as createState if no init value is provided
-            createState(loopParam[0], loopInit, force, loopParam[1], function() {
-                numStates--;
-                if (numStates === 0) {
-                    if (LOG_DEBUG) log('[Debug] All states processed.');
-                    if (typeof callback === 'function') { // execute if a function was provided to parameter callback
-                        if (LOG_DEBUG) log('[Debug] Function to callback parameter was provided');
-                        return callback();
-                    } else {
-                        return;
-                    }
-                }
-            });
-        });
-    } else {
-        // Create States under 0_userdata.0
-        let numStates = statesToCreate.length;
-        let counter = -1;
-        statesToCreate.forEach(function(loopParam) {
-            counter += 1;
-            if (LOG_DEBUG) log ('[Debug] Currently processing following state: [' + loopParam[0] + ']');
-            if( ($(loopParam[0]).length > 0) && (existsState(loopParam[0])) ) { // Workaround due to https://github.com/ioBroker/ioBroker.javascript/issues/478
-                // State is existing.
-                if (WARN && !force) log('State [' + loopParam[0] + '] is already existing and will no longer be created.', 'warn');
-                if (!WARN && LOG_DEBUG) log('[Debug] State [' + loopParam[0] + '] is already existing. Option force (=overwrite) is set to [' + force + '].');
-                if(!force) {
-                    // State exists and shall not be overwritten since force=false
-                    // So, we do not proceed.
-                    numStates--;
-                    if (numStates === 0) {
-                        if (LOG_DEBUG) log('[Debug] All states successfully processed!');
-                        if (typeof callback === 'function') { // execute if a function was provided to parameter callback
-                            if (LOG_DEBUG) log('[Debug] An optional callback function was provided, which we are going to execute now.');
-                            return callback();
-                        } else {  // no callback, return anyway
-                            return;
-                        }
-                    } else {
-                        // We need to go out and continue with next element in loop.
-                        return; // https://stackoverflow.com/questions/18452920/continue-in-cursor-foreach
-                    }
-                } // if(!force)
-            }
-
-            // State is not existing or force = true, so we are continuing to create the state through setObject().
-            let obj = {};
-            obj.type = 'state';
-            obj.native = {};
-            obj.common = loopParam[1];
-            setObject(loopParam[0], obj, function (err) {
-                if (err) {
-                    log('Cannot write object for state [' + loopParam[0] + ']: ' + err);
-                } else {
-                    if (LOG_DEBUG) log('[Debug] Now we are creating new state [' + loopParam[0] + ']')
-                    let init = null;
-                    if(loopParam[1].def === undefined) {
-                        if(loopParam[1].type === 'number') init = 0;
-                        if(loopParam[1].type === 'boolean') init = false;
-                        if(loopParam[1].type === 'string') init = '';
-                    } else {
-                        init = loopParam[1].def;
-                    }
-                    setTimeout(function() {
-                        setState(loopParam[0], init, true, function() {
-                            if (LOG_DEBUG) log('[Debug] setState durchgeführt: ' + loopParam[0]);
-                            numStates--;
-                            if (numStates === 0) {
-                                if (LOG_DEBUG) log('[Debug] All states processed.');
-                                if (typeof callback === 'function') { // execute if a function was provided to parameter callback
-                                    if (LOG_DEBUG) log('[Debug] Function to callback parameter was provided');
-                                    return callback();
-                                }
-                            }
-                        });
-                    }, DELAY + (20 * counter) );
-                }
-            });
-        });
-    }
 }
 /* *************************************************************************
 * Erstellung von States incl. 0_userdata & Zugehöriges
