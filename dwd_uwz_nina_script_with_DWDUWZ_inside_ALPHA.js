@@ -324,6 +324,7 @@ forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
 
 //Vorgezogene Tests
+checkConfigVariable('DEBUGINGORESTART');
 checkConfigVariable('dwdWarncellId');
 checkConfigVariable('dwdBundesland');
 checkConfigVariable('uwzWarncellId');
@@ -485,7 +486,8 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
         { "name": 'description', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'color', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
         { "name": 'symbol', "default": '', "type": { read: true, write: false, type: "string", name: '' } },
-        { "name": 'hash', "default": 0, "type": { read: true, write: false, role: "value", type: "number", name: '' } }
+        { "name": 'hash', "default": 0, "type": { read: true, write: false, role: "value", type: "number", name: '' } },
+        { "name": 'ec_ii_type', "default": -1, "type": { read: true, write: false, type: "number", name: '' } }
 ];
 // hash erzeugen
 String.prototype.hashCode = function() {
@@ -990,6 +992,7 @@ function setAlertState() {
                     setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''), true);
                     setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''), true);
                     setState(stateAlertIdFull + stateAlert[9].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0), true);
+                    setState(stateAlertIdFull + stateAlert[10].name, (AlertIndex > -1 ? (warnDatabase.new[AlertIndex].ec_ii_type !== undefined ? warnDatabase.new[AlertIndex].ec_ii_type : -1) : -1), true);
                 }
             }
         }
@@ -2261,10 +2264,11 @@ function getDatabaseData(warn, mode){
         result['start']         = warn.ONSET === undefined 			? null 	: getDateObject(warn.ONSET).getTime() || null;
         result['end']           = warn.EXPIRES === undefined 		? null 	: getDateObject(warn.EXPIRES).getTime() || null;
         result['instruction']   = warn.INSTRUCTION === undefined 	? '' 	: warn.INSTRUCTION;
-        result['type']          = warn.EC_II === undefined 			? -1 	: warn.EC_II;
-        if (result.type != -1) {
-            if (warningTypesString[DWD2][result.type] === undefined) {
-                log('Bitte das Json im Forum posten: EC: ' + warningTypesString[DWD2][result.type] ,'warn')
+        result['ec_ii_type']    = warn.EC_II === undefined 			? -1 	: warn.EC_II;
+        result['picture']       = '';
+        if (result.ec_ii_type != -1) {
+            if (warningTypesString[DWD2][result.ec_ii_type] === undefined) {
+                log('Bitte das Json im Forum posten: EC: ' + warningTypesString[DWD2][result.ec_ii_type] ,'warn')
                 log(warn, 'warn');
                 log(warningTypesString[DWD2]);
             } else {
