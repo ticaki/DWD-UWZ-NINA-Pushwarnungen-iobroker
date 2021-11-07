@@ -294,6 +294,7 @@ var DEBUGSENDEMAIL = false;
 //ab hier bei Update
 // 123456
 
+var DEBUGINGORESTART = false // die Datenbank wird beim Start nicht befüllt Test von Standalone UWZ/DWD
 
 var uTelegramMessageShort = 'Ww?';
 var uTelegramMessageLong  = 'Wwww';
@@ -450,7 +451,8 @@ const statesDWDintern = [
     { id:"object", default: null, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false}},
     { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false,states: {0: "None",1: "Minor",2: "Moderate",3: "Severe",4: "Extreme",9: "Heat Warning",11: "No Warning",19: "UV Warning",49: "Strong Heat",50: "Extreme Heat"}}},
     { id:"text", default: "", options: {name: "Warning text",type: "string",role: "weather.title.short",read: true,write: false}},
-    { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false,states: {0: "Thunderstorm",1: "Wind/Storm",2: "Rain",3: "Snow",4: "Fog",5: "Frost",6: "Ice",7: "Thawing",8: "Heat",9: "UV warning"}}}
+    { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false,states: {0: "Thunderstorm",1: "Wind/Storm",2: "Rain",3: "Snow",4: "Fog",5: "Frost",6: "Ice",7: "Thawing",8: "Heat",9: "UV warning"}}},
+    { id:"ec_ii_type", default: 0, options: {name: "Warning type EC_II",type: "number",role: "weather.type",read: true,write: false,}}
 ];
 
 //StatesDefinition für UWZ intern
@@ -1780,7 +1782,7 @@ async function InitDatabase(first) {
     if (first) {
         warnDatabase = { new: [], old: [] };
         if ((enableInternDWD || enableInternDWD2) && !internalDWDInterval && first) {
-            await getDataFromServer(first);
+            if (!DEBUG && DEBUGINGORESTART) await getDataFromServer(first);
             internalDWDInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
     }
@@ -1938,7 +1940,12 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[6].id] = warnObj;
             tempObj[statesDWDintern[7].id] = tempObj[statesDWDintern[4].id] > 0 ? tempObj[statesDWDintern[4].id] : 0;
             tempObj[statesDWDintern[8].id] = warnObj.EC_GROUP || '';
-            tempObj[statesDWDintern[9].id] = warnObj.EC_II === undefined || warnObj.EC_II === null ? -1 : parseInt(warnObj.EC_II, 10);
+            if (warnObj.EC_II !== undefined) {
+                if (warningTypesString[DWD2][String(warnObj.EC_II)] !== undefined) {
+                    tempObj[statesDWDintern[9].id] = warningTypesString[DWD2][String(warnObj.EC_II)];
+                }
+            }
+            tempObj[statesDWDintern[10].id] = warnObj.EC_II === undefined || warnObj.EC_II === null ? -1 : parseInt(warnObj.EC_II, 10);
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -1962,6 +1969,7 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[7].id] = warnObj.level > 1 ? warnObj.level - 1 : 0;
             tempObj[statesDWDintern[8].id] = warnObj.event || '';
             tempObj[statesDWDintern[9].id] = warnObj.type === undefined || warnObj.type === null ? -1 : parseInt(warnObj.type, 10);
+            tempObj[statesDWDintern[10].id] = warnObj.EC_II === undefined || warnObj.EC_II === null ? -1 : parseInt(warnObj.EC_II, 10);
             if (warnObj.type !== undefined && warnObj.type !== null) {
                 let land = enableInternDWD && (DWD & m) ? dwdBundesland : '';
                 tempObj[statesDWDintern[5].id] = 'https://www.dwd.de/DWD/warnungen/warnapp_gemeinden/json/warnungen_gemeinde_map_' + land + '_' + maps[warnObj.type] + '.png';
