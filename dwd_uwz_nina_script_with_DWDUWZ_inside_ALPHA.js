@@ -1,4 +1,4 @@
-//Version 0.97.99.6 Alpha 4
+//Version 0.97.99.6 Alpha 5
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1785,7 +1785,7 @@ async function InitDatabase(first) {
     if (first) {
         warnDatabase = { new: [], old: [] };
         if ((enableInternDWD || enableInternDWD2) && !internalDWDInterval && first) {
-            if (!DEBUG && DEBUGINGORESTART) await getDataFromServer(first);
+            if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
             internalDWDInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
     }
@@ -1879,7 +1879,7 @@ async function getDataFromServer(first) {
         if ((DWD & m)) {
             let jsonString = String(thedata);
             let newString = jsonString.replace('warnWetter.loadWarnings(', '');
-            newString = newString.replace(');', '');
+            newString = newString.replace(/\);$/sg, ''); // damit findet es diesen String nur am Ende
             newOBJ = JSON.parse(newString);
             if (newOBJ.warnings.hasOwnProperty(area)) {
                 newOBJ = newOBJ.warnings[area];
@@ -2421,8 +2421,7 @@ function getCapLevel(str, type) {
 
 function removeHtml(a) {
     let b = a.replace(/<br\/>/ig, NEWLINE);
-    b = b.replace(/(&nbsp;|<([^>]+)>)/ig, '');
-    return b;
+    return b.replace(/(&nbsp;|<([^>]+)>)/ig, '');
 }
 // Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
@@ -2458,15 +2457,14 @@ function activateSchedule() {
 // entferne Eintrag aus der Database
 function removeDatabaseDataID(id) {
     if (!id || (typeof id !== 'string')) return false;
-    let change = false;
     if (warnDatabase.new && warnDatabase.new.length > 0) {
         let i = warnDatabase.new.findIndex(function(j){return j.id == id});
         if (i!=-1) {
             warnDatabase.new.splice(i, 1);
-            change = true;
+            return true;
         }
     }
-    return change;
+    return false;
 }
 /* *************************************************************************
 * Datenbank ENDE
