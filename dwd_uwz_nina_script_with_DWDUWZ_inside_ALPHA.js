@@ -1,4 +1,4 @@
-//Version 0.97.99.6 Alpha 5
+//Version 0.97.99.6 Alpha 6
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -2108,7 +2108,7 @@ function addDatabaseData(id, value, mode, old) {
     // Kompatibilität zur Stableversion
     if (typeof value === 'string' ) value = JSON.parse(value);
     myLog("1. addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
-    if (mode == UWZ || mode == DWD || DWD2) {
+    if (mode & (UWZ|DWD|DWD2)) {
         let i = warnDatabase.new.findIndex(function(j){return j.id == id});
         let hash = null;
         if (i > -1) hash = warnDatabase.new[i].hash;
