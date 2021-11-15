@@ -2311,7 +2311,7 @@ function getDatabaseData(warn, mode){
         result['web'] 					= warn.web === undefined || !warn.web || !isValidUrl(warn.web)        ? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
         result['webname'] 				= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
         result['description'] 			= warn.description === undefined              ? '' 	: removeHtml(warn.description);
-        result['start'] 				= warn.onset === undefined 		              ? null 	: getDateObject(warn.onset).getTime() || null;
+        result['start'] 				= warn.onset === undefined 		              ? new Date().getTime() 	: getDateObject(warn.onset).getTime() || null;
         result['end'] 					= warn.expires === undefined 			      ? null	: getDateObject(warn.expires).getTime() || null;
         result['instruction'] 			= warn.instruction === undefined 		      ? '' 	: removeHtml(warn.instruction);
         result['typename'] 				= warn.event === undefined 				      ? '' 	: removeHtml(warn.event);
