@@ -1,4 +1,4 @@
-//Version 0.97.99.6 Alpha 6
+//Version 0.97.99.6 Alpha 7
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1889,12 +1889,11 @@ async function getDataFromServer(first) {
             else newOBJ = [];
         } else if (UWZ & m) {
             newOBJ = thedata.results;
-            if (newOBJ.length) newOBJ.sort(a, b => a.severity - b.severity);
+            if (newOBJ.length) newOBJ.sort((a, b) => a.severity - b.severity);
         } else if (DWD2 & m) {
             let tempOBJ = thedata;
-            let data = {};
             newOBJ = [];
-            for (data in tempOBJ.features) {
+            for (let data in tempOBJ.features) {
                 if (tempOBJ.features[data].properties.WARNCELLID == area) {
                     newOBJ.push(tempOBJ.features[data].properties);
                 }
