@@ -1,4 +1,4 @@
-//Version 0.97.99.6 Alpha 7
+//Version 0.97.99.6 Alpha 8
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -350,7 +350,7 @@ var numOfWarnings = 5;
 var enableInternDWD = false;
 var enableInternDWD2 = false;
 const internDWDUrl='https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json';
-const internDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=dwd%3AWarnungen_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
+const internDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.2.0&CQL_FILTER=WARNCELLID%20IN%20(%27'+ placeHolder +'%27)&request=GetFeature&typeName=dwd%3AWarnungen_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
 var internalDWDPath = mainStatePath + 'data.dwd.warning';
 var internalDWDInterval = null;
 
@@ -1829,9 +1829,9 @@ async function InitDatabase(first) {
 // Daten vom Server abfragen
 async function getDataFromServer(first) {
     if (first === undefined) first = false;
-    if (enableInternDWD)  _getDataFromServer(internDWDUrl, DWD, first);
-    if (enableInternDWD2) _getDataFromServer(internDWD2Url, DWD2, first);
-    if (enableInternUWZ)  _getDataFromServer(internUWZUrl, UWZ, first);
+    if (enableInternDWD)  await _getDataFromServer(internDWDUrl, DWD, first);
+    if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, dwdWarncellId[0]), DWD2, first);
+    if (enableInternUWZ)  await _getDataFromServer(internUWZUrl, UWZ, first);
     async function _getDataFromServer(url, m, first) {
         myLog('Rufe Daten vom Server ab. ScriptID: ' + randomID + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : 'DWD2')));
         for (var i = 0; i < dwdWarncellId.length; i++) {
@@ -1877,6 +1877,7 @@ async function getDataFromServer(first) {
         }
         var newOBJ = null;
         if ((DWD & m)) {
+            if (!enableInternDWD) return;
             let jsonString = String(thedata);
             let newString = jsonString.replace('warnWetter.loadWarnings(', '');
             newString = newString.replace(/\);$/sg, ''); // damit findet es diesen String nur am Ende
@@ -1891,15 +1892,17 @@ async function getDataFromServer(first) {
             newOBJ = thedata.results;
             if (newOBJ.length) newOBJ.sort((a, b) => a.severity - b.severity);
         } else if (DWD2 & m) {
-            let tempOBJ = thedata;
+            if (!enableInternDWD2) return;
+            let tempOBJ = Object(thedata);
             newOBJ = [];
-            for (let data in tempOBJ.features) {
+            for(let data in tempOBJ.features) {
                 if (tempOBJ.features[data].properties.WARNCELLID == area) {
                     newOBJ.push(tempOBJ.features[data].properties);
                 }
             }
             if (newOBJ.length) {
                 enableInternDWD = false;
+                newOBJ.sort((a, b) => getCapLevel(a.SEVERITY) - getCapLevel(b.SEVERITY));
                 m |= DWD;
                 if (uLogAusgabe) log('DWD ausgeschaltet')
             }
@@ -1942,6 +1945,7 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[6].id] = warnObj;
             tempObj[statesDWDintern[7].id] = tempObj[statesDWDintern[4].id] > 0 ? tempObj[statesDWDintern[4].id] : 0;
             tempObj[statesDWDintern[8].id] = warnObj.EC_GROUP || '';
+            tempObj[statesDWDintern[9].id] = -1;
             if (warnObj.EC_II !== undefined) {
                 if (warningTypesString[DWD2][String(warnObj.EC_II)] !== undefined) {
                     tempObj[statesDWDintern[9].id] = warningTypesString[DWD2][String(warnObj.EC_II)];
@@ -1953,7 +1957,7 @@ async function getDataFromServer(first) {
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
             }
         }
-        if (MODE & DWD & m && !(DWD2 & m)) {
+        if ((MODE & DWD & m) && !(DWD2 & m)) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
@@ -1990,8 +1994,8 @@ async function getDataFromServer(first) {
             }
             tempObj[statesUWZintern[6].id] = warnObj;
 
-            tempObj[statesUWZintern[0].id] = warnObj.dtgStart !== undefined ? new Date(warnObj.dtgStart * 1000) : Number('');
-            tempObj[statesUWZintern[1].id] = warnObj.dtgEnd !== undefined ? new Date(warnObj.dtgEnd * 1000) : Number('');
+            tempObj[statesUWZintern[0].id] = warnObj.dtgStart !== undefined ? warnObj.dtgStart * 1000 : Number('');
+            tempObj[statesUWZintern[1].id] = warnObj.dtgEnd !== undefined ? warnObj.dtgEnd * 1000 : Number('');
             tempObj[statesUWZintern[7].id] = warnObj.severity || 0;
             tempObj[statesUWZintern[10].id] = warnObj.type || 0;
             if (warnObj.payload !== undefined) {
@@ -2059,15 +2063,12 @@ async function getDataFromServer(first) {
 
             function _createHTMLShort(w) {
                 var html = '<div style="background: #' + w.uwzColor.toString(16) + '" border:"10px">';
-
-                var theData = JSON.parse(w.object);
-
                 html += '<h3>';
                 if (w.uwzUrgency == 1) html += "Vorwarnung vor ";
                 else html += "Warnung vor ";
                 html += warningTypesString[UWZ][w.type];
                 html += "</h3>";
-                html += "<p>Zeitraum von " + formatDate(new Date(theData.dtgStart * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(theData.dtgEnd * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
+                html += "<p>Zeitraum von " + formatDate(new Date(w.dtgStart * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.dtgEnd * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
                 html += '<p>' + w.ShortText + '</p>';
                 html += "</div>";
                 return html;
@@ -2075,15 +2076,12 @@ async function getDataFromServer(first) {
 
             function _createHTMLLong(w) {
                 var html = '<div style="background: #' + w.uwzColor.toString(16) + '" border:"10px">';
-
-                var theData = JSON.parse(w.object);
-
                 html += '<h3>';
                 if (w.uwzUrgency == 1) html += "Vorwarnung vor ";
                 else html += "Warnung vor ";
                 html += warningTypesString[UWZ][w.type];
                 html += "</h3>";
-                html += "<p>Zeitraum von " + formatDate(new Date(theData.dtgStart * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(theData.dtgEnd * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
+                html += "<p>Zeitraum von " + formatDate(new Date(w.dtgStart * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.dtgEnd * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
                 html += '<p>' + w.LongText + '</p>';
                 html += "</div>";
                 return html;
@@ -2107,7 +2105,7 @@ function addDatabaseData(id, value, mode, old) {
     // Kompatibilität zur Stableversion
     if (typeof value === 'string' ) value = JSON.parse(value);
     myLog("1. addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
-    if (mode & (UWZ|DWD|DWD2)) {
+    if (mode & (UWZ |DWD | DWD2)) {
         let i = warnDatabase.new.findIndex(function(j){return j.id == id});
         let hash = null;
         if (i > -1) hash = warnDatabase.new[i].hash;
@@ -2263,15 +2261,14 @@ function getDatabaseData(warn, mode){
         result['start']         = warn.ONSET === undefined 			? null 	: getDateObject(warn.ONSET).getTime() || null;
         result['end']           = warn.EXPIRES === undefined 		? null 	: getDateObject(warn.EXPIRES).getTime() || null;
         result['instruction']   = warn.INSTRUCTION === undefined 	? '' 	: warn.INSTRUCTION;
-        result['ec_ii_type']    = warn.EC_II === undefined 			? -1 	: warn.EC_II;
+        result['ec_ii_type']    = warn.EC_II === undefined 			? -1 	: Number(warn.EC_II);
         result['picture']       = '';
         if (result.ec_ii_type != -1) {
             if (warningTypesString[DWD2][result.ec_ii_type] === undefined) {
                 log('Bitte das Json im Forum posten: EC: ' + warningTypesString[DWD2][result.ec_ii_type] ,'warn')
                 log(warn, 'warn');
-                log(warningTypesString[DWD2]);
             } else {
-                result.type = warningTypesString[DWD2][String(result.type)];
+                result.type = warningTypesString[DWD2][String(result.ec_ii_type)];
                 result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
             }
         }
@@ -2327,7 +2324,7 @@ function getDatabaseData(warn, mode){
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
         result['picture']                = '';
-        if ( result.level < minlevel ) {myLog('Übergebenens Json UWZ verworfen');return null;};
+        if ( result.level < minlevel ) return null;
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
@@ -2594,8 +2591,10 @@ if ((uPushdienst & TELEGRAM) != 0) {
             });
         } else if (msg.includes('Wwdon') || msg == 'DWDUZWNINA#!§$debugan') {
             DEBUG = true;
+            log('Debugmodus an');
         } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
             DEBUG = false;
+            log('Debugmodus aus');
         } else if (msg === uTelegramMessageLong || msg === 'DWDUZWNINA#!§$LONG' || msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
             warnDatabase.old = [];
             let oPd = uPushdienst;
