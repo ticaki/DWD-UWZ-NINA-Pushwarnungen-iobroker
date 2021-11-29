@@ -1,4 +1,4 @@
-//Version 0.97.99.6 Alpha 8
+//Version 0.98 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -209,8 +209,8 @@ var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var id
 var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 
 // Filtereinstellungen
-const minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden;
-const attentionWarningLevel         =    4 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+const minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden; (DWD und Nina level 1-4  / UWZ 0-5)
+const attentionWarningLevel         =    3 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
 const minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
 const maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
@@ -442,18 +442,22 @@ warningTypesString[UWZ] = [
 ];
 
 //StatesDefinition für DWD intern
+// https://isabel.dwd.de/DE/leistungen/opendata/help/warnungen/cap_dwd_profile_de_pdf_1_11.pdf?__blob=publicationFile&v=3
 const statesDWDintern = [
     { id:"begin",default:0, options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false}},
     { id:"description", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false}},
     { id:"end", default:0, options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false}},
     { id:"headline", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false}},
-    { id:"level",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false,states: {1: "Preliminary info",2: "Minor",3: "Moderate",4: "Severe",5: "Extreme"}}},
+    { id:"level",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false,states: {1: "Minor",2: "Moderate",3: "Severe",4: "Extreme"}}},
     { id:"map", default:"", options: {name: "Link to chart",type: "string",role: "weather.chart.url",read: true,write: false}},
     { id:"object", default: null, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false}},
     { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false,states: {0: "None",1: "Minor",2: "Moderate",3: "Severe",4: "Extreme",9: "Heat Warning",11: "No Warning",19: "UV Warning",49: "Strong Heat",50: "Extreme Heat"}}},
     { id:"text", default: "", options: {name: "Warning text",type: "string",role: "weather.title.short",read: true,write: false}},
     { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false,states: {0: "Thunderstorm",1: "Wind/Storm",2: "Rain",3: "Snow",4: "Fog",5: "Frost",6: "Ice",7: "Thawing",8: "Heat",9: "UV warning"}}},
-    { id:"ec_ii_type", default: 0, options: {name: "Warning type EC_II",type: "number",role: "weather.type",read: true,write: false,}}
+    { id:"ec_ii_type", default: 0, options: {name: "Warning type EC_II",type: "number",role: "weather.type",read: true,write: false,}},
+    { id:"urgency", default: "", options: {name: "Warning urgency",type: "string",read: true,write: false}},
+    { id:"responseType", default: "", options: {name: "Warning responseType",type: "string",read: true,write: false}},
+    { id:"certainty", default: "", options: {name: "Warning certainty",type: "string",read: true,write: false}}
 ];
 
 //StatesDefinition für UWZ intern
@@ -1884,8 +1888,8 @@ async function getDataFromServer(first) {
             newOBJ = JSON.parse(newString);
             if (newOBJ.warnings.hasOwnProperty(area)) {
                 newOBJ = newOBJ.warnings[area];
+                if (uLogAusgabe && enableInternDWD2) log('DWD2 ausgeschaltet')
                 enableInternDWD2 = false;
-                if (uLogAusgabe) log('DWD2 ausgeschaltet')
             }
             else newOBJ = [];
         } else if (UWZ & m) {
@@ -1901,10 +1905,10 @@ async function getDataFromServer(first) {
                 }
             }
             if (newOBJ.length) {
+                if (uLogAusgabe && enableInternDWD) log('DWD ausgeschaltet')
                 enableInternDWD = false;
                 newOBJ.sort((a, b) => getCapLevel(a.SEVERITY) - getCapLevel(b.SEVERITY));
                 m |= DWD;
-                if (uLogAusgabe) log('DWD ausgeschaltet')
             }
             thedata = null;
         }
@@ -1952,6 +1956,9 @@ async function getDataFromServer(first) {
                 }
             }
             tempObj[statesDWDintern[10].id] = warnObj.EC_II === undefined || warnObj.EC_II === null ? -1 : parseInt(warnObj.EC_II, 10);
+            tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
+            tempObj[statesDWDintern[12].id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
+            tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -1970,7 +1977,7 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[1].id] = warnObj.description || '';
             tempObj[statesDWDintern[2].id] = warnObj.end || Number("");
             tempObj[statesDWDintern[3].id] = warnObj.headline || '';
-            tempObj[statesDWDintern[4].id] = warnObj.level === undefined || warnObj.level === null ? -1 : parseInt(warnObj.level, 10);
+            tempObj[statesDWDintern[4].id] = warnObj.level === undefined || warnObj.level === null ? -1 : parseInt(warnObj.level, 10)-1;
             tempObj[statesDWDintern[6].id] = warnObj;
             tempObj[statesDWDintern[7].id] = warnObj.level > 1 ? warnObj.level - 1 : 0;
             tempObj[statesDWDintern[8].id] = warnObj.event || '';
@@ -1982,6 +1989,9 @@ async function getDataFromServer(first) {
             } else {
                 tempObj[statesDWDintern[5].id] = '';
             }
+            tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
+            tempObj[statesDWDintern[12].id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
+            tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -2244,7 +2254,7 @@ function getDatabaseData(warn, mode){
         result['end']           = warn.end === undefined 			? null 	: warn.end || null;
         result['instruction']   = warn.instruction === undefined 	? '' 	: warn.instruction;
         result['type']          = warn.type === undefined 			? -1 	: warn.type;
-        result['level']         = warn.level === undefined 			? -1 	: warn.level;
+        result['level']         = warn.level === undefined 			? -1 	: warn.level-1;
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
         result['web'] 			= '';
         result['webname'] 		= '';
@@ -2409,9 +2419,9 @@ function getCapLevel(str, type) {
         'Severe',
         'Extreme'
     ]
-    let offset = 2;
+    let offset = 1;
     // Hochwassser ist immer Severe das ist im Vergleich denke ich zu hoch.
-    if (type == 'Hochwasserinformation') offset = 0;
+    //if (type == 'Hochwasserinformation') offset = 0;
     return ninaLevel.indexOf(str) + offset;
 }
 
