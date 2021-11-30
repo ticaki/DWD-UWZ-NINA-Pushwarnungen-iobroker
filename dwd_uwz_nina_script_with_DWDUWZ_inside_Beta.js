@@ -1,4 +1,4 @@
-//Version 0.98 Beta 1
+//Version 0.98 Beta 2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -230,6 +230,16 @@ var forcedSpeak             = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
 var windForceDetailsSpeak   = false;
 
+// Standalone Datenquelle
+/* nur Gemeinde/Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
+var dwdWarncellId = ''; // Deaktivieren mit ''
+var dwdBundesland = ''; // 3 Buchstaben
+
+//UWZ - Landeskennung - Postleitzahl UWZDE12345
+var uwzWarncellId = ''; // Deaktivieren mit ''
+
+var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
+
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
@@ -261,13 +271,7 @@ var uwzPath=            'javascript.0.UWZ';
 var dwdPath=            'dwd.0';
 var ninaPath=           'nina.0'
 
-// Standalone Datenquelle
-/* nur Gemeinde/Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
-var dwdWarncellId = ''; // Deaktivieren mit ''
-var dwdBundesland = ''; // 3 Buchstaben
 
-//UWZ - Landeskennung - Postleitzahl UWZDE12345
-var uwzWarncellId = ''; // Deaktivieren mit ''
 
 // Instanzen im ioBroker
 var telegramInstanz=    'telegram.0';
@@ -275,8 +279,6 @@ var pushoverInstanz=    'pushover.0';
 var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
 var emailInstanz=       'email.0';
-
-var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
 
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -345,7 +347,7 @@ const SPACE = ' ';
 const NEWLINE = '\n';
 const axios = require('axios');
 
-var intervalMinutes = 10; // die Daten bei DWD werden alle 10 Minuten aktualisiert.
+var intervalMinutes = 5; // die Daten bei DWD werden alle 10 Minuten aktualisiert.
 var numOfWarnings = 5;
 var enableInternDWD = false;
 var enableInternDWD2 = false;
@@ -408,7 +410,7 @@ warningTypesString[DWD] = [
         ['Gewitter', 31,32,33,34,35,36,37,38,39,40,41,91,92,93,94,95,96],//31-49, 91-96
         ['Sturm', 51,52,53,54,55,56,57,58],//51-58
         ['Regen', 61,62,63,64,65,66],//61-66
-        ['Schnee', 71,72,73,74,75,76,77,78],//71 - 78
+        ['Schnee', 70,71,72,73,74,75,76,77,78],//71 - 78
         ['Nebel', 59],//59
         ['Frost', 22,82], //22, 82
         ['Glatteis', 24,84,85,86,87],//24, 84-87
@@ -1171,10 +1173,9 @@ function checkWarningsMain() {
                     w2.mode !== DWD ||
                     w.type !== w2.type ||
                     a == b ||
-                    w2.start > w.start ||
+                    w2.start < w.start ||
                     w2.end > w.end
                 )
-                && w2.start < w.end
             ) continue;
             if (w.level > w2.level) {
                 warnDatabase.new.splice(b, 1);
@@ -1197,31 +1198,33 @@ function checkWarningsMain() {
     // Entferne Einträge die verlängert wurden in OldDB
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
+        if (getIndexOfHash(warnDatabase.old, w.hash) == -1) continue; // nur neue Einträge betrachten
         for (let b = 0; b < warnDatabase.old.length; b++) {
             let w2 = warnDatabase.old[b];
             if (
                 w.mode !== w2.mode ||
                 w.type !== w2.type ||
+                w2.end > w.end  ||
                 w.level > attentionWarningLevel ||
                 w2.level > attentionWarningLevel ||
                 w.hash == w2.hash
             ) continue;
             // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
-            if (w2.end <= w.end && w2.end >= w.start) {
-                if (w2.level >= w.level) {
+            if (w2.end >= w.start) {
+                if (w2.level = w.level) {
                     w.repeatCounter += w2.repeatCounter + 1;
+                    let i = getIndexOfHash(warnDatabase.new, w2.hash);
+                    if (i != -1) {
+                        warnDatabase.new.splice(i, 1);
+                        if (i <= a) --a;
+                    }
+                    if (uLogAusgabe) log('Nr 5 Remove Msg with headline:' + w2.headline);
+                    warnDatabase.old.splice(b--, 1);
                 }
                 if (w.repeatCounter > 30) {
-                    log('reset repeatCounter... push message.');
+                    if (uLogAusgabe) log('reset repeatCounter... push message.');
                     w.repeatCounter = 0;
                 }
-                let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                if (i != -1) {
-                    warnDatabase.new.splice(i, 1);
-                    if (i <= a) --a;
-                }
-                myLog('Nr 5 Remove Msg with headline:' + w2.headline);
-                warnDatabase.old.splice(b--, 1);
                 break;
             }
         }
@@ -1234,11 +1237,12 @@ function checkWarningsMain() {
     }
 
     warnDatabase.new.sort(function(a, b) {
-        return a.level == b.level ? b.begin - a.begin : b.level - a.level;
+        return a.level == b.level ? a.begin - b.begin : b.level - a.level;
     })
     var collectMode = 0;
     let emailHtmlWarn = '';
     let emailHtmlClear = '';
+    let emailSend = onClickCheckRun;
     let speakMsgTemp = [];
     collectMode = 0;
     let debugdata = '';
@@ -1268,7 +1272,10 @@ function checkWarningsMain() {
             }
             let pushMsg = picture + prefix + getArtikelMode(mode) + "'" + headline + SPACE + area + (end ? " gültig bis " + end + "Uhr'" : '') + " wurde aufgehoben.";
             // EMAIL
-            emailHtmlClear += pushMsg + '<br>';
+            if (getPushModeFlag(mode) & EMAIL) {
+                emailHtmlClear += pushMsg + '<br>';
+                emailSend = true;
+            }
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
@@ -1286,7 +1293,7 @@ function checkWarningsMain() {
     let gefahr = false;
     let count = 0;
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
-    for (let i = warnDatabase.new.length - 1; i >= 0; i--) {
+    for (let i = 0; i < warnDatabase.new.length; i++) {
         let entry = warnDatabase.new[i];
         if (entry.repeatCounter > 1 && !onClickCheckRun) continue;
         let headline = entry.headline;
@@ -1299,7 +1306,7 @@ function checkWarningsMain() {
         let mode = entry.mode;
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
-        myLog('New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash);
+        myLog('New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash + ' level:' + level);
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if (hash) {
             let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
@@ -1351,6 +1358,9 @@ function checkWarningsMain() {
                 else html = he + html;
                 if (warnDatabase.new.length > 1) html += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANHTML & ~EMAIL & ~STATE_HTML;
+                if (isNewMessage && getPushModeFlag(mode) & EMAIL){
+                    emailSend = true;
+                }
                 sendMessage(b, picture + getTopic(mode), html, entry);
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
@@ -1420,7 +1430,7 @@ function checkWarningsMain() {
     }
     if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
 
-    if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && (emailHtmlWarn + emailHtmlClear)) {
+    if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && (emailHtmlWarn + emailHtmlClear) && emailSend) {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear ? 'Aufgehobene Warnungen' : null), emailHtmlClear, 'silver', false);
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, null, getStringWarnCount(null, warnDatabase.new.length), null, true);
         sendMessage(getPushModeFlag(collectMode) & ALLMSG, (gefahr ? "Wichtige Warnungen" : "Warnungen") + getArtikelMode(collectMode) + "(iobroker)", emailHtmlWarn);
@@ -1720,7 +1730,8 @@ function sendMessage(pushdienst, topic, msg, entry) {
 // setzt on() für DWD oder UWZ
 function dataSubscribe() {
     if (subDWDhandler) unsubscribe(subDWDhandler);
-    if (MODE & DWD && (!enableInternDWD || !enableInternDWD2)) {
+    if (MODE & DWD && !(enableInternDWD || enableInternDWD2)) {
+        if (uLogAusgabe) log('Nutze Datenabruf für DWD über States in ' + dwdPath);
         let r = getRegEx(dwdPath, '^');
         r += '.*\.object$';
         myLog('subscribe path:' + r);
@@ -1728,6 +1739,7 @@ function dataSubscribe() {
     }
     if (subUWZhandler) unsubscribe(subUWZhandler);
     if (MODE & UWZ && !enableInternUWZ) {
+        if (uLogAusgabe) log('Nutze Datenabruf für UWZ über States in ' + uwzPath);
         let r = getRegEx(uwzPath, '^');
         r += '.*\.object$';
         myLog('subscribe path:' + r);
@@ -1735,6 +1747,7 @@ function dataSubscribe() {
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
     if (MODE & NINA) {
+        if (uLogAusgabe) log('Nutze Datenabruf für NINA über States in ' + ninaPath);
         let r = getRegEx(ninaPath, '^');
         r += '.*.rawJson$';
         myLog('subscribe path:' + r);
@@ -1788,7 +1801,9 @@ async function InitDatabase(first) {
     myLog('InitDatabase() first: ' + first);
     if (first) {
         warnDatabase = { new: [], old: [] };
-        if ((enableInternDWD || enableInternDWD2) && !internalDWDInterval && first) {
+        if ((enableInternDWD || enableInternDWD2 || enableInternUWZ) && !internalDWDInterval && first) {
+            if (uLogAusgabe && (enableInternDWD || enableInternDWD2)) log('Nutze Standalone DWD Datenabruf');
+            if (uLogAusgabe && (enableInternUWZ)) log('Nutze Standalone UWZ Datenabruf');
             if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
             internalDWDInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
@@ -1888,13 +1903,13 @@ async function getDataFromServer(first) {
             newOBJ = JSON.parse(newString);
             if (newOBJ.warnings.hasOwnProperty(area)) {
                 newOBJ = newOBJ.warnings[area];
-                if (uLogAusgabe && enableInternDWD2) log('DWD2 ausgeschaltet')
+                if (uLogAusgabe && enableInternDWD2) log('DWD2 ausgeschaltet, nutze DWD.')
                 enableInternDWD2 = false;
             }
             else newOBJ = [];
         } else if (UWZ & m) {
             newOBJ = thedata.results;
-            if (newOBJ.length) newOBJ.sort((a, b) => a.severity - b.severity);
+            if (newOBJ.length) newOBJ.sort((a, b) => b.severity - a.severity);
         } else if (DWD2 & m) {
             if (!enableInternDWD2) return;
             let tempOBJ = Object(thedata);
@@ -1905,9 +1920,18 @@ async function getDataFromServer(first) {
                 }
             }
             if (newOBJ.length) {
-                if (uLogAusgabe && enableInternDWD) log('DWD ausgeschaltet')
+                if (uLogAusgabe && enableInternDWD) log('DWD ausgeschaltet, nutze DWD2.')
                 enableInternDWD = false;
-                newOBJ.sort((a, b) => getCapLevel(a.SEVERITY) - getCapLevel(b.SEVERITY));
+                newOBJ.sort(function(a,b) {
+                    let result = getCapLevel(b.SEVERITY) - getCapLevel(a.SEVERITY);
+                    if (result) return result;
+                    if (b.ONSET === undefined) result = -1;
+                    if (a.ONSET === undefined) result += 1;
+                    if (result) return result;
+                    result = getDateObject(a.ONSET).getTime() - getDateObject(b.ONSET).getTime();
+                    if (result) return result;
+                    return JSON.stringify(a).hashCode() - JSON.stringify(b).hashCode();
+                });
                 m |= DWD;
             }
             thedata = null;
@@ -1933,7 +1957,7 @@ async function getDataFromServer(first) {
         }
         let tempObj = {};
         if (MODE & DWD && DWD2 & m) {
-            if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD2, first)) {
+            if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
                 if (uLogAusgabe) log('DWD2 Warnung gefunden');
@@ -2116,9 +2140,6 @@ function addDatabaseData(id, value, mode, old) {
     if (typeof value === 'string' ) value = JSON.parse(value);
     myLog("1. addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
     if (mode & (UWZ |DWD | DWD2)) {
-        let i = warnDatabase.new.findIndex(function(j){return j.id == id});
-        let hash = null;
-        if (i > -1) hash = warnDatabase.new[i].hash;
         change = removeDatabaseDataID(id);
         if (JSON.stringify(value) != '{}' ) {
             warn = getDatabaseData(value, mode);
@@ -2132,9 +2153,9 @@ function addDatabaseData(id, value, mode, old) {
                 warn.id = id;
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                change = hash != warn.hash;
+                change = warnDatabase.old.findIndex(function(j){return j.hash == warn.hash}) != -1 ? false : change
                 if (uLogAusgabe) {
-                    if (!change) log("No change! id: " + id + " headline: " + warn.headline);
+                    if (!change) log("No change or init! id: " + id + " headline: " + warn.headline);
                     else log("Add UWZ/DWD warning to database. id: " + id + " headline: " + warn.headline);
                 }
             }
@@ -2203,6 +2224,7 @@ function addDatabaseData(id, value, mode, old) {
             change = true;
         }
     }
+    change = old !== undefined && old ? false : change;
     if (change) setAlertState();
     return change;
 
@@ -2431,15 +2453,15 @@ function removeHtml(a) {
 }
 // Überprüfe wegen Nina - Adapter häufig die DB ob obj.ids gelöscht wurden.
 // Dachte ich zuerst, die Server sind aber sehr unzuverlässig und Meldungen werden laufend nicht ausgeliefert.
-// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 20 * 5 = 100 Minuten entwarnen erst dann.
+// Folglich werden Entwarnung raus geschickt. Jetzt warten wir 10 * 10 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
 function activateSchedule() {
-    schedule('30 19,39,59 * * * *', function() {
+    schedule('30 */10 * * * *', function() {
         let c = false;
         for (let a = 0; a < warnDatabase.new.length; a++) {
             let w = warnDatabase.new[a];
             if (!extendedExists(w.id)) {
-                if (warnDatabase.new[a].pending++ >= 4) { //  9 Durchläufe
+                if (warnDatabase.new[a].pending++ >= 10) { //  9 Durchläufe
                     if (uLogAusgabe) log('Remove old warning with id: ' + warnDatabase.new[a].id + ' and headline: ' + warnDatabase.new[a].headline);
                     warnDatabase.new.splice(a--, 1);
                     c = true;
@@ -2447,7 +2469,7 @@ function activateSchedule() {
             } else {
                 w.pending = 0;
             }
-            if (w.end && new Date(w.end) < new Date()) {
+            if (w.end && new Date(w.end + intervalMinutes * 61000) < new Date()) {
                 if (uLogAusgabe) log('Remove expired warning with id: ' + warnDatabase.new[a].id + ', headline: ' + warnDatabase.new[a].headline + ' expire:' + new Date(w.end));
                 warnDatabase.new.splice(a--, 1);
                 c = true;
