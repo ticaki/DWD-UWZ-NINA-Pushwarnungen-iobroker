@@ -1,4 +1,4 @@
-//Version 0.98 Beta 2
+//Version 0.98 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -314,8 +314,7 @@ var html_headline = '<tr><td style="padding: 5px 0 5px 0;"><b>' + '###headline##
 var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' + '</td></tr>';
 var html_end = '</table>';
 
-// Debughilfe
-if (DEBUG) uLogAusgabe = true;
+
 
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
@@ -326,11 +325,18 @@ forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
 
 //Vorgezogene Tests
+checkConfigVariable('uLogAusgabeErweitert');
 checkConfigVariable('DEBUGINGORESTART');
 checkConfigVariable('dwdWarncellId');
 checkConfigVariable('dwdBundesland');
 checkConfigVariable('uwzWarncellId');
 checkConfigVariable('DWD2');
+
+// Debughilfe
+if (DEBUG || uLogAusgabeErweitert) {
+    uLogAusgabe = true;
+    uLogAusgabeErweitert = true;
+}
 
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
@@ -459,7 +465,9 @@ const statesDWDintern = [
     { id:"ec_ii_type", default: 0, options: {name: "Warning type EC_II",type: "number",role: "weather.type",read: true,write: false,}},
     { id:"urgency", default: "", options: {name: "Warning urgency",type: "string",read: true,write: false}},
     { id:"responseType", default: "", options: {name: "Warning responseType",type: "string",read: true,write: false}},
-    { id:"certainty", default: "", options: {name: "Warning certainty",type: "string",read: true,write: false}}
+    { id:"certainty", default: "", options: {name: "Warning certainty",type: "string",read: true,write: false}},
+    { id:"altitude", default: "", options: {name: "Start Höhenlage der Warnung",type: "number",read: true,write: false}},
+    { id:"ceiling", default: "", options: {name: "End Höhenlage der Warnung",type: "number",read: true,write: false}}
 ];
 
 //StatesDefinition für UWZ intern
@@ -675,7 +683,7 @@ async function changeMode(modeFromState) {
     if (MODE != modeFromState || firstRun) {
         let oldMode = MODE;
         MODE = modeFromState;
-        myLog('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
+        if (uLogAusgabeErweitert) log('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
         if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - '+ mainStatePath + '.config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
         await InitDatabase(firstRun);
         dataSubscribe();
@@ -1179,7 +1187,7 @@ function checkWarningsMain() {
             ) continue;
             if (w.level > w2.level) {
                 warnDatabase.new.splice(b, 1);
-                myLog('Nr 3 Remove Msg with headline:' + w2.headline + ' hold:' + w.headline);
+                if (uLogAusgabe) log('Nr 3 Behalte Warnung mit Headline: ' + w.headline + ' Level:' + w.level + ' Lösche: ' + w2.headline +' Level:' + w2.level  );
                 if (a >= b--) {
                     a--;
                     break;
@@ -1187,7 +1195,7 @@ function checkWarningsMain() {
             } else if (w.altitudeStart > w2.altitudeStart && w.level == w2.level) {
                 w.altitudeStart = w2.altitudeStart;
                 warnDatabase.new.splice(b, 1);
-                myLog('Nr 4 Remove Msg with headline:' + w2.headline + ' hold:' + w.headline);
+                if (uLogAusgabe) log('Nr 4 (Level gleich - Höhen unterschiedlich) Behalte Warnung mit Headline:' + w.headline + ' Lösche:' + w2.headline);
                 if (a >= b--) {
                     a--;
                     break;
@@ -1209,23 +1217,23 @@ function checkWarningsMain() {
                 w2.level > attentionWarningLevel ||
                 w.hash == w2.hash
             ) continue;
-            // w endet vor / gleich w2 && w2 startet bevor / gleich w endet && w hat kleiner gleiches level wie w2 -> lösche w2
             if (w2.end >= w.start) {
-                if (w2.level = w.level) {
+                if (w.repeatCounter > 30) {
+                    if (uLogAusgabe) log('Nr 5 reset repeatCounter... push message with headline: ' + w.headline);
+                    w.repeatCounter = 0;
+                }
+                if (w2.level == w.level) {
                     w.repeatCounter += w2.repeatCounter + 1;
                     let i = getIndexOfHash(warnDatabase.new, w2.hash);
+                    if (uLogAusgabe) log('Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
+                    warnDatabase.old.splice(b--, 1);
                     if (i != -1) {
                         warnDatabase.new.splice(i, 1);
                         if (i <= a) --a;
+                        --a;
+                        break;
                     }
-                    if (uLogAusgabe) log('Nr 5 Remove Msg with headline:' + w2.headline);
-                    warnDatabase.old.splice(b--, 1);
                 }
-                if (w.repeatCounter > 30) {
-                    if (uLogAusgabe) log('reset repeatCounter... push message.');
-                    w.repeatCounter = 0;
-                }
-                break;
             }
         }
     }
@@ -1852,7 +1860,7 @@ async function getDataFromServer(first) {
     if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, dwdWarncellId[0]), DWD2, first);
     if (enableInternUWZ)  await _getDataFromServer(internUWZUrl, UWZ, first);
     async function _getDataFromServer(url, m, first) {
-        myLog('Rufe Daten vom Server ab. ScriptID: ' + randomID + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : 'DWD2')));
+        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : ' DWD2')));
         for (var i = 0; i < dwdWarncellId.length; i++) {
             if (onStopped) return;
             await axios.get(url)
@@ -1983,6 +1991,8 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
             tempObj[statesDWDintern[12].id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
+            tempObj[statesDWDintern[14].id] = warnObj.ALTITUDE === undefined ? 0 : Math.round(warnObj.ALTITUDE * 0.3048);
+            tempObj[statesDWDintern[15].id] = warnObj.CEILING === undefined ? 3000 : Math.round(warnObj.CEILING * 0.3048);
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -2016,6 +2026,8 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
             tempObj[statesDWDintern[12].id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
+            tempObj[statesDWDintern[14].id] = warnObj.altitudeStart === undefined ? 0 : warnObj.altitudeStart;
+            tempObj[statesDWDintern[15].id] = warnObj.altitudeEnd === undefined ? 3000 : warnObj.altitudeEnd;
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -2268,7 +2280,7 @@ function getDatabaseData(warn, mode){
             warn.altitudeStart > maxhoehe
             || (warn.altitudeEnd && warn.altitudeEnd < minhoehe)
             || warn.level < minlevel
-        ) {myLog('Übergebenens Json DWD verworfen');return null;}
+        ) {if (uLogAusgabeErweitert) log('Übergebenene Warnung DWD verworfen');return null;}
         result['mode'] = DWD;
         result['description']   = warn.description === undefined 	? '' 	: warn.description;
         result['headline']      = warn.headline === undefined 		? '' 	: warn.headline;
@@ -2278,6 +2290,8 @@ function getDatabaseData(warn, mode){
         result['type']          = warn.type === undefined 			? -1 	: warn.type;
         result['level']         = warn.level === undefined 			? -1 	: warn.level-1;
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
+        result['altitudeStart'] = warn.altitudeStart === undefined 	? 0 	: warn.altitudeStart;
+        result['altitudeEnd'] 	= warn.altitudeEnd === undefined 	? 3000 	: warn.altitudeEnd;
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
@@ -2286,7 +2300,18 @@ function getDatabaseData(warn, mode){
             warn.RESPONSETYPE != 'Prepare'
             || warn.STATUS == 'Test'
             || getCapLevel(warn.SEVERITY) < minlevel
-        ) {myLog('Übergebenens Json DWD verworfen');return null;}
+            || (warn.ALTITUDE && warn.ALTITUDE * 0.3048 > maxhoehe)
+            || (warn.CEILING && warn.CEILING * 0.3048 < minhoehe)
+        ) {if (uLogAusgabeErweitert)  {
+                let why = warn.RESPONSETYPE != 'Prepare' ? 'Responsetype nicht Prepare - ':'';
+                why = warn.STATUS == 'Test' ? 'Testwarnung - ':'';
+                why += (warn.ALTITUDE && warn.ALTITUDE * 0.3048 > maxhoehe) ? 'Höhenlage der Warnung ist zu hoch - ':'';
+                why += (getCapLevel(warn.SEVERITY) < minlevel) ? 'Level zu niedrig - ':'';
+                why += (warn.CEILING && warn.CEILING * 0.3048 < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
+                log (why + 'Übergebenene Warnung UWZ verworfen');
+            }
+            return null;
+        }
         result['mode'] = DWD;
         result['description']   = warn.DESCRIPTION === undefined 	? '' 	: warn.DESCRIPTION;
         result['headline']      = warn.HEADLINE === undefined 		? '' 	: warn.HEADLINE;
@@ -2306,6 +2331,8 @@ function getDatabaseData(warn, mode){
         }
         result['level']         = warn.SEVERITY === undefined 		? -1 	: getCapLevel(warn.SEVERITY);
         result['areaID'] 		= warn.AREADESC === undefined 	    ? '' 	: warn.AREADESC;
+        result['altitudeStart'] = warn.ALTITUDE === undefined 	    ? 0 	: warn.ALTITUDE * 0.3048;
+        result['altitudeEnd']   = warn.CEILING === undefined 	    ? 0 	: warn.CEILING * 0.3048;
         result['web'] 			= '';
         result['webname'] 		= '';
         //result['picture']       = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
@@ -2315,7 +2342,15 @@ function getDatabaseData(warn, mode){
             || warn.payload.altMin > maxhoehe
             || (warn.payload.altMax && warn.payload.altMax < minhoehe)
 
-        ) {myLog('Übergebenens Json UWZ verworfen');return null;}
+        ) {
+            if (uLogAusgabeErweitert) {
+                let why = warn.payload === undefined ? 'Datensatz unvollständig - ':'';
+                why += warn.payload.altMin > maxhoehe ? 'Höhenlage der Warnung ist zu hoch - ':'';
+                why += (warn.payload.altMax && warn.payload.altMax < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
+                log (why + 'Übergebenene Warnung UWZ verworfen');
+                }
+            return null;
+            }
         result['mode'] = UWZ;
         result['description'] 	= warn.payload.translationsLongText.DE === undefined 	? '' 	: warn.payload.translationsLongText.DE;
         result['start'] 		= warn.dtgStart === undefined 							? null 	: warn.dtgStart * 1000 || null;
@@ -2328,7 +2363,7 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
-        if ( result.level < minlevel ) {myLog('Übergebenens Json UWZ verworfen');return null;}
+        if ( result.level < minlevel ) {if (uLogAusgabeErweitert) log('Level zu niedrig - Übergebenene Warnung UWZ verworfen');return null;}
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
@@ -2356,7 +2391,7 @@ function getDatabaseData(warn, mode){
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
         result['picture']                = '';
-        if ( result.level < minlevel ) return null;
+        if ( result.level < minlevel ) { if (uLogAusgabeErweitert) log('Übergebenene Warnung NINA verworfen');return null;}
     }
     result['color'] = getLevelColor(result.level);
     result['id']='';
