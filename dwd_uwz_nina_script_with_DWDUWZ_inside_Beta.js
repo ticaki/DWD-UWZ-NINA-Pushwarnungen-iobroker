@@ -239,7 +239,7 @@ var dwdBundesland = ''; // 3 Buchstaben
 var uwzWarncellId = ''; // Deaktivieren mit ''
 
 var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
-
+var uLogAusgabeErweitert = false;
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
