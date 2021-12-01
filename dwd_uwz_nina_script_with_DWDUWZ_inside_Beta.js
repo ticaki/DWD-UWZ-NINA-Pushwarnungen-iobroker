@@ -1,4 +1,4 @@
-//Version 0.98 Beta 3
+//Version 0.98 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1204,34 +1204,37 @@ function checkWarningsMain() {
         }
     }
     // Entferne Einträge die verlängert wurden in OldDB
-    for (let a = 0; a < warnDatabase.new.length; a++) {
-        let w = warnDatabase.new[a];
-        if (getIndexOfHash(warnDatabase.old, w.hash) == -1) continue; // nur neue Einträge betrachten
-        for (let b = 0; b < warnDatabase.old.length; b++) {
-            let w2 = warnDatabase.old[b];
-            if (
-                w.mode !== w2.mode ||
-                w.type !== w2.type ||
-                w2.end > w.end  ||
-                w.level > attentionWarningLevel ||
-                w2.level > attentionWarningLevel ||
-                w.hash == w2.hash
-            ) continue;
-            if (w2.end >= w.start) {
-                if (w.repeatCounter > 30) {
-                    if (uLogAusgabe) log('Nr 5 reset repeatCounter... push message with headline: ' + w.headline);
-                    w.repeatCounter = 0;
-                }
-                if (w2.level == w.level) {
-                    w.repeatCounter += w2.repeatCounter + 1;
-                    let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                    if (uLogAusgabe) log('Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
-                    warnDatabase.old.splice(b--, 1);
-                    if (i != -1) {
-                        warnDatabase.new.splice(i, 1);
-                        if (i <= a) --a;
-                        --a;
-                        break;
+    if (!onClickCheckRun) {
+        for (let a = 0; a < warnDatabase.new.length; a++) {
+            let w = warnDatabase.new[a];
+            if (getIndexOfHash(warnDatabase.old, w.hash) != -1) continue; // nur neue Einträge betrachten
+            for (let b = 0; b < warnDatabase.old.length; b++) {
+                let w2 = warnDatabase.old[b];
+                if (
+                    w.mode !== w2.mode ||
+                    w.type !== w2.type ||
+                    w2.end > w.end  ||
+                    w.level > attentionWarningLevel ||
+                    w2.level > attentionWarningLevel ||
+                    w.hash == w2.hash ||
+                    Math.abs(w2.start - w.start) > 43200000 // Verlängern ignorieren wenn 12 Stunden zwischen den Warnungen liegen.
+                ) continue;
+                if (w2.end >= w.start) {
+                    if (w.repeatCounter > 30) {
+                        if (uLogAusgabe) log('Nr 5 reset repeatCounter... push message with headline: ' + w.headline);
+                        w.repeatCounter = 0;
+                    }
+                    if (w2.level == w.level) {
+                        w.repeatCounter += w2.repeatCounter + 1;
+                        let i = getIndexOfHash(warnDatabase.new, w2.hash);
+                        if (uLogAusgabe) log('Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
+                        warnDatabase.old.splice(b--, 1);
+                        if (i != -1) {
+                            warnDatabase.new.splice(i, 1);
+                            if (i <= a) --a;
+                            --a;
+                            break;
+                        }
                     }
                 }
             }
@@ -1861,41 +1864,39 @@ async function getDataFromServer(first) {
     if (enableInternUWZ)  await _getDataFromServer(internUWZUrl, UWZ, first);
     async function _getDataFromServer(url, m, first) {
         if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : ' DWD2')));
-        for (var i = 0; i < dwdWarncellId.length; i++) {
-            if (onStopped) return;
-            await axios.get(url)
-                .then(results => {
-                    if((DWD|DWD2) & m) myLog("AREA: " + dwdWarncellId[i]);
-                    if(UWZ & m) myLog("AREA: " + getAreaFromURI(results.config.url));
-                    myLog("Status: " + results.status);
-                    myLog("Url: " + url);
-                    if (!results) log ('!results');
-                    if (results === undefined) log('results === undefined')
-                    if (results.status == 200) {
-                        if((DWD|DWD2) & m) processData(dwdWarncellId[i], results.data, m, first);
-                        else if(UWZ & m) processData(getAreaFromURI(results.config.url), results.data, m, first);
-                        else {
-                            log('getDataFromServer wrong Mode', 'error');
-                            stopScript();
-                        }
-                    } else {
-                        if (uLogAusgabe) log ('getDataFromServer() 1. Status: ' + results.status);
+        if (onStopped) return;
+        await axios.get(url)
+            .then(results => {
+                if((DWD|DWD2) & m) myLog("AREA: " + dwdWarncellId[i]);
+                if(UWZ & m) myLog("AREA: " + getAreaFromURI(results.config.url));
+                myLog("Status: " + results.status);
+                myLog("Url: " + url);
+                if (!results) log ('!results');
+                if (results === undefined) log('results === undefined')
+                if (results.status == 200) {
+                    if((DWD|DWD2) & m) processData(dwdWarncellId[i], results.data, m, first);
+                    else if(UWZ & m) processData(getAreaFromURI(results.config.url), results.data, m, first);
+                    else {
+                        log('getDataFromServer wrong Mode', 'error');
+                        stopScript();
                     }
-                })
-                .catch(error => {
-                    if (error == undefined) {
-                        if (uLogAusgabe) log('getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
-                    } else if (error.response == undefined) {
-                        if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
-                    } else if (error.response.status == 404) {
-                        if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message);
-                    } else {
-                        if (uLogAusgabe) log('getDataFromServer() 5. ' + error.response.data);
-                        if (uLogAusgabe) log(error.response.status);
-                        if (uLogAusgabe) log(error.response.headers);
-                    }
-                })
-        }
+                } else {
+                    if (uLogAusgabe) log ('getDataFromServer() 1. Status: ' + results.status);
+                }
+            })
+            .catch(error => {
+                if (error == undefined) {
+                    if (uLogAusgabe) log('getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
+                } else if (error.response == undefined) {
+                    if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
+                } else if (error.response.status == 404) {
+                    if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message);
+                } else {
+                    if (uLogAusgabe) log('getDataFromServer() 5. ' + error.response.data);
+                    if (uLogAusgabe) log(error.response.status);
+                    if (uLogAusgabe) log(error.response.headers);
+                }
+            })
     }
 
     async function processData(area, thedata, m, first) {
