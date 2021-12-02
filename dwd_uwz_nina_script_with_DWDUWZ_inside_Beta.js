@@ -1,4 +1,4 @@
-//Version 0.98 Beta 4
+//Version 0.98 Beta 5
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1867,14 +1867,14 @@ async function getDataFromServer(first) {
         if (onStopped) return;
         await axios.get(url)
             .then(results => {
-                if((DWD|DWD2) & m) myLog("AREA: " + dwdWarncellId[i]);
+                if((DWD|DWD2) & m) myLog("AREA: " + dwdWarncellId[0]);
                 if(UWZ & m) myLog("AREA: " + getAreaFromURI(results.config.url));
                 myLog("Status: " + results.status);
                 myLog("Url: " + url);
                 if (!results) log ('!results');
                 if (results === undefined) log('results === undefined')
                 if (results.status == 200) {
-                    if((DWD|DWD2) & m) processData(dwdWarncellId[i], results.data, m, first);
+                    if((DWD|DWD2) & m) processData(dwdWarncellId[0], results.data, m, first);
                     else if(UWZ & m) processData(getAreaFromURI(results.config.url), results.data, m, first);
                     else {
                         log('getDataFromServer wrong Mode', 'error');
