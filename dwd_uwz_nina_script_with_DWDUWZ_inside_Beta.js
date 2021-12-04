@@ -2268,8 +2268,8 @@ async function getDataFromServer(first) {
                 else html += "Warnung vor ";
                 html += warningTypesString[UWZ][w.type];
                 html += "</h3>";
-                html += "<p>Zeitraum von " + formatDate(new Date(w.begin * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
-                html += '<p>' + w.ShortText + '</p>';
+                html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
+                html += w.shortText !== undefined && w.shortText !== '' ? '<p>' + w.shortText + '</p>' : '';
                 html += "</div>";
                 return html;
             }
@@ -2281,8 +2281,8 @@ async function getDataFromServer(first) {
                 else html += "Warnung vor ";
                 html += warningTypesString[UWZ][w.type];
                 html += "</h3>";
-                html += "<p>Zeitraum von " + formatDate(new Date(w.begin * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end * 1000), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
-                html += '<p>' + w.LongText + '</p>';
+                html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
+                html += w.longText !== undefined && w.longText !== '' ? '<p>' + w.longText + '</p>' : '';
                 html += "</div>";
                 return html;
             }
