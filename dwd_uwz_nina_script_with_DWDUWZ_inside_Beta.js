@@ -1,4 +1,4 @@
-//Version 0.98 Beta 7
+//Version 0.98 Beta 8
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -114,6 +114,7 @@ const DWD = 1;
 const UWZ = 2;
 const NINA = 4;
 const DWD2 = 8; // only for request
+const ZAMG = 16;
 const MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}];
 if(mainStatePath[mainStatePath.length - 1] != '.') mainStatePath += '.';
 const aliveState = mainStatePath+'alive';
@@ -238,6 +239,12 @@ var dwdBundesland = ''; // 3 Buchstaben
 //UWZ - Landeskennung - Postleitzahl UWZDE12345
 var uwzWarncellId = ''; // Deaktivieren mit ''
 
+//Einstellungen für ZAMG
+var enableInternZamg = false;
+// Koordinaten [{lat:13.05501,lon:47.80949}, {lat=13.05501,lon=47.80949}, ...]. Wenn leer werden die Daten aus iobroker genommen.
+var zamgCoordinates = [];
+
+
 var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
 var uLogAusgabeErweitert = false;
 /* ************************************************************************* */
@@ -325,8 +332,11 @@ forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
 
 //Vorgezogene Tests
-checkConfigVariable('uLogAusgabeErweitert');
+checkConfigVariable('ZAMG');
+checkConfigVariable('zamgCoordinates');
+checkConfigVariable('enableInternZamg');
 checkConfigVariable('DEBUGINGORESTART');
+checkConfigVariable('uLogAusgabeErweitert');
 checkConfigVariable('dwdWarncellId');
 checkConfigVariable('dwdBundesland');
 checkConfigVariable('uwzWarncellId');
@@ -366,6 +376,9 @@ var internalDWDInterval = null;
 var enableInternUWZ = false;
 var internUWZUrl='http://feed.alertspro.meteogroup.com/AlertsPro/AlertsProPollService.php?method=getWarning&language=de&areaID=';
 var internalUWZPath = mainStatePath + 'data.uwz-id.';
+
+var internZamgUrl = "https://warnungen.zamg.at/wsapp/api/getWarningsForCoords?lon=" + placeHolder+"1&lat=" + placeHolder+"&lang=de"
+var internalZamgPath = mainStatePath + 'data.zamg.';
 
 var START = new Date();
 var ENDE = new Date();
@@ -450,6 +463,21 @@ warningTypesString[UWZ] = [
     ['Bodenfrost', '🌡']
 ];
 
+warningTypesString[ZAMG] = [
+    ['unbekannt', ''],
+    ['unbekannt', ''],
+    ['unbekannt', '🌪'],
+    ['Schnee', '🌨'],
+    ['Glatteis', '❄'],
+    ['unbekannt', '🌡'],
+    ['unbekannt', '🔥'],
+    ['Kälte', '❄'],
+    ['unbekannt', '❄'],
+    ['unbekannt', '🔆'],
+    ['unbekannt', '❄'],
+    ['unbekannt', '🌡']
+];
+
 //StatesDefinition für DWD intern
 // https://isabel.dwd.de/DE/leistungen/opendata/help/warnungen/cap_dwd_profile_de_pdf_1_11.pdf?__blob=publicationFile&v=3
 const statesDWDintern = [
@@ -489,6 +517,22 @@ const statesUWZintern = [
     { id:"HTMLLong", default: "", options: {name: "Warning text",type: "string",read: true,write: false,}},
     { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false, states: wtsObj,}}
 ];
+
+const statesZAMGintern = [
+    { id:"begin", default:null, options: {name: "Warnung start",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"end",  default:null, options: {name: "Warnung ende",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"auswirkungen", json:'auswirkungen', default:"", options: {name: "Warnung Auswirkungen",type: "string",role: "weather.state",read: true,write: false,}},
+    { id:"empfehlungen", json:'empfehlungen', default:"", options: {name: "Warnung Empfehlungen",type: "string",role: "weather.state",read: true,write: false,}},
+    { id:"meteotext", json:'meteotext', default:"", options: {name: "Warnung Wettertext",type: "string",role: "weather.state",read: true,write: false,}},
+    { id:"text", json:'text', default:"", options: {name: "Warnung description",type: "string",role: "weather.state",read: true,write: false,}},
+/*6*/    { id:"object", default: {}, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false,}},
+    { id:"type", json:'warntypid', default:-1, options: {name: "Warnung Type",type: "number",read: true,write: false,}},
+    { id:"level", json:'warnstufeid', default: 0, options: {name: "Warnung level",type: "number",role: "value.severity",read: true,write: false,}},
+    { id:"warntype", default: '', options: {name: "Warnung type",type: "string",role: "weather.type",read: true,write: false,}},
+    { id:"area", default: '', options: {name: "Warnung area",type: "string",role: "weather.area",read: true,write: false,}}
+];
+
+
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
 const stateAlert = // Änderungen auch in setAlertState() anpassen
 [
@@ -1892,11 +1936,19 @@ async function getDataFromServer(first) {
         if (enableInternDWD)  await _getDataFromServer(internDWDUrl, DWD, first, dwdWarncellId[a]);
         if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, dwdWarncellId[a]), DWD2, first, dwdWarncellId[a]);
     }
-     for (let a = 0; a < uwzWarncellId.length; a++) {
+    for (let a = 0; a < uwzWarncellId.length; a++) {
         if (enableInternUWZ)  await _getDataFromServer(internUWZUrl + uwzWarncellId[a], UWZ, first, uwzWarncellId[a]);
-     }
+    }
+    if (enableInternZamg) {
+        for (let a = 0; a < zamgCoordinates.length; a++) {
+            let url = replacePlaceholder(internZamgUrl,zamgCoordinates[a].lat,zamgCoordinates[a].lon);
+            if (uLogAusgabeErweitert) log(url);
+            if (enableInternUWZ)  await _getDataFromServer(url, ZAMG, first, '');
+        }
+    }
+
     async function _getDataFromServer(url, m, first, area) {
-        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : ' DWD2')));
+        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD & 2 ? ' DWD2' : 'ZAMG'))));
         if (onStopped) return;
         await axios.get(url)
             .then(results => {
@@ -1907,7 +1959,7 @@ async function getDataFromServer(first) {
                 if (!results) log ('!results');
                 if (results === undefined) log('results === undefined')
                 if (results.status == 200) {
-                    if((DWD|DWD2) & m) processData(area, results.data, m, first);
+                    if((DWD|DWD2|ZAMG) & m) processData(area, results.data, m, first);
                     else if(UWZ & m) processData(getAreaFromURI(results.config.url), results.data, m, first);
                     else {
                         log('getDataFromServer wrong Mode', 'error');
@@ -1923,9 +1975,10 @@ async function getDataFromServer(first) {
                 } else if (error.response == undefined) {
                     if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
                 } else if (error.response.status == 404) {
-                    if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message);
+                    if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
                 } else {
-                    if (uLogAusgabe) log('getDataFromServer() 5. ' + error.response.data);
+                    if (uLogAusgabe) log('getDataFromServer() 5. ')
+                    if (uLogAusgabe) log(error.response.data);
                     if (uLogAusgabe) log(error.response.status);
                     if (uLogAusgabe) log(error.response.headers);
                 }
@@ -1951,6 +2004,34 @@ async function getDataFromServer(first) {
             } else if (UWZ & m) {
                 newOBJ = thedata.results;
                 if (newOBJ.length) newOBJ.sort((a, b) => b.severity - a.severity);
+            } else if (ZAMG & m) {
+                if (thedata.properties !== undefined) {
+                    newOBJ = thedata.properties.warnings;
+                    area = thedata.properties.location.properties.name;
+                    let tpath = internalZamgPath + area
+                    for (let i = 0; i < numOfWarnings; i++) {
+                        let p = tpath + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                        for (let a = 0; a < statesZAMGintern.length; a++) {
+                            let dp = statesZAMGintern[a];
+                            let id = p + dp.id;
+                            if (!await existsStateAsync(id)) {
+                                await createStateAsync(id, dp.options,);
+                            }
+                        }
+                    }
+
+                    for (let a= 0; a<newOBJ.length;a++) {
+                        newOBJ[a].area = area;
+                    }
+                    if (newOBJ.length) newOBJ.sort((a, b) => {
+                        let result = b.properties.warnstufeid - a.properties.warnstufeid;
+                        if (result) return result;
+                        result = a.properties.rawinfo.start - b.properties.rawinfo.start;
+                        if (result) return result;
+                        result = a.properties.warnid - b.properties.warnid;
+                        return result;
+                    });
+                }
             } else if (DWD2 & m) {
                 if (!enableInternDWD2) return;
                 let tempOBJ = Object(thedata);
@@ -1987,6 +2068,7 @@ async function getDataFromServer(first) {
         var baseChannelId = ''
         if (DWD & m || DWD2 & m) baseChannelId = internalDWDPath + area + internalWarningEnd;
         else if (UWZ & m) baseChannelId = internalUWZPath + area + internalWarningEnd;
+        else if (ZAMG & m) baseChannelId = internalZamgPath + area + internalWarningEnd;
         baseChannelId += (_i == 0 ? '' : _i) + '.';
 
         const oldObject = await getStateAsync(baseChannelId + "object");
@@ -2062,6 +2144,47 @@ async function getDataFromServer(first) {
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
+            }
+        }
+        if (/*MODE &*/ ZAMG & m) {
+            /*if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
+                if (timer) clearTimeout(timer);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+            }*/
+            tempObj[statesZAMGintern[6].id] = warnObj;
+            tempObj[statesZAMGintern[10].id] = area;
+            let plainWarnObj = Object.entries(warnObj);
+            if (plainWarnObj.length > 0) {
+                tempObj[statesZAMGintern[9].id] = warningTypesString[ZAMG][warnObj.properties.warntypid][0];
+                //log(warningTypesString[ZAMG][warnObj.properties.warntypid][0])
+                tempObj[statesZAMGintern[0].id] = Number(warnObj.properties.rawinfo.start)*1000;
+                tempObj[statesZAMGintern[1].id] =  Number(warnObj.properties.rawinfo.end)*1000;
+            } else {
+                tempObj[statesZAMGintern[9].id] = 'n/a';
+                tempObj[statesZAMGintern[0].id] = Number('');
+                tempObj[statesZAMGintern[1].id] = Number('');
+            }
+
+            for (let a = 0; a < statesZAMGintern.length; a++) {
+                let data = statesZAMGintern[a];
+                if (statesZAMGintern[a].json !== undefined) {
+                    let def = null;
+                    if (data.options.type == 'string') def = '';
+                    else if (data.options.type == 'object') def = {};
+                    else if (data.options.type == 'number') def = Number('');
+                    else def = null;
+                    try {
+                        tempObj[data.id] = warnObj.properties !== undefined && warnObj.properties[data.json] !== undefined && warnObj.properties[data.json] ? warnObj.properties[data.json] : def;
+                    }
+                    catch(e) {
+                        log(warnObj,'error');
+                    }
+                }
+                let dp = data;
+                //if (plainWarnObj.length > 0)log(baseChannelId + dp.id);
+                //if (plainWarnObj.length > 0)log(tempObj[dp.id]);
+                if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
+
             }
         }
         if (MODE & UWZ & m) {
@@ -2637,8 +2760,11 @@ function getStringIgnoreCount(c) {
     return r;
 }
 // ersetzt Placeholder
-function replacePlaceholder(str, insertText) {
-    return str.replace(placeHolder, insertText);
+function replacePlaceholder(str, insertText, insertText2) {
+    let result = str;
+    if (insertText2) result = result.replace(placeHolder+'1', insertText2)
+    result = result.replace(placeHolder, insertText);
+    return result;
 }
 // baut eine html table für Email
 function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
