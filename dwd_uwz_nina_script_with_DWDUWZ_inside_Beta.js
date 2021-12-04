@@ -1,4 +1,4 @@
-//Version 0.98 Beta 6
+//Version 0.98 Beta 7
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -365,7 +365,7 @@ var internalDWDInterval = null;
 
 var enableInternUWZ = false;
 var internUWZUrl='http://feed.alertspro.meteogroup.com/AlertsPro/AlertsProPollService.php?method=getWarning&language=de&areaID=';
-var internalUWZPath = mainStatePath + 'data.uwz.';
+var internalUWZPath = mainStatePath + 'data.uwz-id.';
 
 var START = new Date();
 var ENDE = new Date();
@@ -477,13 +477,13 @@ for (let a = 0; a < warningTypesString[UWZ].length; a++) {
     wtsObj[String(a)] = warningTypesString[UWZ][a][0];
 }
 const statesUWZintern = [
-    { id:"begin",default:0, options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false,}},
-    { id:"end", default:0, options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"begin",default:null, options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"end", default:null, options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false,}},
     { id:"longText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"shortText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"uwzLevel",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false,}},
     { id:"uwzColor", default:-1, options: {name: "Link to chart",type: "number",read: true,write: false,}},
-/*6*/    { id:"object", default: null, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false,}},
+/*6*/    { id:"object", default: {}, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false,}},
     { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text",type: "string",read: true,write: false}},
     { id:"HTMLLong", default: "", options: {name: "Warning text",type: "string",read: true,write: false,}},
@@ -733,7 +733,7 @@ async function init() { // erster fund von create custom
                 });
             }
             for (let i = 0; i < numOfWarnings; i++) {
-                var p = internalDWDPath + dwdWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                let p = internalDWDPath + dwdWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesDWDintern.length; a++) {
                     let dp = statesDWDintern[a];
                     let id = p + dp.id;
@@ -753,7 +753,7 @@ async function init() { // erster fund von create custom
                 });
             }
             for (let i = 0; i < numOfWarnings; i++) {
-               p = internalUWZPath + uwzWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                let p = internalUWZPath + uwzWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesUWZintern.length; a++) {
                     let dp = statesUWZintern[a];
                     let id = p + dp.id;
@@ -1893,7 +1893,7 @@ async function getDataFromServer(first) {
         if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, dwdWarncellId[a]), DWD2, first, dwdWarncellId[a]);
     }
      for (let a = 0; a < uwzWarncellId.length; a++) {
-        if (enableInternUWZ)  await _getDataFromServer(internUWZUrl, UWZ, first, uwzWarncellId[a]);
+        if (enableInternUWZ)  await _getDataFromServer(internUWZUrl + uwzWarncellId[a], UWZ, first, uwzWarncellId[a]);
      }
     async function _getDataFromServer(url, m, first, area) {
         if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : ' DWD2')));
@@ -2080,7 +2080,7 @@ async function getDataFromServer(first) {
                 tempObj[statesUWZintern[3].id] = warnObj.payload.translationsShortText.DE;
                 tempObj[statesUWZintern[4].id] = _getUWZLevel(warnObj.payload.levelName);
                 tempObj.uwzUrgency = _getUWZUrgency(warnObj.payload.levelName);
-                tempObj[statesUWZintern[5].id] = _getLevelColor(w.payload.levelName);
+                tempObj[statesUWZintern[5].id] = _getLevelColor(warnObj.payload.levelName);
                 tempObj[statesUWZintern[8].id] = _createHTMLShort(tempObj);
                 tempObj[statesUWZintern[9].id] = _createHTMLLong(tempObj);
             } else {
