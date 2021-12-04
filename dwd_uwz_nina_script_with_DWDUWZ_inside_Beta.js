@@ -768,14 +768,6 @@ async function init() { // erster fund von create custom
         // erstelle Datenpunkte für DWD/UWZ standalone
 
         for (let w = 0; w < dwdWarncellId.length; w++) {
-            if (!await existsObjectAsync(internalDWDPath + dwdWarncellId[w])) {
-                await extendObjectAsync(internalDWDPath + dwdWarncellId[w], {
-                    type: 'channel',
-                    common: {
-                        name: 'Warncell'
-                    }
-                });
-            }
             for (let i = 0; i < numOfWarnings; i++) {
                 let p = internalDWDPath + dwdWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesDWDintern.length; a++) {
@@ -788,14 +780,6 @@ async function init() { // erster fund von create custom
             }
         }
         for (let w = 0; w < uwzWarncellId.length; w++) {
-            if (!await existsObjectAsync(internalUWZPath + uwzWarncellId[w])) {
-                await extendObjectAsync(internalUWZPath + uwzWarncellId[w], {
-                    type: 'channel',
-                    common: {
-                        name: 'Warncell'
-                    }
-                });
-            }
             for (let i = 0; i < numOfWarnings; i++) {
                 let p = internalUWZPath + uwzWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesUWZintern.length; a++) {
@@ -2311,14 +2295,12 @@ async function testValueDWD2 () {
                         let b =  results.data.indexOf(';',i);
                         let e = results.data.indexOf(';',++b);
                         let city = results.data.substr(b, e - b)
-                        if (existsObject(internalDWDPath + dwdWarncellId[a])) {
-                            extendObject(internalDWDPath + dwdWarncellId[a], {
-                                type: 'channel',
-                                    common: {
-                                    name: city
-                                }
-                            });
-                        }
+                        extendObject(internalDWDPath + dwdWarncellId[a], {
+                            type: 'channel',
+                                common: {
+                                name: city
+                            }
+                        });
                         if (uLogAusgabe) log('DWD Warncell-Id: ' + dwdWarncellId[a] + ' gefunden: '+ city );
                     }
                 }
