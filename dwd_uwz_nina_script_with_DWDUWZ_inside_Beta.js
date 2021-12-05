@@ -1,4 +1,4 @@
-//Version 0.98 Beta 8
+//Version 0.98 Beta 9
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -115,7 +115,7 @@ const UWZ = 2;
 const NINA = 4;
 const DWD2 = 8; // only for request
 const ZAMG = 16;
-const MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}];
+const MODES = [{mode:DWD, text:'DWD'},{mode:UWZ, text:'UWZ'},{mode:NINA, text:'NINA'}, {mode: ZAMG, text:'ZAMG'}];
 if(mainStatePath[mainStatePath.length - 1] != '.') mainStatePath += '.';
 const aliveState = mainStatePath+'alive';
 if (extendedExists(aliveState)) {
@@ -241,8 +241,9 @@ var uwzWarncellId = ''; // Deaktivieren mit ''
 
 //Einstellungen für ZAMG
 var enableInternZamg = false;
-// Koordinaten [{lat:13.05501,lon:47.80949}, {lat=13.05501,lon=47.80949}, ...]. Wenn leer werden die Daten aus iobroker genommen.
+// Koordinaten [{lat:13.05501,lon:47.80949}, {lat=13.05501,lon=47.80949}, ...].
 var zamgCoordinates = [];
+var uZAMGMitMeteoinformationen = true; // gibt die Wetterinformationen mit der Beschreibung aus: z.B Eine Kaltfront und ein Italientief sorgen im Warnzeitraum...
 
 
 var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
@@ -332,6 +333,7 @@ forcedSpeak = !!forcedSpeak;
 windForceDetailsSpeak = !!windForceDetailsSpeak;
 
 //Vorgezogene Tests
+checkConfigVariable('uZAMGMitMeteoinformationen');
 checkConfigVariable('ZAMG');
 checkConfigVariable('zamgCoordinates');
 checkConfigVariable('enableInternZamg');
@@ -396,9 +398,12 @@ var subNINAhandler = null;
 var timeoutFromCreateState = null;
 var dwdpushdienst = uPushdienst,
     ninapushdienst = uPushdienst,
+    zamgpushdienst = uPushdienst,
     uwzpushdienst = uPushdienst;
+
 let dwdManpushdienst = uPushdienst,
     ninaManpushdienst = uPushdienst,
+    zamgManpushdienst = uPushdienst,
     uwzManpushdienst = uPushdienst;
 var firstRun = true;
 var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enthalten
@@ -794,7 +799,7 @@ async function init() { // erster fund von create custom
 
         // MODE änderung über Datenpunkte string
         if (!await existsStateAsync(configModeState)) {
-            await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD oder UWZ oder Nina", type: "string", def: '' });
+            await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD oder UWZ oder Nina oder Zamg", type: "string", def: '' });
         }
         on({ id: configModeState, change: 'ne', ack: false }, function(obj) {
             if (obj.state.val && typeof obj.state.val === 'string' &&
@@ -802,9 +807,7 @@ async function init() { // erster fund von create custom
                 //setState(configModeState, MODE, true)
                 let mode = 0;
                 if (firstRun) return;
-                mode |= obj.state.val.toUpperCase().includes('DWD') ? DWD : 0;
-                mode |= obj.state.val.toUpperCase().includes('UWZ') ? UWZ : 0;
-                mode |= obj.state.val.toUpperCase().includes('NINA') ? NINA : 0;
+                for (let a = 0; a < MODES.length; a++) mode |= obj.state.val.toUpperCase().includes(MODES[a].text) ? MODES[a].mode : 0;
                 if (MODE != mode) {
                     myLog('Modus wird geändert von: ' + mode + ' String:' + obj.state.val);
                     changeMode(mode);
@@ -844,7 +847,7 @@ async function init() { // erster fund von create custom
         autoSendWarnings = getState(id).val;
         await setStateAsync(id, autoSendWarnings, true);
 
-        let mode = [MODES[0], MODES[1]];
+        let mode = [MODES[0], MODES[1], MODES[3]];
         for (let c = 0; c < mode.length; c++) {
             let stateAlertId = mainStatePath + 'alert.' + mode[c].text.toLowerCase() + '.';
             for (let b = 0; b < warningTypesString[mode[c].mode].length; b++) {
@@ -898,7 +901,7 @@ async function init() { // erster fund von create custom
 
 // setzte alle MODE Datenpunkte
 function setConfigModeStates(mode) {
-    if (extendedExists(configModeState)) setState(configModeState, (mode & DWD ? 'DWD' : '') + (mode & UWZ ? 'UWZ' : '') + (mode & NINA ? 'NINA' : ''), true);
+    if (extendedExists(configModeState)) setState(configModeState, (mode & DWD ? 'DWD' : '') + (mode & UWZ ? 'UWZ' : '') + (mode & NINA ? 'NINA' : '') + (mode & ZAMG ? 'ZAMG' : ''), true);
     for (let a = 0; a < MODES.length; a++) {
         let t = MODES[a].text.toLowerCase();
         let id = mainStatePath + 'config.' + t;
@@ -1010,6 +1013,12 @@ function setConfigKonstanten(id, val, auto) {
             else ninaManpushdienst = switchFlags(ninaManpushdienst, value, val);
             break;
         }
+        case 'zamg': {
+            val = val && !!(MODE & ZAMG);
+            if (auto) zamgpushdienst = switchFlags(zamgpushdienst, value, val);
+            else zamgManpushdienst = switchFlags(zamgManpushdienst, value, val);
+            break;
+        }
         default: {
             log('unbekannter Mode:' + m + 'in setConfigKonstanten', 'error');
         }
@@ -1019,8 +1028,8 @@ function setConfigKonstanten(id, val, auto) {
 
 // setzte die Alert States auf die höchste aktuelle Warnstufe
 function setAlertState() {
-    let mode = [MODES[0], MODES[1]];
-    for (let a = 0; a < 2; a++) {
+    let mode = [MODES[0], MODES[1], MODES[3]];
+    for (let a = 0; a < mode.length; a++) {
         if (!(MODE & mode[a].mode)) continue;
         let stateAlertid = mainStatePath + 'alert.' + mode[a].text.toLowerCase() + '.';
         for (let b = 0; b < warningTypesString[mode[a].mode].length; b++) {
@@ -1113,6 +1122,7 @@ function getAutoPushMode(mode) {
         if (mode & DWD) mode = switchFlags(mode, DWD, !!(uPushdienst & dwdpushdienst));
         if (mode & UWZ) mode = switchFlags(mode, UWZ, !!(uPushdienst & uwzpushdienst));
         if (mode & NINA) mode = switchFlags(mode, NINA, !!(uPushdienst & ninapushdienst));
+        if (mode & ZAMG) mode = switchFlags(mode, ZAMG, !!(uPushdienst & zamgpushdienst));
         return mode;
     }
     myLog('getAutoPushFlags() mode unbekannt!', 'info');
@@ -1125,6 +1135,7 @@ function getManuellPushMode(mode) {
         if (mode & DWD) mode = switchFlags(mode, DWD, !!(uPushdienst & dwdManpushdienst));
         if (mode & UWZ) mode = switchFlags(mode, UWZ, !!(uPushdienst & uwzManpushdienst));
         if (mode & NINA) mode = switchFlags(mode, NINA, !!(uPushdienst & ninaManpushdienst));
+        if (mode & ZAMG) mode = switchFlags(mode, ZAMG, !!(uPushdienst & zamgManpushdienst));
         return mode;
     }
     myLog('getAutoPushFlags() mode unbekannt!', 'error');
@@ -1137,6 +1148,7 @@ function getAutoPushFlags(mode) {
         if (mode & DWD) m |= (uPushdienst & dwdpushdienst);
         if (mode & UWZ) m |= (uPushdienst & uwzpushdienst);
         if (mode & NINA) m |= (uPushdienst & ninapushdienst);
+        if (mode & ZAMG) m |= (uPushdienst & zamgpushdienst);
         return m;
     }
     myLog('getAutoPushFlags() mode unbekannt!', 'error');
@@ -1149,6 +1161,7 @@ function getManuellPushFlags(mode) {
         if (mode & DWD) m |= (uPushdienst & dwdManpushdienst);
         if (mode & UWZ) m |= (uPushdienst & uwzManpushdienst);
         if (mode & NINA) m |= (uPushdienst & ninaManpushdienst);
+        if (mode & ZAMG) m |= (uPushdienst & zamgManpushdienst);
         return m;
     }
     myLog('getManuellPushFlags() mode unbekannt!', 'error');
@@ -1162,7 +1175,7 @@ function switchFlags(g, f, b) {
     return g;
 }
 
-function getModeState() {
+/*function getModeState() {
     if (extendedExists(configModeState)) {
         let value = getState(configModeState).val;
         let mode = 0;
@@ -1172,7 +1185,7 @@ function getModeState() {
         return mode;
     }
     return null;
-}
+}*/
 /* *************************************************************************
 * Hilfsfunktion für Flags bearbeitung Pushdienste ENDE
 /* *************************************************************************
@@ -1372,6 +1385,7 @@ function checkWarningsMain() {
         let area = entry.areaID;
         let color = entry.color;
         let mode = entry.mode;
+        let meteo = entry.meteo || '';
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
         myLog('New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash + ' level:' + level);
@@ -1403,7 +1417,9 @@ function checkWarningsMain() {
                     else he = prefix + headline;
                     if (uHtmlMitBeschreibung) {
                         if (html.description) de = html.description;
+                        else if (entry.htmldesc) de = entry.htmldesc;
                         else de = description;
+                        if (meteo && uZAMGMitMeteoinformationen) de += meteo ? '<br><br>Wetterinformation:<br>' + meteo.replace("/n", '<br>') : '';
                         if (uHtmlMitAnweisungen) {
                             if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
                             else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
@@ -1414,7 +1430,10 @@ function checkWarningsMain() {
                     he = prefix + headline;
                     if (uHtmlMitBeschreibung) {
                         de = description;
-                        if (uHtmlMitAnweisungen && instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                        if (meteo && uZAMGMitMeteoinformationen) de += meteo ? '<br><br>Wetterinformation:<br>' + meteo.replace("/n", '<br>') : '';
+                        if (uHtmlMitAnweisungen && instruction && instruction.length > 2) {
+                            de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                        }
                     }
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
@@ -1442,6 +1461,7 @@ function checkWarningsMain() {
                     pushMsg += (bt ? NEWLINE + sTime : '');
                     if (uTextMitBeschreibung) {
                         pushMsg += NEWLINE + NEWLINE + description;
+                        if (meteo && uZAMGMitMeteoinformationen) pushMsg += meteo ? NEWLINE + NEWLINE + 'Wetterinformation: ' + meteo : '';
                         if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                             pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                         }
@@ -1470,6 +1490,7 @@ function checkWarningsMain() {
                     if ((begin && end)) sTime += " ";
                     if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
                     speakMsg += SPACE + sTime + '.' + SPACE;
+                    if (meteo && uZAMGMitMeteoinformationen) description += meteo ? SPACE + SPACE + 'Wetterinformation: ' + meteo : '';
                     if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                         description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                     }
@@ -1869,10 +1890,13 @@ async function InitDatabase(first) {
     myLog('InitDatabase() first: ' + first);
     if (first) {
         warnDatabase = { new: [], old: [] };
-        if ((enableInternDWD || enableInternDWD2 || enableInternUWZ) && !internalDWDInterval && first) {
+        if ((enableInternDWD || enableInternDWD2 || enableInternUWZ) || enableInternZamg ) {
             if (uLogAusgabe && (enableInternDWD || enableInternDWD2)) log('Nutze Standalone DWD Datenabruf');
+            if (uLogAusgabe && (enableInternDWD2)) log('Nutze Standalone DWD2 Datenabruf');
             if (uLogAusgabe && (enableInternUWZ)) log('Nutze Standalone UWZ Datenabruf');
+            if (uLogAusgabe && (enableInternZamg)) log('Nutze Standalone ZAMG Datenabruf');
             if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
+            if (internalDWDInterval) clearInterval(internalDWDInterval);
             internalDWDInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
     }
@@ -2065,7 +2089,7 @@ async function getDataFromServer(first) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
-                if (uLogAusgabe) log('DWD2 Warnung gefunden');
+                if (uLogAusgabe) log('DWD2 Warnung gefunden oder entfernt.');
             }
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
 
@@ -2099,7 +2123,7 @@ async function getDataFromServer(first) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
-                if (uLogAusgabe) log('DWD Warnung gefunden');
+                if (uLogAusgabe) log('DWD Warnung gefunden oder entfernt.');
             }
 
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
@@ -2130,11 +2154,11 @@ async function getDataFromServer(first) {
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
             }
         }
-        if (/*MODE &*/ ZAMG & m) {
-            /*if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
+        if (MODE & ZAMG & m) {
+            if (addDatabaseData(baseChannelId + statesZAMGintern[6].id, warnObj, m, first)){
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
-            }*/
+            }
             tempObj[statesZAMGintern[6].id] = warnObj;
             tempObj[statesZAMGintern[10].id] = area;
             let plainWarnObj = Object.entries(warnObj);
@@ -2331,7 +2355,7 @@ function addDatabaseData(id, value, mode, old) {
     // Kompatibilität zur Stableversion
     if (typeof value === 'string' ) value = JSON.parse(value);
     myLog("1. addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
-    if (mode & (UWZ |DWD | DWD2)) {
+    if (mode & (UWZ |DWD | DWD2 | ZAMG)) {
         change = removeDatabaseDataID(id);
         if (Object.entries(value).length > 0 ) {
             warn = getDatabaseData(value, mode);
@@ -2348,7 +2372,7 @@ function addDatabaseData(id, value, mode, old) {
                 change = warnDatabase.old.findIndex(function(j){return j.hash == warn.hash}) == -1;
                 if (uLogAusgabe) {
                     if (!change) log("No change or init! id: " + id + " headline: " + warn.headline);
-                    else log("Add UWZ/DWD warning to database. id: " + id + " headline: " + warn.headline);
+                    else log("Add UWZ/DWD/ZAMG warning to database. id: " + id + " headline: " + warn.headline);
                 }
             }
         } else if (uLogAusgabe && change) log("Remove Warning UWZ/DWD with id: " + id);
@@ -2475,6 +2499,36 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
+    } else if (mode === ZAMG) {
+        if (
+            warn.properties === undefined ||
+            warn.properties.rawinfo.wlevel < minlevel
+        ) {if (uLogAusgabeErweitert) log('Übergebenene Warnung ZAMG verworfen');return null;}
+        result['type']          = warn.properties.warntypid === undefined 	    ? -1 	: warn.properties.warntypid;
+        result['mode'] = ZAMG;
+        result['description']   = !warn.properties.text 	                    ? '' 	: warn.properties.text + ' ';
+        result['description']   += !warn.properties.auswirkungen 	            ? '' 	: warn.properties.auswirkungen;
+        result['meteo']         = !warn.properties.meteotext 	                ? '' 	: warn.properties.meteotext;
+        result['headline']      = result.type === -1 		                    ? '' 	: 'Warnung vor ' + warningTypesString[ZAMG][result.type][0];
+        result['start']         = warn.properties.rawinfo.start === undefined 	? null 	: warn.properties.rawinfo.start*1000 || null;
+        result['end']           = warn.properties.rawinfo.end === undefined 	? null 	: warn.properties.rawinfo.end*1000 || null;
+        result['instruction']   = !warn.properties.empfehlungen  	            ? '' 	: warn.properties.empfehlungen;
+        result['level']         = warn.properties.rawinfo.wlevel === undefined ? -1 	: warn.properties.rawinfo.wlevel;
+        result['areaID'] 		= warn.area === undefined 	? '' 	: warn.area;
+        result['html'] 					= {};
+        result['html']['web'] 			= '';
+        result['html']['instruction'] 	= result.instruction.replace(/\n/g, '<br>');
+        result['html']['headline'] 		= result.headline.replace(/\n/g, '<br>');
+        result['html']['description'] 	= result.description.replace(/\n/g, '<br>');
+        result['altitudeStart'] = 0;
+        result['altitudeEnd'] 	= 3000;
+        result['web'] 			= '';
+        result['webname'] 		= '';
+        result['picture']        = result.type === -1                ? ''    : warningTypesString[ZAMG][result.type][1];
+        if (warningTypesString[ZAMG][result.type][0] == 'unbekannt') {
+            log('Bitte folgende Zeile im Forum posten. Danke', warn);
+            log('Unbekannter Typ: ' + result.type + ' Schlagzeile: ' + result.headline, warn);
+        }
     } else if (mode === DWD2) {
         if (
             warn.RESPONSETYPE != 'Prepare'
@@ -2718,6 +2772,7 @@ function removeDatabaseDataID(id) {
 function getArtikelMode(mode, speak = false) {
     let r = SPACE;
     if (mode & DWD) r += (DEBUG ? 'des DWD('+scriptName+') ' : 'des DWD ');
+    if (mode & ZAMG) r += (DEBUG ? 'des ZAMG('+scriptName+') ' : 'des ZAMG ');
     if (mode & UWZ) {
         if (r.length > 1) r += 'und ';
         if (speak) r += (DEBUG ? 'der Unwetterzentrale('+scriptName+') ' : 'der Unwetterzentrale ');
