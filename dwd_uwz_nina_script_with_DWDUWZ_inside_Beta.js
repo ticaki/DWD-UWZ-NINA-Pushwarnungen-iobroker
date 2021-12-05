@@ -469,18 +469,15 @@ warningTypesString[UWZ] = [
 ];
 
 warningTypesString[ZAMG] = [
-    ['unbekannt', ''],
-    ['unbekannt', ''],
-    ['unbekannt', '🌪'],
+    ['unbekannt1', ''],
+    ['Wind', '🌪'],
+    ['Regen', '🌧'],
     ['Schnee', '🌨'],
     ['Glatteis', '❄'],
-    ['unbekannt', '🌡'],
-    ['unbekannt', '🔥'],
+    ['Gewitter', '⚡'],
+    ['Hitze', '🔆'],
     ['Kälte', '❄'],
-    ['unbekannt', '❄'],
-    ['unbekannt', '🔆'],
-    ['unbekannt', '❄'],
-    ['unbekannt', '🌡']
+    ['unbekannt2', '❄'],
 ];
 
 //StatesDefinition für DWD intern
