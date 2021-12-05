@@ -1,4 +1,4 @@
-//Version 0.98 Beta 9
+//Version 0.98 Beta 10
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -856,6 +856,7 @@ async function init() { // erster fund von create custom
                     stateAlert[a].type.name = stateAlert[a].name;
                     if (!await existsStateAsync(stateAlertIdFull)) {
                         await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
+                        await setStateAsync(stateAlertIdFull, stateAlert[a].default,);
                     }
                 }
             }
@@ -1318,25 +1319,22 @@ function checkWarningsMain() {
     }
 
     warnDatabase.new.sort(function(a, b) {
-        return a.level == b.level ? a.begin - b.begin : b.level - a.level;
+        return a.level == b.level ? a.start - b.start : b.level - a.level;
     })
     var collectMode = 0;
     let emailHtmlWarn = '';
     let emailHtmlClear = '';
     let emailSend = onClickCheckRun;
-    let speakMsgTemp = [];
     collectMode = 0;
     let debugdata = '';
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
     myLog('Nr 6 Build messages');
     for (let i = 0; i < warnDatabase.old.length; i++) {
         let entry = warnDatabase.old[i];
-        let description = entry.description;
         let headline = entry.headline;
         let hash = entry.hash;
         let area = entry.areaID;
         let mode = entry.mode;
-        let count = 0;
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (isWarnIgnored(entry)) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
@@ -2517,9 +2515,9 @@ function getDatabaseData(warn, mode){
         result['areaID'] 		= warn.area === undefined 	? '' 	: warn.area;
         result['html'] 					= {};
         result['html']['web'] 			= '';
-        result['html']['instruction'] 	= result.instruction.replace(/\n/g, '<br>');
-        result['html']['headline'] 		= result.headline.replace(/\n/g, '<br>');
-        result['html']['description'] 	= result.description.replace(/\n/g, '<br>');
+        result['html']['instruction'] 	= result.instruction.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+        result['html']['headline'] 		= result.headline.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+        result['html']['description'] 	= result.description.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
         result['altitudeStart'] = 0;
         result['altitudeEnd'] 	= 3000;
         result['web'] 			= '';
@@ -2974,7 +2972,7 @@ function myLog(msg, channel){
 }
 function checkConfigVariable(v) {
     try {
-        if (eval(v)) {t = ''};
+        if (eval(v)) {let t = ''};
     } catch (e) {
         let m = 'Variable in der Konfiguration fehlt: "' + v +'" bitte auf Github nachlagen und die Konfigzeile in dein lokales Skript kopieren.';
         log(m, 'warn');
