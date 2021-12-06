@@ -853,7 +853,7 @@ async function init() { // erster fund von create custom
                     stateAlert[a].type.name = stateAlert[a].name;
                     if (!await existsStateAsync(stateAlertIdFull)) {
                         await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
-                        await setStateAsync(stateAlertIdFull, stateAlert[a].default,);
+                        await setStateAsync(stateAlertIdFull, stateAlert[a].default, true);
                     }
                 }
             }
