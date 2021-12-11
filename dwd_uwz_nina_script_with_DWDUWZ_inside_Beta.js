@@ -1,4 +1,4 @@
-//Version 0.98 Beta 10
+//Version 0.99 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -279,7 +279,7 @@ var uwzPath=            'javascript.0.UWZ';
 var dwdPath=            'dwd.0';
 var ninaPath=           'nina.0'
 
-
+var intervalMinutes = 5; // die Daten bei DWD werden alle 10 Minuten aktualisiert.
 
 // Instanzen im ioBroker
 var telegramInstanz=    'telegram.0';
@@ -364,8 +364,6 @@ const mirrorMessageStateHtml = mainStatePath + 'messageHtml';
 const SPACE = ' ';
 const NEWLINE = '\n';
 const axios = require('axios');
-
-var intervalMinutes = 5; // die Daten bei DWD werden alle 10 Minuten aktualisiert.
 var numOfWarnings = 5;
 var enableInternDWD = false;
 var enableInternDWD2 = false;
@@ -373,13 +371,13 @@ const internDWDUrl='https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json'
 const internDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.2.0&CQL_FILTER=WARNCELLID%20IN%20(%27'+ placeHolder +'%27)&request=GetFeature&typeName=dwd%3AWarnungen_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
 var internalDWDPath = mainStatePath + 'data.dwd.';
 var internalWarningEnd = '.warning';
-var internalDWDInterval = null;
+var standaloneInterval = null;
 
 var enableInternUWZ = false;
 var internUWZUrl='http://feed.alertspro.meteogroup.com/AlertsPro/AlertsProPollService.php?method=getWarning&language=de&areaID=';
 var internalUWZPath = mainStatePath + 'data.uwz-id.';
 
-var internZamgUrl = "https://warnungen.zamg.at/wsapp/api/getWarningsForCoords?lon=" + placeHolder+"1&lat=" + placeHolder+"&lang=de"
+var internZamgUrl = "https://warnungen.zamg.at/wsapp/api/getWarningsForCoords?lon=" + placeHolder+"&lat=" + placeHolder+"1&lang=de"
 var internalZamgPath = mainStatePath + 'data.zamg.';
 
 var START = new Date();
@@ -411,7 +409,18 @@ var _speakToInterval = null;
 var deviceList = 		{};
 var onChangeTimeoutObj = {};
 var onStopped = false;
+var setAlertStateTimeout = null;
+
+var warncells = {};
+warncells[DWD] = [];
+warncells[UWZ] = [];
+warncells[ZAMG] = [];
+
 const randomID = Math.random()*10000;
+var templist = {};
+templist[DWD] = {};
+templist[UWZ] = {};
+templist[ZAMG] = {};
 
 // Warning types
 var warningTypesString = [];
@@ -580,14 +589,33 @@ for (let a = 0; a < konstanten.length; a++) {
     if (dwdWarncellId) {
         enableInternDWD = true;
         enableInternDWD2 = true;
-        if (!Array.isArray(dwdWarncellId))dwdWarncellId = [dwdWarncellId];
+        if (Array.isArray(dwdWarncellId)){
+            for(let a = 0; a < dwdWarncellId.length; a++) warncells[DWD].push({id:dwdWarncellId[a],text:''})
+        } else warncells[DWD].push({id:dwdWarncellId, text:''});
     }
 
     //testValueTypeLog(uwzWarncellId, 'uwzWarncellId', 'string');
-    if (uwzWarncellId) {
-        enableInternUWZ = true;
-        if (!Array.isArray(uwzWarncellId)) uwzWarncellId = [uwzWarncellId];
+    if (!Array.isArray(regionName[0])) {
+        regionName = [regionName];
     }
+    if (regionName.length > 0) {
+        enableInternUWZ = true;
+        if (Array.isArray(regionName)){
+            for(let a = 0; a < regionName.length; a++) warncells[UWZ].push({id:regionName[a][0],text:regionName[a][1]})
+        }
+    }
+    if (zamgCoordinates) {
+        if (Array.isArray(zamgCoordinates)){
+            for(let a = 0; a < zamgCoordinates.length; a++) {
+                zamgCoordinates[a].text = '';
+                let id = zamgCoordinates[a].breiten + '/' + zamgCoordinates[a].laengen;
+                id = id.replace(/\./g,'#');
+                zamgCoordinates[a].id = id;
+                warncells[ZAMG].push(zamgCoordinates[a]);
+            }
+        }
+    }
+
     checkConfigVariable('dwdBundesland');
     testValueTypeLog(dwdBundesland, 'dwdBundesland', 'string');
 
@@ -603,11 +631,9 @@ for (let a = 0; a < konstanten.length; a++) {
     testValueTypeLog(uGemeinde, 'uGemeinde', 'string');
     testValueTypeLog(uLandkreis, 'uLandkreis', 'string');
 
-    testValueDWD2();
+    //testValueDWD2();
 
-    if (!Array.isArray(regionName[0])) {
-        regionName = [regionName];
-    }
+
     let b = 0;
     for (var a = 0; a < regionName.length; a++) {
         b++;
@@ -761,29 +787,130 @@ init();
 async function init() { // erster fund von create custom
     try {
         // State der Pushnachrichten über pushover / telegram spiegelt
-        if (!await existsStateAsync(mirrorMessageState)) {
-            createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
-        }
-        if (!await existsStateAsync(mirrorMessageStateHtml)) {
-            await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
+            if (!await existsStateAsync(mirrorMessageState)) {
+                createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
+            }
+            if (!await existsStateAsync(mirrorMessageStateHtml)) {
+                await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
+            }
+        } catch(error) {
+            log('Fehler in CreateStates #1');
+            log(error);
+            stopScript();
         }
         // erstelle Datenpunkte für DWD/UWZ standalone
+        for (let c = 0; c < MODES.length; c++) {
+            if (c == 2) continue; // nicht nina;
+            let warncellid = mainStatePath + 'config.warnzelle.' + MODES[c].text.toLowerCase() ;
+            try {
+                let app = ''
+                let app1 = ''
+                switch(MODES[c].mode) {
+                    case DWD: {
+                        app = '.add#';
+                        break;
+                    }
+                    case UWZ: {
+                        app = '.addName#';
+                        app1 = '.addId#';
+                        break;
+                    }
+                    case ZAMG: {
+                        app = '.addLat#';
+                        app1 = '.addLong#';
+                        break;
+                    }
+                    default:
+                }
+                if (!await existsStateAsync(warncellid + app)) {
+                            await createStateAsync(warncellid + app, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
+                            await setStateAsync(warncellid + app, '', true);
+                }
+                on ({id: warncellid + app, ack:false}, addWarncell);
+                if (app1) {
+                    if (!await existsStateAsync(warncellid + app1)) {
+                                await createStateAsync(warncellid + app1, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
+                                await setStateAsync(warncellid + app1, '', true);
+                    }
+                    on ({id: warncellid + app1, ack:false}, addWarncell);
+                }
+                if (!await existsStateAsync(warncellid + '.refresh#')) {
+                            await createStateAsync(warncellid + '.refresh#', '',{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
+                            await setStateAsync(warncellid + '.refresh#', false, true);
 
-        for (let w = 0; w < dwdWarncellId.length; w++) {
+                }
+                on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
+            } catch(error) {
+                log('Fehler in CreateStates #2');
+                log(error);
+                stopScript();
+            }
+            let mode = MODES[c].mode;
+            if (warncells[mode].length > 0) {
+                for (var a = 0; a < warncells[mode].length; a++) {
+                    await addWarncell(warncells[mode][a].id, c);
+                }
+                let st = $('state(state.id='+mainStatePath +'config.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
+                for (var a = 0; a < st.length; a++) {
+                    let val = getEndfromID(st[a]);
+                    if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || 'addLat#' || 'addLong#') continue;
+                    let wIndex = warncells[mode].findIndex(w => val == w.id);
+                    if (wIndex == -1 && getState(st[a]).val) await addWarncell(val, c);
+                    else if (wIndex > -1 && !getState(st[a]).val) warncells[mode].splice(wIndex, 1);
+                    on(st[a], function(obj) {
+                        setState(obj.id, obj.state.val, true);
+                        let val = getEndfromID(obj.id);
+                        let modetext = getPreEndfromID(obj.id);
+                        let c = MODES.findIndex((a) => a.text.toLowerCase() == modetext);
+                        let mode = MODES[c].mode;
+                        let wIndex = warncells[mode].findIndex(w => val == w.id);
+                        if (wIndex == -1 && obj.state.val) addWarncell(val, c);
+                        else if (wIndex > -1 && !obj.state.val) warncells[mode].splice(wIndex, 1);
+                    });
+                }
+            }
+
+            let stateAlertId = mainStatePath + 'alert.' + MODES[c].text.toLowerCase() + '.';
+            for (let b = 0; b < warningTypesString[MODES[c].mode].length; b++) {
+                for (let a = 0; a < stateAlert.length; a++) {
+                    let stateAlertIdFull = stateAlertId + warningTypesString[MODES[c].mode][b][0] + '.' + stateAlert[a].name;
+                    stateAlert[a].type.name = stateAlert[a].name;
+                    try {
+                        if (!await existsStateAsync(stateAlertIdFull)) {
+                            await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
+                            await setStateAsync(stateAlertIdFull, stateAlert[a].default,true);
+                        }
+                    } catch(error) {
+                        log('Fehler in CreateStates #3');
+                        log(error);
+                        stopScript();
+                    }
+
+                }
+            }
+        }
+
+        for (let w = 0; w < warncells[DWD].length; w++) {
             for (let i = 0; i < numOfWarnings; i++) {
-                let p = internalDWDPath + dwdWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesDWDintern.length; a++) {
                     let dp = statesDWDintern[a];
                     let id = p + dp.id;
-                    if (!await existsStateAsync(id)) {
-                        await createStateAsync(id, dp.options,);
+                    try {
+                        if (!await existsStateAsync(id)) {
+                            await createStateAsync(id, dp.options,);
+                        }
+                    } catch(error) {
+                        log('Fehler in CreateStates #4');
+                        log(error);
+                        stopScript();
                     }
                 }
             }
         }
-        for (let w = 0; w < uwzWarncellId.length; w++) {
+        for (let w = 0; w < warncells[UWZ].length; w++) {
             for (let i = 0; i < numOfWarnings; i++) {
-                let p = internalUWZPath + uwzWarncellId[w] + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                let p = internalUWZPath + warncells[UWZ][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesUWZintern.length; a++) {
                     let dp = statesUWZintern[a];
                     let id = p + dp.id;
@@ -793,7 +920,7 @@ async function init() { // erster fund von create custom
                 }
             }
         }
-
+        try {
         // MODE änderung über Datenpunkte string
         if (!await existsStateAsync(configModeState)) {
             await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD oder UWZ oder Nina oder Zamg", type: "string", def: '' });
@@ -844,20 +971,7 @@ async function init() { // erster fund von create custom
         autoSendWarnings = getState(id).val;
         await setStateAsync(id, autoSendWarnings, true);
 
-        let mode = [MODES[0], MODES[1], MODES[3]];
-        for (let c = 0; c < mode.length; c++) {
-            let stateAlertId = mainStatePath + 'alert.' + mode[c].text.toLowerCase() + '.';
-            for (let b = 0; b < warningTypesString[mode[c].mode].length; b++) {
-                for (let a = 0; a < stateAlert.length; a++) {
-                    let stateAlertIdFull = stateAlertId + warningTypesString[mode[c].mode][b][0] + '.' + stateAlert[a].name;
-                    stateAlert[a].type.name = stateAlert[a].name;
-                    if (!await existsStateAsync(stateAlertIdFull)) {
-                        await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
-                        await setStateAsync(stateAlertIdFull, stateAlert[a].default, true);
-                    }
-                }
-            }
-        }
+
         // Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
         for (var a = 0; a < konstanten.length; a++) {
             if ((uPushdienst & konstanten[a].value) != 0) {
@@ -890,8 +1004,8 @@ async function init() { // erster fund von create custom
         subscribeStates();
         setWeekend();
         activateSchedule();
-    }
-    catch(error) {
+    } catch(error) {
+        log('Fehler in CreateStates #5');
         log(error);
         stopScript();
     }
@@ -1034,6 +1148,7 @@ function setAlertState() {
             let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b][0] + '.';
             let AlertLevel = -1, AlertIndex = -1;
             for (let c = 0; c < warnDatabase.new.length; c++) {
+                //if(warnDatabase.new[c].mode == ZAMG) log('im here')
                 if (warnDatabase.new[c].mode == mode[a].mode && warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
                     AlertLevel = warnDatabase.new[c].level;
                     AlertIndex = c;
@@ -1259,8 +1374,9 @@ function checkWarningsMain() {
                     a--;
                     break;
                 }
-            } else if (w.altitudeStart > w2.altitudeStart && w.level == w2.level) {
-                w.altitudeStart = w2.altitudeStart;
+            } else if (w.altitudeEnd > w2.altitudeEnd && w.level == w2.level) {
+                if (w.altitudeStart > w2.altitudeStart) w.altitudeStart = w2.altitudeStart;
+                w.repeatCounter = w2.rerepeatCounter
                 warnDatabase.new.splice(b, 1);
                 if (uLogAusgabe) log('Nr 4 (Level gleich - Höhen unterschiedlich) Behalte Warnung mit Headline:' + w.headline + ' Lösche:' + w2.headline);
                 if (a >= b--) {
@@ -1285,7 +1401,7 @@ function checkWarningsMain() {
                     w2.level > attentionWarningLevel ||
                     w.hash == w2.hash ||
                     w.areaID != w2.areaID ||
-                    Math.abs(w2.start - w.start) > 43200000 // Verlängern ignorieren wenn 12 Stunden zwischen den Warnungen liegen.
+                    Math.abs(w2.end - w.end) > 43200000 // Verlängern ignorieren wenn 12 Stunden zwischen den Warnungen liegen.
                 ) continue;
                 if (w2.end >= w.start) {
                     if (w.repeatCounter > 30) {
@@ -1295,13 +1411,12 @@ function checkWarningsMain() {
                     if (w2.level == w.level) {
                         w.repeatCounter += w2.repeatCounter + 1;
                         let i = getIndexOfHash(warnDatabase.new, w2.hash);
-                        if (uLogAusgabe) log('Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
+                        if (w.start > w2.start) w.start = w2.start
                         warnDatabase.old.splice(b--, 1);
+                        if (uLogAusgabe) log('Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
                         if (i != -1) {
                             warnDatabase.new.splice(i, 1);
                             if (i <= a) --a;
-                            --a;
-                            break;
                         }
                     }
                 }
@@ -1886,13 +2001,13 @@ async function InitDatabase(first) {
     if (first) {
         warnDatabase = { new: [], old: [] };
         if ((enableInternDWD || enableInternDWD2 || enableInternUWZ) || enableInternZamg ) {
-            if (uLogAusgabe && (enableInternDWD || enableInternDWD2)) log('Nutze Standalone DWD Datenabruf');
-            if (uLogAusgabe && (enableInternDWD2)) log('Nutze Standalone DWD2 Datenabruf');
-            if (uLogAusgabe && (enableInternUWZ)) log('Nutze Standalone UWZ Datenabruf');
-            if (uLogAusgabe && (enableInternZamg)) log('Nutze Standalone ZAMG Datenabruf');
+            if (uLogAusgabe && (enableInternDWD)) log('Standalone DWD Datenabruf aktiviert');
+            if (uLogAusgabe && (enableInternDWD2)) log( 'Standalone DWD2 Datenabruf aktiviert');
+            if (uLogAusgabe && (enableInternUWZ)) log('Standalone UWZ Datenabruf aktiviert');
+            if (uLogAusgabe && (enableInternZamg)) log('Standalone ZAMG Datenabruf aktiviert');
             if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
-            if (internalDWDInterval) clearInterval(internalDWDInterval);
-            internalDWDInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
+            if (standaloneInterval) clearInterval(standaloneInterval);
+            standaloneInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
     }
     if (MODE & DWD && !(enableInternDWD || enableInternDWD2)) {
@@ -1935,19 +2050,37 @@ async function InitDatabase(first) {
 // Daten vom Server abfragen
 async function getDataFromServer(first) {
     if (first === undefined) first = false;
-    for (let a = 0; a < dwdWarncellId.length; a++) {
-        if (enableInternDWD)  await _getDataFromServer(internDWDUrl, DWD, first, dwdWarncellId[a]);
-        if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, dwdWarncellId[a]), DWD2, first, dwdWarncellId[a]);
+    if (enableInternDWD2 && warncells[DWD].length == 0) {
+        enableInternDWD2 = false;
+        log('DWD deaktivieren, keine Warncell vorhanden');
+    } else if (!enableInternDWD2 && warncells[DWD].length > 0) {
+        enableInternDWD2 = true;
+        log('DWD aktivieren, Warncell vorhanden');
     }
-    for (let a = 0; a < uwzWarncellId.length; a++) {
-        if (enableInternUWZ)  await _getDataFromServer(internUWZUrl + uwzWarncellId[a], UWZ, first, uwzWarncellId[a]);
+    for (let a = 0; a < warncells[DWD].length; a++) {
+        if (enableInternDWD)  await _getDataFromServer(internDWDUrl, DWD, first, warncells[DWD][a].id);
+        if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, warncells[DWD][a].id), DWD2, first, warncells[DWD][a].id);
     }
-    if (enableInternZamg) {
-        for (let a = 0; a < zamgCoordinates.length; a++) {
-            let url = replacePlaceholder(internZamgUrl,zamgCoordinates[a].lat,zamgCoordinates[a].lon);
-            if (uLogAusgabeErweitert) log(url);
-            if (enableInternUWZ)  await _getDataFromServer(url, ZAMG, first, '');
-        }
+    if (enableInternUWZ && warncells[UWZ].length == 0) {
+        enableInternUWZ = false;
+        log('UWZ deaktivieren, keine Warncell vorhanden');
+    } else if (!enableInternUWZ && warncells[UWZ].length > 0) {
+        enableInternUWZ = true;
+        log('UWZ aktivieren, Warncell vorhanden');
+    }
+    for (let a = 0; a < warncells[UWZ].length; a++) {
+        if (enableInternUWZ)  await _getDataFromServer(internUWZUrl + warncells[UWZ][a].id, UWZ, first, warncells[UWZ][a].id);
+    }
+    if (enableInternZamg && warncells[ZAMG].length == 0) {
+        enableInternZamg = false;
+        log('ZAMG deaktivieren, keine Warncell vorhanden');
+    } else if (!enableInternZamg && warncells[ZAMG].length > 0) {
+        enableInternZamg = true;
+        log('ZAMG aktivieren, Warncell vorhanden');
+    }
+    for (let a = 0; a < warncells[ZAMG].length; a++) {
+        let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
+        if (enableInternZamg)  await _getDataFromServer(url, ZAMG, first, '');
     }
 
     async function _getDataFromServer(url, m, first, area) {
@@ -2298,49 +2431,252 @@ async function getDataFromServer(first) {
         return result;
     }
 }
+async function addWarncell(obj, i){
+    let wc = '';
+    let id = '';
+    let restart = false;
+    if ((typeof obj === 'object')) {
+        if (obj.state.ack) return;
+        let e = obj.id.split('.');
+        i = MODES.findIndex((a) => a.text.toLowerCase() == e[e.length-2])
+        wc = obj.state.val
+        id = obj.id;
+        restart = true;
+    } else {
+        wc = obj;
+    }
+    let warncellid = mainStatePath + 'config.warnzelle.';
 
-async function testValueDWD2 () {
-    if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab - DWD2 WarncellID');
-    if (onStopped) return;
-    await axios.get('https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3')
-        .then(results => {
-            myLog("Status: " + results.status);
-            if (!results) log ('!results');
-            if (results === undefined) log('results === undefined')
-            if (results.status == 200) {
-                for (let a = 0; a < dwdWarncellId.length;a++) {
-                    let i = -1;
-                    if ((i = results.data.indexOf(dwdWarncellId[a])) != -1) {
-                        let b =  results.data.indexOf(';',i);
-                        let e = results.data.indexOf(';',++b);
-                        let city = results.data.substr(b, e - b)
-                        extendObject(internalDWDPath + dwdWarncellId[a], {
-                            type: 'channel',
-                                common: {
-                                name: city
-                            }
-                        });
-                        if (uLogAusgabe) log('DWD Warncell-Id: ' + dwdWarncellId[a] + ' gefunden: '+ city );
+    let index=-1;
+    let folder = ''
+    switch (MODES[i].mode) {
+        case DWD:
+        var wcname = await testValueDWD2(wc);
+        if (!wcname) {
+            if(id) setState(id,'Fehler', true);
+            return;
+        }
+
+        warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
+        folder = internalDWDPath;
+        if ((index=warncells[DWD].findIndex(w => wc == w.id)) == -1 ) {
+            warncells[DWD].push({id:wc, text:wcname});
+            index = warncells[DWD].length-1;
+        }
+        else warncells[DWD][index].text = wcname;
+        break;
+        case UWZ:
+            if (id) {
+                let t = id.split('.');
+                if (getEndfromID(id) == 'addId#') {
+                    t[t.length-1] = 'addName#';
+                    wcname = getState(t.join('.')).val;
+                    if (!wcname || wcname == 'Fehler') {
+                        return;
                     }
+                    setState(id,'',true);
+                    setState(t.join('.'),'',true);
+                } else if (getEndfromID(id) == 'addName#') {
+                    t[t.length-1] = 'addId#';
+                    wcname = wc;
+                    wc = null;
+                    wc = getState(t.join('.')).val;
+                    if (!wc) {
+                        return;
+                    }
+                    setState(id,'',true);
+                    setState(t.join('.'),'',true);
                 }
-            } else {
-                if (uLogAusgabe) log ('testValueDWD2() 1. Status: ' + results.status);
             }
-        })
-        .catch(error => {
-            if (error == undefined) {
-                if (uLogAusgabe) log('testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
-            } else if (error.response == undefined) {
-                if (uLogAusgabe) log('testValueDWD2() 3. ' + error);
-            } else if (error.response.status == 404) {
-                if (uLogAusgabe) log('testValueDWD2() 4. ' + error.message);
-            } else {
-                if (uLogAusgabe) log('testValueDWD2() 5. ' + error.response.data);
-                if (uLogAusgabe) log(error.response.status);
-                if (uLogAusgabe) log(error.response.headers);
+            index=warncells[UWZ].findIndex(w => wc == w.id);
+            if (index == -1) {
+                warncells[UWZ].push({id:wc, text:wcname});
+                index = warncells[UWZ].length-1
             }
-        })
+            wcname = warncells[UWZ][index].text;
+            warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
+            if (!wcname) {
+                if (await existsStateAsync(warncellid)) {
+                    wcname = getObject(warncellid).common.name;
+                }
+            }
+            if (!wcname) {
+                log('Fehler 2#');
+                return;
+            }
+            folder = internalUWZPath;
+        break;
+        case ZAMG:
+            let breiten, laengen;
+            if (id) {
+                let t = id.split('.');
+                t[t.length-1] ='addLat#';
+                const lat = await getStateAsync(t.join('.'));
+                t[t.length-1] = 'addLong#';
+                const long = await getStateAsync(t.join('.'));
+                if (!lat.val || !long.val || lat.val == 'Fehler' || long.val == 'Fehler') {
+                    return;
+                }
+                breiten = lat.val;
+                laengen = long.val;
+                wc = breiten + '/' + laengen;
+                wc = wc.replace(/\./g,'#');
+            } else {
+                let ar = wc.replace(/\#/g,'.').split('/');
+                breiten = ar[0];
+                laengen = ar[1];
+            }
+            wcname = await getZamgName(breiten, laengen);
+            if (!wcname || wcname == 'Fehler') {
+                if (id) {
+                    let t = id.split('.');
+                    t[t.length-1] ='addLat#';
+                    setState(t.join('.'),'Fehler', true);
+                    t[t.length-1] = 'addLong#';
+                    setState(t.join('.'),'Fehler', true);
+                }
+                return;
+            } else {
+                if (id) {
+                    let t = id.split('.');
+                    t[t.length-1] ='addLat#';
+                    setState(t.join('.'),'', true);
+                    t[t.length-1] = 'addLong#';
+                    setState(t.join('.'),'', true);
+                }
+            }
+            index=warncells[ZAMG].findIndex(w => wc == w.id);
+            if (index == -1) {
+                warncells[ZAMG].push({breiten:breiten, laengen:laengen, text:wcname, id:wc});
+                index = warncells[ZAMG].length-1
+            }
+            if (!wcname) {
+                if (await existsStateAsync(warncellid)) {
+                    wcname = getObject(warncellid).common.name;
+                }
+            }
+            if (!wcname) {
+                log('Fehler 3#');
+                return;
+            }
+            warncells[ZAMG][index].text = wcname;
+            warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
+            folder = internalZamgPath;
+        break;
+        default:
+        log('Unbekannter Mode in addWarncell', 'error');
+        return;
+    }
+
+    if (!await existsStateAsync(warncellid)) {
+        await createStateAsync(warncellid, {name: wcname,type: "boolean",read: true,write: true},);
+        await setStateAsync(warncellid, true, true);
+    }
+    //  setzte den Namen für Datenpunkte unter data
+    if (getObject(warncellid).common.name != wcname) {
+        await extendObjectAsync (folder + warncells[MODES[i].mode][index].id, {
+            type: 'channel',
+            common: {
+                name: wcname
+            }
+        });
+        }
+    if (restart) {
+        log('Script neugestartet');
+        startScript();
+    }
+};
+async function getZamgName(lat, long) {
+    if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab - ZAMG Area');
+    if (onStopped) return false;
+    const data = await axios.get(replacePlaceholder(internZamgUrl,long,lat))
+            .then(results => {
+                myLog("Status: " + results.status);
+                if (!results) log ('!results');
+                if (results === undefined) log('results === undefined')
+                if (results.status == 200) {
+                    return results.data
+                } else {
+                    if (uLogAusgabe) log ('testValueDWD2() 1. Status: ' + results.status);
+                    return undefined;
+                }
+            })
+            .catch(error => {
+                if (error == undefined) {
+                    if (uLogAusgabe) log('testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                } else if (error.response == undefined) {
+                    if (uLogAusgabe) log('testValueDWD2() 3. ' + error);
+                } else if (error.response.status == 404) {
+                    if (uLogAusgabe) log('testValueDWD2() 4. ' + error.message);
+                } else {
+                    if (uLogAusgabe) log('testValueDWD2() 5. ' + error.response.data);
+                    if (uLogAusgabe) log(error.response.status);
+                    if (uLogAusgabe) log(error.response.headers);
+                }
+                return undefined;
+            })
+    if (data === undefined) return false;
+    if (data.properties === undefined) return false;
+    return data.properties.location.properties.name;
 }
+
+async function testValueDWD2 (value) {
+    if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab - DWD2 WarncellID');
+    if (onStopped) return false;
+    if (templist[DWD].list === undefined) {
+        templist[DWD].list =  await axios.get('https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3')
+            .then(results => {
+                myLog("Status: " + results.status);
+                if (!results) log ('!results');
+                if (results === undefined) log('results === undefined')
+                if (results.status == 200) {
+                    return results.data
+                } else {
+                    if (uLogAusgabe) log ('testValueDWD2() 1. Status: ' + results.status);
+                    return undefined;
+                }
+            })
+            .catch(error => {
+                if (error == undefined) {
+                    if (uLogAusgabe) log('testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                } else if (error.response == undefined) {
+                    if (uLogAusgabe) log('testValueDWD2() 3. ' + error);
+                } else if (error.response.status == 404) {
+                    if (uLogAusgabe) log('testValueDWD2() 4. ' + error.message);
+                } else {
+                    if (uLogAusgabe) log('testValueDWD2() 5. ' + error.response.data);
+                    if (uLogAusgabe) log(error.response.status);
+                    if (uLogAusgabe) log(error.response.headers);
+                }
+                return undefined;
+            })
+    }
+    let data = templist[DWD].list
+    if (data === undefined) return false;
+    if (value === undefined) value = warncells[DWD];
+    else value = [{id:value, single: true}];
+    for (let a = 0; a < value.length;a++) {
+        let i = -1;
+        if ((i = data.indexOf(value[a].id)) != -1) {
+            let b =  data.indexOf(';',i);
+            let e = data.indexOf(';',++b);
+            let city = data.substr(b, e - b)
+            if (value[a].single === undefined) {
+                warncells[DWD][a].text = city
+                if (uLogAusgabe) log('DWD Warncell-Id: ' + warncells[DWD][a].id + ' gefunden: '+ warncells[DWD][a].text );
+            }
+            else  return city;
+        } else {
+            log('Warnzelle '+ value[a].id +' für DWD nicht gefunden.','warn');
+            return false;
+        }
+    }
+    if (templist[DWD].timeout) clearTimeout(templist[DWD].timeout);
+    templist[DWD].timeout = setTimeout(function(){
+        templist[DWD].list = undefined;
+    }, 30000);
+}
+
 // für Objekt zur Database hinzu
 function addDatabaseData(id, value, mode, old) {
     var warn = null;
@@ -2366,7 +2702,9 @@ function addDatabaseData(id, value, mode, old) {
                 if (old) warnDatabase.old.push(warn);
                 change = warnDatabase.old.findIndex(function(j){return j.hash == warn.hash}) == -1;
                 if (uLogAusgabe) {
-                    if (!change) log("No change or init! id: " + id + " headline: " + warn.headline);
+                    if (!change) {
+                        if (uLogAusgabeErweitert) log("No change or init! id: " + id + " headline: " + warn.headline);
+                    }
                     else log("Add UWZ/DWD/ZAMG warning to database. id: " + id + " headline: " + warn.headline);
                 }
             }
@@ -2436,15 +2774,17 @@ function addDatabaseData(id, value, mode, old) {
         }
     }
     change = old !== undefined && old ? false : change;
-    if (change) setAlertState();
+
+    if (setAlertStateTimeout) clearTimeout(setAlertstateTimeout)
+    setTimeout(setAlertState,7000);
     return change;
 
     // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
     function getRegionNameUWZ(id) {
-        if (!Array.isArray(regionName) || regionName.length == 0) return "";
-        for (let a = 0; a < regionName.length; a++) {
-            if (id.includes(regionName[a][0])) {
-                return "für " + regionName[a][1];
+        if (!Array.isArray(warncells[UWZ]) || warncells[UWZ].length == 0) return "";
+        for (let a = 0; a < warncells[UWZ].length; a++) {
+            if (id.includes(warncells[UWZ][a].id)) {
+                return "für " + warncells[UWZ][a].text;
             }
         }
         return "";
@@ -2794,7 +3134,7 @@ function getStringIgnoreCount(c) {
 // ersetzt Placeholder
 function replacePlaceholder(str, insertText, insertText2) {
     let result = str;
-    if (insertText2) result = result.replace(placeHolder+'1', insertText2)
+    if (insertText2 !== undefined) result = result.replace(placeHolder+'1', insertText2)
     result = result.replace(placeHolder, insertText);
     return result;
 }
@@ -2930,7 +3270,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
 onStop(function (callback) {
     onStopped = true;
     if (uLogAusgabe) log('Skripts gestoppt: ID:' + randomID);
-    if (internalDWDInterval) clearInterval(internalDWDInterval);
+    if (standaloneInterval) clearInterval(standaloneInterval);
     callback();
 })
 /* *************************************************************************
@@ -2985,6 +3325,15 @@ function getRegEx(value, firstChar) {
         if (path[a]) r+=path[a]+'\.';
     }
     return r;
+}
+
+function getEndfromID(id) {
+    let arr = id.split('.');
+    return arr[arr.length-1];
+}
+function getPreEndfromID(id) {
+    let arr = id.split('.');
+    return arr[arr.length-2];
 }
 
 function isValidUrl(str) {
