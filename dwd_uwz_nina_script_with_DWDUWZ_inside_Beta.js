@@ -1,4 +1,4 @@
-//Version 0.99 Beta 1
+//Version 0.99.01 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -835,7 +835,7 @@ async function init() { // erster fund von create custom
                     on ({id: warncellid + app1, ack:false}, addWarncell);
                 }
                 if (!await existsStateAsync(warncellid + '.refresh#')) {
-                            await createStateAsync(warncellid + '.refresh#', '',{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
+                            await createStateAsync(warncellid + '.refresh#', false,{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
                             await setStateAsync(warncellid + '.refresh#', false, true);
 
                 }
