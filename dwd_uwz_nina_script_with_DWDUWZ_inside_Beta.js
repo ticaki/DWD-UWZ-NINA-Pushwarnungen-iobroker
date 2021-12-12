@@ -1,4 +1,4 @@
-//Version 0.99.01 Beta 1
+//Version 0.99.02 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -361,6 +361,7 @@ const placeHolder = 'XXXXPLACEHOLDERXXXX';
 const configModeState = mainStatePath + 'config.mode';
 const mirrorMessageState = mainStatePath + 'message';
 const mirrorMessageStateHtml = mainStatePath + 'messageHtml';
+const totalWarningCountState = mainStatePath + 'totalWarnings';
 const SPACE = ' ';
 const NEWLINE = '\n';
 const axios = require('axios');
@@ -793,6 +794,9 @@ async function init() { // erster fund von create custom
             if (!await existsStateAsync(mirrorMessageStateHtml)) {
                 await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
             }
+            if (!await existsStateAsync(totalWarningCountState)) {
+                await createStateAsync(totalWarningCountState,  { read: true, write: false, desc: "Anzahl der aktiven Warnung nach Filter", type: "number", def:0});
+            }
         } catch(error) {
             log('Fehler in CreateStates #1');
             log(error);
@@ -927,7 +931,7 @@ async function init() { // erster fund von create custom
         }
         on({ id: configModeState, change: 'ne', ack: false }, function(obj) {
             if (obj.state.val && typeof obj.state.val === 'string' &&
-                (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ') || obj.state.val.toUpperCase().includes('NINA'))) {
+                (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ') || obj.state.val.toUpperCase().includes('NINA') || obj.state.val.toUpperCase().includes('ZAMG'))) {
                 //setState(configModeState, MODE, true)
                 let mode = 0;
                 if (firstRun) return;
@@ -1013,7 +1017,8 @@ async function init() { // erster fund von create custom
 
 // setzte alle MODE Datenpunkte
 function setConfigModeStates(mode) {
-    if (extendedExists(configModeState)) setState(configModeState, (mode & DWD ? 'DWD' : '') + (mode & UWZ ? 'UWZ' : '') + (mode & NINA ? 'NINA' : '') + (mode & ZAMG ? 'ZAMG' : ''), true);
+    let m = (mode & DWD ? 'DWD' : '') + (mode & UWZ ?  mode & DWD ? '/UWZ' : 'UWZ' : '') + (mode & NINA ? mode & (DWD|UWZ) ? '/NINA' : 'NINA' : '') + (mode & ZAMG ? mode & (DWD|UWZ|NINA) ? '/ZAMG' : 'ZAMG' : '')
+    if (extendedExists(configModeState)) setState(configModeState, m , true);
     for (let a = 0; a < MODES.length; a++) {
         let t = MODES[a].text.toLowerCase();
         let id = mainStatePath + 'config.' + t;
@@ -1666,6 +1671,7 @@ function checkWarningsMain() {
     }
     /* Neue Werte sichern */
     myLog('done');
+    setState(totalWarningCountState, warnDatabase.new.length, true);
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
 
@@ -1999,6 +2005,7 @@ function onChange(dp, mode) {
 async function InitDatabase(first) {
     myLog('InitDatabase() first: ' + first);
     if (first) {
+        setState(totalWarningCountState, 0, true);
         warnDatabase = { new: [], old: [] };
         if ((enableInternDWD || enableInternDWD2 || enableInternUWZ) || enableInternZamg ) {
             if (uLogAusgabe && (enableInternDWD)) log('Standalone DWD Datenabruf aktiviert');
@@ -2774,8 +2781,8 @@ function addDatabaseData(id, value, mode, old) {
         }
     }
     change = old !== undefined && old ? false : change;
-
-    if (setAlertStateTimeout) clearTimeout(setAlertstateTimeout)
+    setState(totalWarningCountState, warnDatabase.new.length, true);
+    if (setAlertStateTimeout) clearTimeout(setAlertStateTimeout)
     setTimeout(setAlertState,7000);
     return change;
 
