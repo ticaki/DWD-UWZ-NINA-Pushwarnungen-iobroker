@@ -1,4 +1,4 @@
-//Version 0.99.02 Beta 1
+//Version 0.99.03 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -522,7 +522,7 @@ const statesUWZintern = [
     { id:"longText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"shortText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"uwzLevel",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false,}},
-    { id:"uwzColor", default:-1, options: {name: "Link to chart",type: "number",read: true,write: false,}},
+    { id:"color", default:'', options: {name: "Link to chart",type: "string",read: true,write: false,}},
 /*6*/    { id:"object", default: {}, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false,}},
     { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text",type: "string",read: true,write: false}},
@@ -538,10 +538,13 @@ const statesZAMGintern = [
     { id:"meteotext", json:'meteotext', default:"", options: {name: "Warnung Wettertext",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"text", json:'text', default:"", options: {name: "Warnung description",type: "string",role: "weather.state",read: true,write: false,}},
 /*6*/    { id:"object", default: {}, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false,}},
-    { id:"type", json:'warntypid', default:-1, options: {name: "Warnung Type",type: "number",read: true,write: false,}},
+    { id:"type", default:-1, options: {name: "Warnung Type",type: "number",read: true,write: false,}},
     { id:"level", json:'warnstufeid', default: 0, options: {name: "Warnung level",type: "number",role: "value.severity",read: true,write: false,}},
     { id:"warntype", default: '', options: {name: "Warnung type",type: "string",role: "weather.type",read: true,write: false,}},
-    { id:"area", default: '', options: {name: "Warnung area",type: "string",role: "weather.area",read: true,write: false,}}
+    { id:"area", default: '', options: {name: "Warnung area",type: "string",role: "weather.area",read: true,write: false,}},
+    { id:"HTMLShort", default: "", options: {name: "Warning text html",type: "string",read: true,write: false}},
+    { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}},
+    { id:"color", default:-1, options: {name: "Link to chart",type: "string",read: true,write: false,}}
 ];
 
 
@@ -2089,6 +2092,34 @@ async function getDataFromServer(first) {
         let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
         if (enableInternZamg)  await _getDataFromServer(url, ZAMG, first, '');
     }
+    let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
+    if (warnObjs.length>0) {
+        let countObj = {};
+        let mpath =  mainStatePath + 'data';
+        for (let a = 0; a < warnObjs.length;a++){
+            let id = warnObjs[a];
+            let has = Object.entries(getState(id).val).length > 0;
+            let x = 0;
+            while (mpath !== id && x++ <4) {
+                let t = id.split('.');
+                t.splice(t.length-1,1);
+                id = t.join('.');
+                countObj[id] = (countObj[id] === undefined ? 0 : countObj[id]) + has ? 1:0;
+            }
+        }
+        for (let id in countObj) {
+            try {
+                let nid = id + '.rawTotalWarnings'
+                if (!await existsStateAsync(nid)) {
+                    await createStateAsync(nid,{force: true,read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
+                }
+                await setState(nid, countObj[id], true);
+            } catch(e) {
+                log('Fehler in getDataFromServer()', 'error');
+            }
+        }
+    }
+
 
     async function _getDataFromServer(url, m, first, area) {
         if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD & 2 ? ' DWD2' : 'ZAMG'))));
@@ -2298,11 +2329,13 @@ async function getDataFromServer(first) {
             tempObj[statesZAMGintern[10].id] = area;
             let plainWarnObj = Object.entries(warnObj);
             if (plainWarnObj.length > 0) {
+                tempObj[statesZAMGintern[7].id] = warnObj.properties.warntypid;
                 tempObj[statesZAMGintern[9].id] = warningTypesString[ZAMG][warnObj.properties.warntypid][0];
                 //log(warningTypesString[ZAMG][warnObj.properties.warntypid][0])
                 tempObj[statesZAMGintern[0].id] = Number(warnObj.properties.rawinfo.start)*1000;
                 tempObj[statesZAMGintern[1].id] =  Number(warnObj.properties.rawinfo.end)*1000;
             } else {
+                tempObj[statesZAMGintern[7].id] = -1
                 tempObj[statesZAMGintern[9].id] = 'n/a';
                 tempObj[statesZAMGintern[0].id] = Number('');
                 tempObj[statesZAMGintern[1].id] = Number('');
@@ -2323,11 +2356,19 @@ async function getDataFromServer(first) {
                         log(warnObj,'error');
                     }
                 }
-                let dp = data;
+            }
+            tempObj[statesZAMGintern[13].id] = getLevelColor(tempObj.level, ZAMG);
+            let text = tempObj.type === -1  ? '' 	: 'Warnung vor ' + warningTypesString[ZAMG][tempObj.type][0];
+            tempObj[statesZAMGintern[11].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, text);
+            text += '</br>' + (tempObj.text + '</br>' + tempObj.auswirkungen).replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+            text += '</br>' + tempObj.empfehlungen.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+            text += '</br>' + tempObj.meteotext.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+            tempObj[statesZAMGintern[12].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, text);
+             for (let a = 0; a < statesZAMGintern.length; a++) {
+                let dp = statesZAMGintern[a];
                 //if (plainWarnObj.length > 0)log(baseChannelId + dp.id);
                 //if (plainWarnObj.length > 0)log(tempObj[dp.id]);
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
-
             }
         }
         if (MODE & UWZ & m) {
@@ -2345,16 +2386,16 @@ async function getDataFromServer(first) {
                 tempObj[statesUWZintern[2].id] = warnObj.payload.translationsLongText.DE;
                 tempObj[statesUWZintern[3].id] = warnObj.payload.translationsShortText.DE;
                 tempObj[statesUWZintern[4].id] = _getUWZLevel(warnObj.payload.levelName);
-                tempObj.uwzUrgency = _getUWZUrgency(warnObj.payload.levelName);
-                tempObj[statesUWZintern[5].id] = _getLevelColor(warnObj.payload.levelName);
-                tempObj[statesUWZintern[8].id] = _createHTMLShort(tempObj);
-                tempObj[statesUWZintern[9].id] = _createHTMLLong(tempObj);
+                tempObj.urgency = _getUWZUrgency(warnObj.payload.levelName);
+                tempObj[statesUWZintern[5].id] = getLevelColor(warnObj.severity, UWZ);
+                tempObj[statesUWZintern[8].id] = _createHTMLtext(tempObj, warnObj.payload.translationsShortText.DE);
+                tempObj[statesUWZintern[9].id] = _createHTMLtext(tempObj, warnObj.payload.translationsLongText.DE);
             } else {
                 tempObj[statesUWZintern[2].id] = '';
                 tempObj[statesUWZintern[3].id] = '';
                 tempObj[statesUWZintern[4].id] = 0;
                 tempObj.uwzUrgency = 0;
-                tempObj[statesUWZintern[5].id] = 0;
+                tempObj[statesUWZintern[5].id] = '';
                 tempObj[statesUWZintern[8].id] = '';
                 tempObj[statesUWZintern[9].id] = '';
             }
@@ -2388,48 +2429,20 @@ async function getDataFromServer(first) {
                 }
                 return result;
             }
-
-            function _getLevelColor(uwzLevel) {
-                var uwzColor = [
-                   0x00ff00, // 0 - Grün
-                   0x009b00, // 1 - Dunkelgrün
-                   0xffff00, // 2 - Gelb Wetterwarnungen (Stufe 1)
-                   0xffb400, // 3 - Orange Warnungen vor markantem Wetter (Stufe 2)
-                   0xff0000, // 4 - Rot Unwetterwarnungen (Stufe 3)
-                   0xff00ff, // 5 - Violett Warnungen vor extremem Unwetter (Stufe 4)
-               ];
-                if (uwzLevel >= 0 && uwzLevel <= 5)
-                    return uwzColor[uwzLevel];
-                else
-                    return 0;
-            }
-
-            function _createHTMLShort(w) {
-                var html = '<div style="background: #' + w.uwzColor.toString(16) + '" border:"10px">';
-                html += '<h3>';
-                if (w.uwzUrgency == 1) html += "Vorwarnung vor ";
-                else html += "Warnung vor ";
-                html += warningTypesString[UWZ][w.type];
-                html += "</h3>";
-                html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
-                html += w.shortText !== undefined && w.shortText !== '' ? '<p>' + w.shortText + '</p>' : '';
-                html += "</div>";
-                return html;
-            }
-
-            function _createHTMLLong(w) {
-                var html = '<div style="background: #' + w.uwzColor.toString(16) + '" border:"10px">';
-                html += '<h3>';
-                if (w.uwzUrgency == 1) html += "Vorwarnung vor ";
-                else html += "Warnung vor ";
-                html += warningTypesString[UWZ][w.type];
-                html += "</h3>";
-                html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
-                html += w.longText !== undefined && w.longText !== '' ? '<p>' + w.longText + '</p>' : '';
-                html += "</div>";
-                return html;
-            }
         }
+        function _createHTMLtext(w, text) {
+            var html = '<div style="background: #' + w.color.toString(16) + '" border:"10px">';
+            html += '<h3>';
+            if (w.urgency !== undefined && w.urgency == 1) html += "Vorwarnung vor ";
+            else html += "Warnung vor ";
+            html += warningTypesString[UWZ][w.type];
+            html += "</h3>";
+            html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
+            html += text !== undefined && text !== '' ? '<p>' + text + '</p>' : '';
+            html += "</div>";
+            return html;
+        }
+
     }
     function getAreaFromURI(uri) {
         var searchstr = "&areaID=";
@@ -2969,7 +2982,7 @@ function getDatabaseData(warn, mode){
         result['picture']                = '';
         if ( result.level < minlevel ) { if (uLogAusgabeErweitert) log('Übergebenene Warnung NINA verworfen');return null;}
     }
-    result['color'] = getLevelColor(result.level);
+    result['color'] = getLevelColor(result.level, NINA);
     result['id']='';
     result['pending'] = 0;
     result['hash'] = 0;
@@ -3017,19 +3030,6 @@ function getDatabaseData(warn, mode){
         if (region) region = 'für ' + region;
         return region || result;
     }
-    // Gibt Farben für die level zurück
-    function getLevelColor(level) {
-        var color = [
-            '#00ff00', // 0 - Grün
-            '#009b00', // 1 - Dunkelgrün
-            '#d7d700', // 2 - Gelb Wetterwarnungen (Stufe 2) //vorher:#ffff00
-            '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
-            '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
-            '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
-        ];
-        if (level >= 0 && level <= 5) return color[level];
-        else return color[0];
-    }
 
     function getUWZLevel(warnName) {
         var result = -1; // -1 is an error!
@@ -3044,6 +3044,38 @@ function getDatabaseData(warn, mode){
         return result;
     }
 }
+
+    // Gibt Farben für die level zurück
+function getLevelColor(level, typ) {
+    var color = [];
+    if (typ === undefined) typ = UWZ;
+    switch (typ) {
+        case NINA:
+        case UWZ:
+            color = [
+                '#00ff00', // 0 - Grün
+                '#009b00', // 1 - Dunkelgrün
+                '#d7d700', // 2 - Gelb Wetterwarnungen (Stufe 2) //vorher:#ffff00
+                '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
+                '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
+                '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+            ];
+            if (level >= 0 && level <= 5) return color[level];
+            break;
+        case ZAMG:
+            color = [
+                '#00ff00',
+                '#01DF3A',
+                '#fffc04',
+                '#ffc400',
+                '#ff0404'
+            ]
+            if (level >= 0 && level <= 4) return color[level];
+            break;
+    }
+    return '#00ff00';
+}
+
 // gibt Nina level zurück
 function getCapLevel(str, type) {
     let ninaLevel = [
