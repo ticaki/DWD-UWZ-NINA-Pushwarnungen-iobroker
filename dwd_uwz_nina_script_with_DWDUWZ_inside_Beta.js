@@ -1,4 +1,4 @@
-//Version 0.99.06 Beta 1
+//Version 0.99.07 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -374,6 +374,7 @@ var internalDWDPath = mainStatePath + 'data.dwd.';
 var internalWarningEnd = '.warning';
 var standaloneInterval = null;
 
+var sendNoMessgesOnInit = true;
 var enableInternUWZ = false;
 var internUWZUrl='http://feed.alertspro.meteogroup.com/AlertsPro/AlertsProPollService.php?method=getWarning&language=de&areaID=';
 var internalUWZPath = mainStatePath + 'data.uwz-id.';
@@ -579,7 +580,8 @@ const configObj = {data: [
     {id: 'basiskonfiguration.filter.maximale_höhe', type:'number', def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.log.erweitert', type:'boolean', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.log.debug', type:'boolean', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.log.ausgabe', type:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}}
+    {id: 'basiskonfiguration.log.ausgabe', type:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', type:'boolean', def: !firstRun,on: function(obj) {firstRun = !obj.state.val; setState(obj.id,obj.state.val,true);}}
 ]};
 
 // hash erzeugen
@@ -810,144 +812,145 @@ init();
 async function init() { // erster fund von create custom
     try {
         // State der Pushnachrichten über pushover / telegram spiegelt
-            if (!await existsStateAsync(mirrorMessageState)) {
-                createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
-            }
-            if (!await existsStateAsync(mirrorMessageStateHtml)) {
-                await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
-            }
-            if (!await existsStateAsync(totalWarningCountState)) {
-                await createStateAsync(totalWarningCountState,  { read: true, write: false, desc: "Anzahl der aktiven Warnung nach Filter", type: "number", def:0});
-            }
-        } catch(error) {
+        if (!await existsStateAsync(mirrorMessageState)) {
+            createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
+        }
+        if (!await existsStateAsync(mirrorMessageStateHtml)) {
+            await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
+        }
+        if (!await existsStateAsync(totalWarningCountState)) {
+            await createStateAsync(totalWarningCountState,  { read: true, write: false, desc: "Anzahl der aktiven Warnung nach Filter", type: "number", def:0});
+        }
+    }
+    catch(error) {
             log('Fehler in CreateStates #1');
             log(error);
             stopScript();
-        }
-        // erstelle Datenpunkte für DWD/UWZ standalone
-        for (let c = 0; c < MODES.length; c++) {
-            if (c == 2) continue; // nicht nina;
-            let warncellid = mainStatePath + 'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase() ;
-            try {
-                let app = ''
-                let app1 = ''
-                switch(MODES[c].mode) {
-                    case DWD: {
-                        app = '.add#';
-                        break;
-                    }
-                    case UWZ: {
-                        app = '.addName#';
-                        app1 = '.addId#';
-                        break;
-                    }
-                    case ZAMG: {
-                        app = '.addLat#';
-                        app1 = '.addLong#';
-                        break;
-                    }
-                    default:
+    }
+    // erstelle Datenpunkte für DWD/UWZ standalone
+    for (let c = 0; c < MODES.length; c++) {
+        if (c == 2) continue; // nicht nina;
+        let warncellid = mainStatePath + 'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase() ;
+        try {
+            let app = ''
+            let app1 = ''
+            switch(MODES[c].mode) {
+                case DWD: {
+                    app = '.add#';
+                    break;
                 }
-                if (!await existsStateAsync(warncellid + app)) {
-                            await createStateAsync(warncellid + app, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
-                            await setStateAsync(warncellid + app, '', true);
+                case UWZ: {
+                    app = '.addName#';
+                    app1 = '.addId#';
+                    break;
                 }
-                on ({id: warncellid + app, ack:false}, addWarncell);
-                if (app1) {
-                    if (!await existsStateAsync(warncellid + app1)) {
-                                await createStateAsync(warncellid + app1, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
-                                await setStateAsync(warncellid + app1, '', true);
-                    }
-                    on ({id: warncellid + app1, ack:false}, addWarncell);
+                case ZAMG: {
+                    app = '.addLat#';
+                    app1 = '.addLong#';
+                    break;
                 }
-                if (!await existsStateAsync(warncellid + '.refresh#')) {
-                            await createStateAsync(warncellid + '.refresh#',{def:false, name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
-                            await setStateAsync(warncellid + '.refresh#', false, true);
+                default:
+            }
+            if (!await existsStateAsync(warncellid + app)) {
+                        await createStateAsync(warncellid + app, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
+                        await setStateAsync(warncellid + app, '', true);
+            }
+            on ({id: warncellid + app, ack:false}, addWarncell);
+            if (app1) {
+                if (!await existsStateAsync(warncellid + app1)) {
+                            await createStateAsync(warncellid + app1, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
+                            await setStateAsync(warncellid + app1, '', true);
+                }
+                on ({id: warncellid + app1, ack:false}, addWarncell);
+            }
+            if (!await existsStateAsync(warncellid + '.refresh#')) {
+                        await createStateAsync(warncellid + '.refresh#',{def:false, name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
+                        await setStateAsync(warncellid + '.refresh#', false, true);
 
-                }
-                on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
-            } catch(error) {
-                log('Fehler in CreateStates #2');
-                log(error);
-                stopScript();
             }
-            let mode = MODES[c].mode;
-            if (warncells[mode].length > 0) {
-                for (var a = 0; a < warncells[mode].length; a++) {
-                    await addWarncell(warncells[mode][a].id, c);
-                }
+            on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
+        } catch(error) {
+            log('Fehler in CreateStates #2');
+            log(error);
+            stopScript();
+        }
+        let mode = MODES[c].mode;
+        if (warncells[mode].length > 0) {
+            for (var a = 0; a < warncells[mode].length; a++) {
+                await addWarncell(warncells[mode][a].id, c);
             }
-            let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
-            for (var a = 0; a < st.length; a++) {
-                let val = getEndfromID(st[a]);
-                if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || val == 'addLat#' || val == 'addLong#') continue;
+        }
+        let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
+        for (var a = 0; a < st.length; a++) {
+            let val = getEndfromID(st[a]);
+            if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || val == 'addLat#' || val == 'addLong#') continue;
+            let wIndex = warncells[mode].findIndex(w => val == w.id);
+            if (wIndex == -1 && getState(st[a]).val) await addWarncell(val, c);
+            else if (wIndex > -1 && !getState(st[a]).val) warncells[mode].splice(wIndex, 1);
+            on(st[a], function(obj) {
+                setState(obj.id, obj.state.val, true);
+                let val = getEndfromID(obj.id);
+                let modetext = getPreEndfromID(obj.id);
+                let c = MODES.findIndex((a) => a.text.toLowerCase() == modetext);
+                let mode = MODES[c].mode;
                 let wIndex = warncells[mode].findIndex(w => val == w.id);
-                if (wIndex == -1 && getState(st[a]).val) await addWarncell(val, c);
-                else if (wIndex > -1 && !getState(st[a]).val) warncells[mode].splice(wIndex, 1);
-                on(st[a], function(obj) {
-                    setState(obj.id, obj.state.val, true);
-                    let val = getEndfromID(obj.id);
-                    let modetext = getPreEndfromID(obj.id);
-                    let c = MODES.findIndex((a) => a.text.toLowerCase() == modetext);
-                    let mode = MODES[c].mode;
-                    let wIndex = warncells[mode].findIndex(w => val == w.id);
-                    if (wIndex == -1 && obj.state.val) addWarncell(val, c);
-                    else if (wIndex > -1 && !obj.state.val) warncells[mode].splice(wIndex, 1);
-                });
-            }
-
-
-            let stateAlertId = mainStatePath + 'alert.' + MODES[c].text.toLowerCase() + '.';
-            for (let b = 0; b < warningTypesString[MODES[c].mode].length; b++) {
-                for (let a = 0; a < stateAlert.length; a++) {
-                    let stateAlertIdFull = stateAlertId + warningTypesString[MODES[c].mode][b][0] + '.' + stateAlert[a].name;
-                    stateAlert[a].type.name = stateAlert[a].name;
-                    try {
-                        if (!await existsStateAsync(stateAlertIdFull)) {
-                            await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
-                            await setStateAsync(stateAlertIdFull, stateAlert[a].default,true);
-                        }
-                    } catch(error) {
-                        log('Fehler in CreateStates #3');
-                        log(error);
-                        stopScript();
-                    }
-
-                }
-            }
+                if (wIndex == -1 && obj.state.val) addWarncell(val, c);
+                else if (wIndex > -1 && !obj.state.val) warncells[mode].splice(wIndex, 1);
+            });
         }
 
-        for (let w = 0; w < warncells[DWD].length; w++) {
-            for (let i = 0; i < numOfWarnings; i++) {
-                let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
-                for (let a = 0; a < statesDWDintern.length; a++) {
-                    let dp = statesDWDintern[a];
-                    let id = p + dp.id;
-                    try {
-                        if (!await existsStateAsync(id)) {
-                            await createStateAsync(id, dp.options,);
-                        }
-                    } catch(error) {
-                        log('Fehler in CreateStates #4');
-                        log(error);
-                        stopScript();
+
+        let stateAlertId = mainStatePath + 'alert.' + MODES[c].text.toLowerCase() + '.';
+        for (let b = 0; b < warningTypesString[MODES[c].mode].length; b++) {
+            for (let a = 0; a < stateAlert.length; a++) {
+                let stateAlertIdFull = stateAlertId + warningTypesString[MODES[c].mode][b][0] + '.' + stateAlert[a].name;
+                stateAlert[a].type.name = stateAlert[a].name;
+                try {
+                    if (!await existsStateAsync(stateAlertIdFull)) {
+                        await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
+                        await setStateAsync(stateAlertIdFull, stateAlert[a].default,true);
                     }
+                } catch(error) {
+                    log('Fehler in CreateStates #3');
+                    log(error);
+                    stopScript();
                 }
+
             }
         }
-        for (let w = 0; w < warncells[UWZ].length; w++) {
-            for (let i = 0; i < numOfWarnings; i++) {
-                let p = internalUWZPath + warncells[UWZ][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
-                for (let a = 0; a < statesUWZintern.length; a++) {
-                    let dp = statesUWZintern[a];
-                    let id = p + dp.id;
+    }
+
+    for (let w = 0; w < warncells[DWD].length; w++) {
+        for (let i = 0; i < numOfWarnings; i++) {
+            let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
+            for (let a = 0; a < statesDWDintern.length; a++) {
+                let dp = statesDWDintern[a];
+                let id = p + dp.id;
+                try {
                     if (!await existsStateAsync(id)) {
                         await createStateAsync(id, dp.options,);
                     }
+                } catch(error) {
+                    log('Fehler in CreateStates #4');
+                    log(error);
+                    stopScript();
                 }
             }
         }
-        try {
+    }
+    for (let w = 0; w < warncells[UWZ].length; w++) {
+        for (let i = 0; i < numOfWarnings; i++) {
+            let p = internalUWZPath + warncells[UWZ][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
+            for (let a = 0; a < statesUWZintern.length; a++) {
+                let dp = statesUWZintern[a];
+                let id = p + dp.id;
+                if (!await existsStateAsync(id)) {
+                    await createStateAsync(id, dp.options,);
+                }
+            }
+        }
+    }
+    try {
         // MODE änderung über Datenpunkte string
         if (!await existsStateAsync(configModeState)) {
             await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD oder UWZ oder Nina oder Zamg", type: "string", def: '' });
@@ -1001,7 +1004,8 @@ async function init() { // erster fund von create custom
         for (var a = 0; a < configObj.data.length; a++) {
             let p = mainStatePath + 'config.' + configObj.data[a].id
             if (!await existsStateAsync(p)) {
-                await createStateAsync(p, {read:true, write:true, type: configObj.data[a].type, def: configObj.data[a].def});
+                let n = configObj.data[a].name !== undefined ? configObj.data[a].name : configObj.data[a].id;
+                await createStateAsync(p, {read:true, write:true, type: configObj.data[a].type, def: configObj.data[a].def, name:n});
             }
             const v = await getStateAsync(p);
             configObj.data[a].on({id:p, state:{val:v.val}});
@@ -1025,13 +1029,13 @@ async function init() { // erster fund von create custom
                 for (let x = 0; x < MODES.length; x++) {
                     let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
                     if (!await existsStateAsync(oid)) {
-                        await createStateAsync(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
+                        await createStateAsync(oid, { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
                     }
                     setConfigKonstanten(oid, getState(oid).val, true);
 
                     oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
                     if (!await existsStateAsync(oid)) {
-                        await createStateAsync(oid, ((uPushdienst & konstanten[a].value) != 0), { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
+                        await createStateAsync(oid, { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
                     }
                     setConfigKonstanten(oid, getState(oid).val, false);
                     // letzer fund von Create Custom
@@ -1436,8 +1440,8 @@ function checkWarningsMain() {
                     w.mode !== w2.mode ||
                     w.type !== w2.type ||
                     w2.end > w.end  ||
-                    w.level > attentionWarningLevel ||
-                    w2.level > attentionWarningLevel ||
+                    w.level >= attentionWarningLevel ||
+                    w2.level >= attentionWarningLevel ||
                     w.hash == w2.hash ||
                     w.areaID != w2.areaID ||
                     Math.abs(w2.end - w.end) > 43200000 // Verlängern ignorieren wenn 12 Stunden zwischen den Warnungen liegen.
@@ -1544,7 +1548,7 @@ function checkWarningsMain() {
             let todoBitmask = uPushdienst;
             collectMode |= mode;
             count++;
-            if (!gefahr) gefahr = level > attentionWarningLevel;
+            if (!gefahr) gefahr = level >= attentionWarningLevel;
 
             let begin = entry.start ? getFormatDate(entry.start) : '',
                 end = entry.end ? getFormatDate(entry.end) : '';
@@ -1706,9 +1710,9 @@ function checkWarningsMain() {
                 if (s == undefined) s = false;
                 let result = '';
                 if (mode !== NINA) {
-                    result = (level > attentionWarningLevel) ? 'Wichtige Wetterwarnung: ' : s ? '' : 'Wetterwarnung';
+                    result = (level >= attentionWarningLevel) ? 'Wichtige Wetterwarnung: ' : s ? '' : 'Wetterwarnung';
                 } else {
-                    result = (level > attentionWarningLevel) ? 'Gefahr Warnung: ' : s ? '' : 'Warnung';
+                    result = (level >= attentionWarningLevel) ? 'Gefahr Warnung: ' : s ? '' : 'Warnung';
                 }
                 return result;
             }
@@ -2894,7 +2898,7 @@ function addDatabaseData(id, value, mode, old) {
 }
 
 function isWarnIgnored(warn) {
-    if (warn.level <= attentionWarningLevel) {
+    if (warn.level < attentionWarningLevel) {
         if ((uFilterList & warn.mode) != 0) return true;
         if ((warn.mode & NINA) != 0) {
             if (uAutoNinaFilterList.indexOf(warn.sender) != -1) {
