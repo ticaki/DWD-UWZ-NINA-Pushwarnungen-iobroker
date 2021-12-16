@@ -1,4 +1,4 @@
-//Version 0.99.04 Beta 1
+//Version 0.99.045 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -564,20 +564,20 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
 ];
 
 const configObj = {data: [
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', type:'boolean', def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', type:'boolean', def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', type:'boolean', def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', type:'boolean', def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', type:'boolean', def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', type:'boolean', def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', type:'boolean', def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.auto-nachrichtenlänge.zamg.wetterinformationen', type:'boolean', def: uZAMGMitMeteoinformationen,on: function(obj) {uZAMGMitMeteoinformationen = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.filter.level_minimum', type:'number', def: minlevel,on: function(obj) {minlevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.filter.level_hervorheben', type:'number', def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.filter.mindest_höhe', type:'number', def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.filter.maximale_höhe', type:'number', def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.log.erweitert', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.log.debug', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.erweitert', type:'boolean', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.debug', type:'boolean', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.log.ausgabe', type:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}}
 ]};
 
@@ -2202,7 +2202,7 @@ async function getDataFromServer(first) {
 
 
     async function _getDataFromServer(url, m, first, area) {
-        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD & 2 ? ' DWD2' : 'ZAMG'))));
+        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD & 2 ? ' DWD2' : ' ZAMG'))));
         if (onStopped) return;
         await axios.get(url)
             .then(results => {
