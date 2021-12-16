@@ -1,4 +1,4 @@
-//Version 0.99.03 Beta 1
+//Version 0.99.04 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -210,10 +210,10 @@ var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var id
 var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 
 // Filtereinstellungen
-const minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden; (DWD und Nina level 1-4  / UWZ 0-5)
-const attentionWarningLevel         =    3 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
-const minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
-const maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
+var minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden; (DWD und Nina level 1-4  / UWZ 0-5)
+var attentionWarningLevel         =    3 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
+var minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
+var maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
 //Formatierungsstring für Datum / Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
 const formatierungString =  "TT.MM.YY SS:mm";
@@ -341,7 +341,6 @@ checkConfigVariable('DEBUGINGORESTART');
 checkConfigVariable('uLogAusgabeErweitert');
 checkConfigVariable('dwdWarncellId');
 checkConfigVariable('dwdBundesland');
-checkConfigVariable('uwzWarncellId');
 checkConfigVariable('DWD2');
 
 // Debughilfe
@@ -434,8 +433,8 @@ warningTypesString[DWD] = [
     ['Frost', '🌡'],
     ['Glatteis', '❄'],
     ['Tauwetter', '⛄'],
-    ['Hitzewarnungen', '🔥'],
-    ['UV_Warnungen', '🔆']
+    ['Hitze', '🔥'],
+    ['UV Belastung', '🔆']
     /*,
         ['Kuestenwarnungen', ''],
         ['Binnenseewarnungen', '']*/
@@ -466,7 +465,7 @@ warningTypesString[DWD] = [
 warningTypesString[UWZ] = [
     ['n_a', ''],
     ['unbekannt', ''],
-    ['Sturm-Orkan', '🌪'],
+    ['Sturm', '🌪'],
     ['Schneefall', '🌨'],
     ['Starkregen', '🌧'],
     ['Extremfrost', '🌡'],
@@ -480,7 +479,7 @@ warningTypesString[UWZ] = [
 
 warningTypesString[ZAMG] = [
     ['unbekannt1', ''],
-    ['Wind', '🌪'],
+    ['Sturm', '🌪'],
     ['Regen', '🌧'],
     ['Schnee', '🌨'],
     ['Glatteis', '❄'],
@@ -563,6 +562,25 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
         { "name": 'hash', "default": 0, "type": { read: true, write: false, role: "value", type: "number", name: '' } },
         { "name": 'ec_ii_type', "default": -1, "type": { read: true, write: false, type: "number", name: '' } }
 ];
+
+const configObj = {data: [
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.zamg.wetterinformationen', type:'boolean', def: uZAMGMitMeteoinformationen,on: function(obj) {uZAMGMitMeteoinformationen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.level_minimum', type:'number', def: minlevel,on: function(obj) {minlevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.level_hervorheben', type:'number', def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.mindest_höhe', type:'number', def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.maximale_höhe', type:'number', def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.erweitert', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.debug', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.ausgabe', type:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}}
+]};
+
 // hash erzeugen
 String.prototype.hashCode = function() {
     var hash = 0, i, chr;
@@ -808,7 +826,7 @@ async function init() { // erster fund von create custom
         // erstelle Datenpunkte für DWD/UWZ standalone
         for (let c = 0; c < MODES.length; c++) {
             if (c == 2) continue; // nicht nina;
-            let warncellid = mainStatePath + 'config.warnzelle.' + MODES[c].text.toLowerCase() ;
+            let warncellid = mainStatePath + 'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase() ;
             try {
                 let app = ''
                 let app1 = ''
@@ -842,7 +860,7 @@ async function init() { // erster fund von create custom
                     on ({id: warncellid + app1, ack:false}, addWarncell);
                 }
                 if (!await existsStateAsync(warncellid + '.refresh#')) {
-                            await createStateAsync(warncellid + '.refresh#', false,{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
+                            await createStateAsync(warncellid + '.refresh#',{def:false, name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
                             await setStateAsync(warncellid + '.refresh#', false, true);
 
                 }
@@ -857,7 +875,7 @@ async function init() { // erster fund von create custom
                 for (var a = 0; a < warncells[mode].length; a++) {
                     await addWarncell(warncells[mode][a].id, c);
                 }
-                let st = $('state(state.id='+mainStatePath +'config.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
+                let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
                 for (var a = 0; a < st.length; a++) {
                     let val = getEndfromID(st[a]);
                     if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || 'addLat#' || 'addLong#') continue;
@@ -978,7 +996,15 @@ async function init() { // erster fund von create custom
         autoSendWarnings = getState(id).val;
         await setStateAsync(id, autoSendWarnings, true);
 
-
+        for (var a = 0; a < configObj.data.length; a++) {
+            let p = mainStatePath + 'config.' + configObj.data[a].id
+            if (!await existsStateAsync(p)) {
+                await createStateAsync(p, {read:true, write:true, type: configObj.data[a].type, def: configObj.data[a].def});
+            }
+            const v = await getStateAsync(p);
+            configObj.data[a].on({id:p, state:{val:v.val}});
+            on(p, configObj.data[a].on);
+        }
         // Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
         for (var a = 0; a < konstanten.length; a++) {
             if ((uPushdienst & konstanten[a].value) != 0) {
@@ -990,6 +1016,9 @@ async function init() { // erster fund von create custom
                 }
                 if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
                     await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_long', { read: true, write: true, desc: "Gebe lange Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
+                }
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_veryshort')) {
+                    await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_veryshort', { read: true, write: true, desc: "Gebe sehr kurze Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
                 }
                 for (let x = 0; x < MODES.length; x++) {
                     let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
@@ -1007,7 +1036,7 @@ async function init() { // erster fund von create custom
                 }
             }
         }
-        if (firstRun) changeMode(MODE);
+        if (firstRun) setTimeout(function(){changeMode(MODE);},100);
         subscribeStates();
         setWeekend();
         activateSchedule();
@@ -1481,7 +1510,7 @@ function checkWarningsMain() {
             sendMessage(getPushModeFlag(mode) & PUSH, picture + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung') + SPACE + (i + 1), pushMsg);
             myLog('text old:' + pushMsg);
             // SPEAK
-            pushMsg = headline + getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : '') + ' wurde aufgehoben' + '  .  ';
+            pushMsg = headline + (!uSpracheMitOhneAlles ?  getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : ''): '') + ' wurde aufgehoben' + '  .  ';
             if (forceSpeak || compareTime(START, ENDE, 'between')) {
                 sendMessage(getPushModeFlag(mode) & SPEAK, '', pushMsg, entry);
             }
@@ -1598,24 +1627,72 @@ function checkWarningsMain() {
             }
             // Sprache
             if ((getPushModeFlag(mode) & SPEAK) != 0) {
-                sTime = SPACE;
-                let speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area;
-                if (entry.repeatCounter == 1 && !onClickCheckRun) {
-                    speakMsg += ' wurde verlängert.';
-                } else {
-                    if (begin || end) sTime += "gültig ";
-                    if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
-                    if ((begin && end)) sTime += " ";
-                    if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
-                    speakMsg += SPACE + sTime + '.' + SPACE;
-                    if (meteo && uZAMGMitMeteoinformationen) description += meteo ? SPACE + SPACE + 'Wetterinformation: ' + meteo : '';
-                    if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
-                        description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                let speakMsg = '';
+                if ( !uSpracheMitOhneAlles || mode == NINA ) {
+                    sTime = SPACE;
+                    speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area;
+                    if (entry.repeatCounter == 1 && !onClickCheckRun) {
+                        speakMsg += ' wurde verlängert.';
+                    } else {
+                        if (begin || end) sTime += "gültig ";
+                        if (begin) sTime += "vom " + getFormatDateSpeak(begin) + " Uhr";
+                        if ((begin && end)) sTime += " ";
+                        if (end) sTime += "bis " + getFormatDateSpeak(end) + " Uhr";
+                        speakMsg += SPACE + sTime + '.' + SPACE;
+                        if (meteo && uZAMGMitMeteoinformationen) description += meteo ? SPACE + SPACE + 'Wetterinformation: ' + meteo : '';
+                        if (uSpracheMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
+                            description += SPACE + SPACE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                        }
+                        description = replaceTokenForSpeak(description);
+                        if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
+                            if (uSpracheMitBeschreibung) speakMsg += description;
+                        } else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                     }
-                    description = replaceTokenForSpeak(description);
-                    if (uMaxCharToSpeak === 0 || (speakMsg + description).length <= uMaxCharToSpeak) {
-                        if (uSpracheMitBeschreibung) speakMsg += description;
-                    } else speakMsg += ' Weiterführende Informationen sind vorhanden.';
+                } else { // kurzform
+                    speakMsg = getTopic(mode, true)
+                    speakMsg +='vor ' + entry.typename + ' Stufe: ';
+                    let color = '';
+                    switch (level) {
+                        case 0:
+                        case 1:
+                        color = 'grün';
+                        break;
+                        case 2:
+                        color: 'gelb';
+                        break;
+                        case 3:
+                        color: 'rot';
+                        break;
+                        case 4:
+                        default:
+                        color: 'violet';
+                    }
+                    speakMsg += color;
+                    let e = new Date(entry.start);
+                    let d = e.getDate() - new Date().getDate();
+                    let s = e.getHours();
+                    let pre = '';
+                    if (s < 5 || s >= 22) pre = 'nacht ';
+                    else if (s < 10)  pre = 'früh ';
+                    else if (s < 12)  pre = 'vormittag ';
+                    else if (s < 14)  pre = 'mittag ';
+                    else if (s < 18)  pre = 'nachmittag ';
+                    else if (s < 22)  pre = 'abend ';
+                    let day = ''
+                    switch (d) {
+                        case 0:
+                        day = 'heute ';
+                        break;
+                        case 1:
+                        day = 'morgen ';
+                        break;
+                        case 2:
+                        day = 'übermorgen ';
+                        break;
+                        default:
+                        day = getFormatDateSpeak(begin) + " Uhr ";
+                    }
+                    speakMsg += ' ab ' + day + pre;
                 }
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
@@ -2098,12 +2175,15 @@ async function getDataFromServer(first) {
         let mpath =  mainStatePath + 'data';
         for (let a = 0; a < warnObjs.length;a++){
             let id = warnObjs[a];
-            let has = Object.entries(getState(id).val).length > 0;
+            let has = false;
+            const theData = await getStateAsync(id);
+            if (theData.val) {
+                has = Object.entries(theData.val).length > 0;
+            }
             let x = 0;
+            id = id.substr(0,id.lastIndexOf('.'));
             while (mpath !== id && x++ <4) {
-                let t = id.split('.');
-                t.splice(t.length-1,1);
-                id = t.join('.');
+                id = id.substr(0,id.lastIndexOf('.'));
                 countObj[id] = (countObj[id] === undefined ? 0 : countObj[id]) + has ? 1:0;
             }
         }
@@ -2111,9 +2191,9 @@ async function getDataFromServer(first) {
             try {
                 let nid = id + '.rawTotalWarnings'
                 if (!await existsStateAsync(nid)) {
-                    await createStateAsync(nid,{force: true,read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
+                    await createStateAsync(nid,{def:0,read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
                 }
-                await setState(nid, countObj[id], true);
+                await setStateAsync(nid, countObj[id], true);
             } catch(e) {
                 log('Fehler in getDataFromServer()', 'error');
             }
@@ -2465,7 +2545,7 @@ async function addWarncell(obj, i){
     } else {
         wc = obj;
     }
-    let warncellid = mainStatePath + 'config.warnzelle.';
+    let warncellid = mainStatePath + 'config.basiskonfiguration.warnzelle.';
 
     let index=-1;
     let folder = ''
@@ -2854,6 +2934,7 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
+        result['typename']       = result.type === -1                ? ''    : warningTypesString[DWD][result.type][0];
     } else if (mode === ZAMG) {
         if (
             warn.properties === undefined ||
@@ -2884,6 +2965,8 @@ function getDatabaseData(warn, mode){
             log('Bitte folgende Zeile im Forum posten. Danke', warn);
             log('Unbekannter Typ: ' + result.type + ' Schlagzeile: ' + result.headline, warn);
         }
+        result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
+
     } else if (mode === DWD2) {
         if (
             warn.RESPONSETYPE != 'Prepare'
@@ -2925,6 +3008,7 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         //result['picture']       = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
+        result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
