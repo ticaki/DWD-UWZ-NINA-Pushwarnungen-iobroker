@@ -264,6 +264,7 @@ var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für 
 var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
 var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
+var uSpracheMitOhneAlles            = true; // super kurz
 
 // Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
 var uMaxCharToSpeak = 0; // 0 = aus - Zahl größer als 0 = maximal Zeichenanzahl (1000 sind rund 86 Sekunden bla bla)
