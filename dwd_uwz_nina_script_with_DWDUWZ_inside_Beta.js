@@ -1,4 +1,4 @@
-//Version 0.99.045 Beta 1
+//Version 0.99.06 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -876,25 +876,26 @@ async function init() { // erster fund von create custom
                 for (var a = 0; a < warncells[mode].length; a++) {
                     await addWarncell(warncells[mode][a].id, c);
                 }
-                let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
-                for (var a = 0; a < st.length; a++) {
-                    let val = getEndfromID(st[a]);
-                    if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || 'addLat#' || 'addLong#') continue;
-                    let wIndex = warncells[mode].findIndex(w => val == w.id);
-                    if (wIndex == -1 && getState(st[a]).val) await addWarncell(val, c);
-                    else if (wIndex > -1 && !getState(st[a]).val) warncells[mode].splice(wIndex, 1);
-                    on(st[a], function(obj) {
-                        setState(obj.id, obj.state.val, true);
-                        let val = getEndfromID(obj.id);
-                        let modetext = getPreEndfromID(obj.id);
-                        let c = MODES.findIndex((a) => a.text.toLowerCase() == modetext);
-                        let mode = MODES[c].mode;
-                        let wIndex = warncells[mode].findIndex(w => val == w.id);
-                        if (wIndex == -1 && obj.state.val) addWarncell(val, c);
-                        else if (wIndex > -1 && !obj.state.val) warncells[mode].splice(wIndex, 1);
-                    });
-                }
             }
+            let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
+            for (var a = 0; a < st.length; a++) {
+                let val = getEndfromID(st[a]);
+                if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || val == 'addLat#' || val == 'addLong#') continue;
+                let wIndex = warncells[mode].findIndex(w => val == w.id);
+                if (wIndex == -1 && getState(st[a]).val) await addWarncell(val, c);
+                else if (wIndex > -1 && !getState(st[a]).val) warncells[mode].splice(wIndex, 1);
+                on(st[a], function(obj) {
+                    setState(obj.id, obj.state.val, true);
+                    let val = getEndfromID(obj.id);
+                    let modetext = getPreEndfromID(obj.id);
+                    let c = MODES.findIndex((a) => a.text.toLowerCase() == modetext);
+                    let mode = MODES[c].mode;
+                    let wIndex = warncells[mode].findIndex(w => val == w.id);
+                    if (wIndex == -1 && obj.state.val) addWarncell(val, c);
+                    else if (wIndex > -1 && !obj.state.val) warncells[mode].splice(wIndex, 1);
+                });
+            }
+
 
             let stateAlertId = mainStatePath + 'alert.' + MODES[c].text.toLowerCase() + '.';
             for (let b = 0; b < warningTypesString[MODES[c].mode].length; b++) {
@@ -1596,7 +1597,7 @@ function checkWarningsMain() {
                 if (isNewMessage && getPushModeFlag(mode) & EMAIL){
                     emailSend = true;
                 }
-                sendMessage(b, picture + getTopic(mode), html, entry);
+                sendMessage(b, picture + getTopic(mode, level), html, entry);
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
             if (!isNewMessage) continue;
@@ -1622,7 +1623,7 @@ function checkWarningsMain() {
 
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, picture + getTopic(mode) + SPACE + count, picture + pushMsg, entry);
+                sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry);
                 myLog('text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1631,7 +1632,7 @@ function checkWarningsMain() {
                 let speakMsg = '';
                 if ( !uSpracheMitOhneAlles || mode == NINA ) {
                     sTime = SPACE;
-                    speakMsg = getTopic(mode, true) + headline + getArtikelMode(mode, true) + area;
+                    speakMsg = getTopic(mode, level, true) + headline + getArtikelMode(mode, true) + area;
                     if (entry.repeatCounter == 1 && !onClickCheckRun) {
                         speakMsg += ' wurde verlängert.';
                     } else {
@@ -1650,8 +1651,8 @@ function checkWarningsMain() {
                         } else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                     }
                 } else { // kurzform
-                    speakMsg = getTopic(mode, true)
-                    speakMsg +='vor ' + entry.typename + ' Stufe: ';
+                    speakMsg = getTopic(mode, level)
+                    speakMsg +=' vor ' + entry.typename + ' - Stufe ';
                     let color = '';
                     switch (level) {
                         case 0:
@@ -1659,14 +1660,14 @@ function checkWarningsMain() {
                         color = 'grün';
                         break;
                         case 2:
-                        color: 'gelb';
+                        color = 'gelb';
                         break;
                         case 3:
-                        color: 'rot';
+                        color = 'rot';
                         break;
                         case 4:
                         default:
-                        color: 'violet';
+                        color = 'violet';
                     }
                     speakMsg += color;
                     let e = new Date(entry.start);
@@ -1693,7 +1694,7 @@ function checkWarningsMain() {
                         default:
                         day = getFormatDateSpeak(begin) + " Uhr ";
                     }
-                    speakMsg += ' ab ' + day + pre;
+                    speakMsg += ' - ab ' + day + pre + ' - ';
                 }
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
@@ -1701,7 +1702,7 @@ function checkWarningsMain() {
                 myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
             }
 
-            function getTopic(mode, s) {
+            function getTopic(mode, level, s) {
                 if (s == undefined) s = false;
                 let result = '';
                 if (mode !== NINA) {
@@ -2791,7 +2792,7 @@ function addDatabaseData(id, value, mode, old) {
         change = removeDatabaseDataID(id);
         if (Object.entries(value).length > 0 ) {
             warn = getDatabaseData(value, mode);
-            if (warn) {
+           if (warn) {
                 if (mode == UWZ) {
                     warn.areaID = getRegionNameUWZ(id);
                 } else {
@@ -2913,6 +2914,7 @@ function getIndexOfHash(db, hash) {
 
 // Wandelt den Datensatz in ein internes Format um
 function getDatabaseData(warn, mode){
+
     if (!warn || warn === undefined || typeof warn !== 'object' || warn === {} || warn =='{}') return null;
     let result={};
     if (mode === DWD) {
@@ -3037,6 +3039,7 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
+        result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
         if ( result.level < minlevel ) {if (uLogAusgabeErweitert) log('Level zu niedrig - Übergebenene Warnung UWZ verworfen');return null;}
     } else if (mode === NINA) {
         // level 2, 3, 4
