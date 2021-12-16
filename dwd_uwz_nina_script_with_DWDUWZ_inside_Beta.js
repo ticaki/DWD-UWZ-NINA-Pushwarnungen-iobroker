@@ -1,4 +1,4 @@
-//Version 0.99.07 Beta 1
+//Version 0.99.08 Beta 1
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -581,7 +581,7 @@ const configObj = {data: [
     {id: 'basiskonfiguration.log.erweitert', type:'boolean', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.log.debug', type:'boolean', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
     {id: 'basiskonfiguration.log.ausgabe', type:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', type:'boolean', def: !firstRun,on: function(obj) {firstRun = !obj.state.val; setState(obj.id,obj.state.val,true);}}
+    {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', type:'boolean', def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}}
 ]};
 
 // hash erzeugen
@@ -803,8 +803,9 @@ async function changeMode(modeFromState) {
                 }
             }
         }
-        if (autoSendWarnings && !firstRun) checkWarningsMain();
+        if (autoSendWarnings && (sendNoMessgesOnInit)) checkWarningsMain();
         firstRun = false;
+        sendNoMessgesOnInit = false;
     }
     setConfigModeStates(modeFromState);
 }
@@ -2098,19 +2099,19 @@ async function InitDatabase(first) {
             if (uLogAusgabe && (enableInternDWD2)) log( 'Standalone DWD2 Datenabruf aktiviert');
             if (uLogAusgabe && (enableInternUWZ)) log('Standalone UWZ Datenabruf aktiviert');
             if (uLogAusgabe && (enableInternZamg)) log('Standalone ZAMG Datenabruf aktiviert');
-            if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
+            if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(sendNoMessgesOnInit);
             if (standaloneInterval) clearInterval(standaloneInterval);
             standaloneInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
         }
     }
     if (MODE & DWD && !(enableInternDWD || enableInternDWD2)) {
-        _helper($("state[state.id=" + dwdPath + ".*.object]"), DWD, first);
+        _helper($("state[state.id=" + dwdPath + ".*.object]"), DWD, sendNoMessgesOnInit);
     }
     if (MODE & UWZ && !enableInternUWZ) {
-        _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, first);
+        _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, sendNoMessgesOnInit);
     }
     if (MODE & NINA) {
-        _helper($("state[state.id=" + ninaPath + ".*.rawJson]"), NINA, first);
+        _helper($("state[state.id=" + ninaPath + ".*.rawJson]"), NINA, sendNoMessgesOnInit);
     }
     warnDatabase.new = warnDatabase.new.filter(function(j) {
         return (j.mode & MODE);
@@ -2332,7 +2333,7 @@ async function getDataFromServer(first) {
         baseChannelId += (_i == 0 ? '' : _i) + '.';
 
         const oldObject = await getStateAsync(baseChannelId + "object");
-        if (!first && oldObject && JSON.stringify(warnObj) == JSON.stringify(oldObject.val)) {
+        if (!firstRun && oldObject && JSON.stringify(warnObj) == JSON.stringify(oldObject.val)) {
             myLog('Datensatz ' + (_i+1) + ' ist schon vorhanden');
             return;
         }
