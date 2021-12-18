@@ -1,4 +1,4 @@
-//Version 0.99.08 Beta 1
+//Version 0.99.09 Beta 2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -302,6 +302,7 @@ var emailInstanz=       'email.0';
 //Logausgabe
 var DEBUG = false;
 var DEBUGSENDEMAIL = false;
+var DEBUG_VARS = false;
 //ab hier bei Update
 // 123456
 
@@ -324,7 +325,11 @@ var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' +
 var html_end = '</table>';
 
 
-
+var mowasCoordinates = [];
+if ( DEBUG_VARS) {
+    mowasCoordinates = [{breiten:51.2277, laengen:6.7735, text:'dadrüben'}];
+    zamgCoordinates = [{laengen:13.05501,breiten:47.80949},{breiten:46.6247200, laengen:14.3052800},{breiten:48.332741,laengen:14.62274}];
+}
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
 var MODE = 0; // DWD oder UWZ wird von gültigen Einstellungen im Datenpfad überschrieben
@@ -337,7 +342,6 @@ windForceDetailsSpeak = !!windForceDetailsSpeak;
 checkConfigVariable('uZAMGMitMeteoinformationen');
 checkConfigVariable('ZAMG');
 checkConfigVariable('zamgCoordinates');
-checkConfigVariable('enableInternZamg');
 checkConfigVariable('DEBUGINGORESTART');
 checkConfigVariable('uLogAusgabeErweitert');
 checkConfigVariable('dwdWarncellId');
@@ -354,7 +358,7 @@ if (DEBUG || uLogAusgabeErweitert) {
 const SPEAK = ALEXA + HOMETWO + SAYIT;
 const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
 const ALLMSG = EMAIL | STATE_HTML;
-const ALLMODES = DWD | UWZ | NINA;
+const ALLMODES = DWD | UWZ | NINA | ZAMG;
 const CANHTML = EMAIL + STATE_HTML;
 const CANPLAIN = PUSH + EMAIL;
 const placeHolder = 'XXXXPLACEHOLDERXXXX';
@@ -382,6 +386,10 @@ var internalUWZPath = mainStatePath + 'data.uwz-id.';
 var internZamgUrl = "https://warnungen.zamg.at/wsapp/api/getWarningsForCoords?lon=" + placeHolder+"&lat=" + placeHolder+"1&lang=de"
 var internalZamgPath = mainStatePath + 'data.zamg.';
 
+var internMowasUrl = ["https://warnung.bund.de/bbk.mowas/gefahrendurchsagen.json", 'https://warnung.bund.de/bbk.biwapp/warnmeldungen.json', 'https://warnung.bund.de/bbk.katwarn/warnmeldungen.json'];
+var internalMowasPath = mainStatePath + 'data.mowas.';
+
+
 var START = new Date();
 var ENDE = new Date();
 var idAlexa = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.announcement';
@@ -396,15 +404,13 @@ var subDWDhandler = null;
 var subUWZhandler = null;
 var subNINAhandler = null;
 var timeoutFromCreateState = null;
-var dwdpushdienst = uPushdienst,
-    ninapushdienst = uPushdienst,
-    zamgpushdienst = uPushdienst,
-    uwzpushdienst = uPushdienst;
 
-let dwdManpushdienst = uPushdienst,
-    ninaManpushdienst = uPushdienst,
-    zamgManpushdienst = uPushdienst,
-    uwzManpushdienst = uPushdienst;
+let nPushdienst = {auto:{}, man:{}}
+for (let a=0; a<MODES.length;a++) {
+    if (MODES[a][0] == DWD2) continue;
+    nPushdienst.auto[MODES[a][0]] = uPushdienst;
+    nPushdienst.man[MODES[a][0]] = uPushdienst;
+}
 var firstRun = true;
 var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enthalten
 var _speakToInterval = null;
@@ -412,11 +418,13 @@ var deviceList = 		{};
 var onChangeTimeoutObj = {};
 var onStopped = false;
 var setAlertStateTimeout = null;
+var ninaIdentifier = {};
 
 var warncells = {};
 warncells[DWD] = [];
 warncells[UWZ] = [];
 warncells[ZAMG] = [];
+warncells[NINA] = [];
 
 const randomID = Math.random()*10000;
 var templist = {};
@@ -491,6 +499,10 @@ warningTypesString[ZAMG] = [
     ['unbekannt2', '❄'],
 ];
 
+warningTypesString[NINA] = [
+
+];
+
 //StatesDefinition für DWD intern
 // https://isabel.dwd.de/DE/leistungen/opendata/help/warnungen/cap_dwd_profile_de_pdf_1_11.pdf?__blob=publicationFile&v=3
 const statesDWDintern = [
@@ -509,8 +521,32 @@ const statesDWDintern = [
     { id:"responseType", default: "", options: {name: "Warning responseType",type: "string",read: true,write: false}},
     { id:"certainty", default: "", options: {name: "Warning certainty",type: "string",read: true,write: false}},
     { id:"altitude", default: "", options: {name: "Start Höhenlage der Warnung",type: "number",read: true,write: false}},
-    { id:"ceiling", default: "", options: {name: "End Höhenlage der Warnung",type: "number",read: true,write: false}}
+    { id:"ceiling", default: "", options: {name: "End Höhenlage der Warnung",type: "number",read: true,write: false}},
+    { id:"color", default:'', options: {name: "Farbe",type: "string",read: true,write: false,}},
+    { id:"HTMLShort", default: "", options: {name: "Warning text html",type: "string",read: true,write: false}},
+    { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}}
 ];
+
+const statesNINAintern = {
+    onset: { id:"begin",default:0, options: {name: "Warnungsstart",type: "number",role: "value.time",read: true,write: false}},
+    description: { id:"description", default:"", options: {name: "Beschreibung",type: "string",role: "weather.state",read: true,write: false}},
+    expires: { id:"end", default:0, options: {name: "Warnungsende",type: "number",role: "value.time",read: true,write: false}},
+    headline: { id:"headline", default:"", options: {name: "Schlagzeile",type: "string",role: "weather.state",read: true,write: false}},
+    level: { id:"level",default: 0, options: {name: "Level",type: "number",role: "value.warning",read: true,write: false,states: {1: "Minor",2: "Moderate",3: "Severe",4: "Extreme"}}},
+    object: { id:"object", default: {}, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false}},
+    serverity: { id:"severity", default: '', options: {name: "Warning severity",type: "string",role: "value.severity",read: true,write: false,states: {0: "None",1: "Minor",2: "Moderate",3: "Severe",4: "Extreme",9: "Heat Warning",11: "No Warning",19: "UV Warning",49: "Strong Heat",50: "Extreme Heat"}}},
+    type: { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false}},
+    urgency:{ id:"urgency", default: "", options: {name: "Warning urgency",type: "string",read: true,write: false}},
+    sent: { id:"sent", default: 0, options: {name: "Veröffentlichung",type: "number",role: "value.time",read: true,write: false}},
+    certainty: { id:"certainty", default: "", options: {name: "Warning certainty",type: "string",read: true,write: false}},
+    event: { id:"event", default: "", options: {name: "",type: "string",read: true,write: false}},
+    eventCode: { id:"eventCode", default: [], options: {name: "",type: "array",read: true,write: false}},
+    web: { id:"web", default: "", options: {name: "Webadresse",type: "string",read: true,write: false}},
+    contact: { id:"contact", default: "", options: {name: "Kontakt",type: "string",read: true,write: false}},
+    parameter: { id:"parameter", default: '[]', options: {name: "",type: "string",read: true,write: false}},
+    areaDesc: { id:"areaDesc", default: "", options: {name: "Bereich der Warnung",type: "string",read: true,write: false}},
+    category: { id:"category", default: "", options: {name: "Array von Kategorien",type: "string",read: true,write: false}}
+};
 
 //StatesDefinition für UWZ intern
 var wtsObj = {};
@@ -528,7 +564,8 @@ const statesUWZintern = [
     { id:"severity", default: 0, options: {name: "Warning severity",type: "number",role: "value.severity",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text",type: "string",read: true,write: false}},
     { id:"HTMLLong", default: "", options: {name: "Warning text",type: "string",read: true,write: false,}},
-    { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false, states: wtsObj,}}
+    { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false, states: wtsObj,}},
+    { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}}
 ];
 
 const statesZAMGintern = [
@@ -545,7 +582,8 @@ const statesZAMGintern = [
     { id:"area", default: '', options: {name: "Warnung area",type: "string",role: "weather.area",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text html",type: "string",read: true,write: false}},
     { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}},
-    { id:"color", default:-1, options: {name: "Link to chart",type: "string",read: true,write: false,}}
+    { id:"color", default:"", options: {name: "Link to chart",type: "string",read: true,write: false,}},
+    { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}}
 ];
 
 
@@ -637,6 +675,17 @@ for (let a = 0; a < konstanten.length; a++) {
                 id = id.replace(/\./g,'#');
                 zamgCoordinates[a].id = id;
                 warncells[ZAMG].push(zamgCoordinates[a]);
+            }
+        }
+    }
+
+    if (mowasCoordinates) {
+        if (Array.isArray(mowasCoordinates)){
+            for(let a = 0; a < mowasCoordinates.length; a++) {
+                let id = mowasCoordinates[a].breiten + '/' + mowasCoordinates[a].laengen;
+                id = id.replace(/\./g,'#');
+                mowasCoordinates[a].id = id;
+                warncells[NINA].push(mowasCoordinates[a]);
             }
         }
     }
@@ -786,7 +835,7 @@ async function changeMode(modeFromState) {
         MODE = modeFromState;
         if (uLogAusgabeErweitert) log('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
         if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - '+ mainStatePath + '.config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
-        await InitDatabase(firstRun);
+        await InitDatabase(sendNoMessgesOnInit);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
             for (var a = 0; a < konstanten.length; a++) {
@@ -830,45 +879,46 @@ async function init() { // erster fund von create custom
     }
     // erstelle Datenpunkte für DWD/UWZ standalone
     for (let c = 0; c < MODES.length; c++) {
-        if (c == 2) continue; // nicht nina;
         let warncellid = mainStatePath + 'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase() ;
         try {
-            let app = ''
-            let app1 = ''
+            let app = [];
             switch(MODES[c].mode) {
                 case DWD: {
-                    app = '.add#';
+                    app[0] = '.add#';
                     break;
                 }
                 case UWZ: {
-                    app = '.addName#';
-                    app1 = '.addId#';
+                    app[0] = '.addName#';
+                    app[1] = '.addId#';
                     break;
                 }
                 case ZAMG: {
-                    app = '.addLat#';
-                    app1 = '.addLong#';
+                    app[0] = '.addLat#';
+                    app[1] = '.addLong#';
+                    break;
+                }
+                case NINA: {
+                    app[0] = '.addLat#';
+                    app[1] = '.addLong#';
+                    app[2] = '.addName#';
                     break;
                 }
                 default:
+                continue;
             }
-            if (!await existsStateAsync(warncellid + app)) {
-                        await createStateAsync(warncellid + app, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
-                        await setStateAsync(warncellid + app, '', true);
-            }
-            on ({id: warncellid + app, ack:false}, addWarncell);
-            if (app1) {
-                if (!await existsStateAsync(warncellid + app1)) {
-                            await createStateAsync(warncellid + app1, {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
-                            await setStateAsync(warncellid + app1, '', true);
+            for (let x = 0; x<app.length;x++) {
+                if (!await existsStateAsync(warncellid + app[x])) {
+                    await createStateAsync(warncellid + app[x], {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
+                    await setStateAsync(warncellid + app[x], '', true);
+                    //if (MODES[c].mode == NINA) log(warncellid)
                 }
-                on ({id: warncellid + app1, ack:false}, addWarncell);
+                on ({id: warncellid + app[x], ack:false}, addWarncell);
             }
             if (!await existsStateAsync(warncellid + '.refresh#')) {
-                        await createStateAsync(warncellid + '.refresh#',{def:false, name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
-                        await setStateAsync(warncellid + '.refresh#', false, true);
+                await createStateAsync(warncellid + '.refresh#',{def:false, name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
+                await setStateAsync(warncellid + '.refresh#', false, true);
 
-            }
+    }
             on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
         } catch(error) {
             log('Fehler in CreateStates #2');
@@ -881,7 +931,7 @@ async function init() { // erster fund von create custom
                 await addWarncell(warncells[mode][a].id, c);
             }
         }
-        let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'*)');
+        let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'.*)');
         for (var a = 0; a < st.length; a++) {
             let val = getEndfromID(st[a]);
             if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || val == 'addLat#' || val == 'addLong#') continue;
@@ -921,40 +971,59 @@ async function init() { // erster fund von create custom
         }
     }
 
-    for (let w = 0; w < warncells[DWD].length; w++) {
-        for (let i = 0; i < numOfWarnings; i++) {
-            let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
-            for (let a = 0; a < statesDWDintern.length; a++) {
-                let dp = statesDWDintern[a];
-                let id = p + dp.id;
-                try {
+    try {
+        for (let w = 0; w < warncells[DWD].length; w++) {
+            for (let i = 0; i < numOfWarnings; i++) {
+                let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                for (let a = 0; a < statesDWDintern.length; a++) {
+                    let dp = statesDWDintern[a];
+                    let id = p + dp.id;
+                    dp.options.def = dp.default;
+                    try {
+                        if (!await existsStateAsync(id)) {
+                            await createStateAsync(id, dp.options,);
+                        }
+                    } catch(error) {
+                        log('Fehler in CreateStates #4');
+                        log(error);
+                        stopScript();
+                    }
+                }
+            }
+        }
+        for (let w = 0; w < warncells[UWZ].length; w++) {
+            for (let i = 0; i < numOfWarnings; i++) {
+                let p = internalUWZPath + warncells[UWZ][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                for (let a = 0; a < statesUWZintern.length; a++) {
+                    let dp = statesUWZintern[a];
+                    let id = p + dp.id;
                     if (!await existsStateAsync(id)) {
                         await createStateAsync(id, dp.options,);
                     }
-                } catch(error) {
-                    log('Fehler in CreateStates #4');
-                    log(error);
-                    stopScript();
+                }
+            }
+        }
+        for (let w = 0; w < warncells[NINA].length; w++) {
+            for (let i = 0; i < numOfWarnings; i++) {
+                let p = internalMowasPath + warncells[NINA][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                for (let a in statesNINAintern) {
+                    let dp = statesNINAintern[a];
+                    dp.options.def = dp.default;
+                    let id = p + dp.id;
+                    if (!await existsStateAsync(id)) {
+                        await createStateAsync(id, dp.options,);
+                    }
                 }
             }
         }
     }
-    for (let w = 0; w < warncells[UWZ].length; w++) {
-        for (let i = 0; i < numOfWarnings; i++) {
-            let p = internalUWZPath + warncells[UWZ][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
-            for (let a = 0; a < statesUWZintern.length; a++) {
-                let dp = statesUWZintern[a];
-                let id = p + dp.id;
-                if (!await existsStateAsync(id)) {
-                    await createStateAsync(id, dp.options,);
-                }
-            }
-        }
+    catch (e) {
+        log('error in .data create ' + e, 'error');
     }
     try {
         // MODE änderung über Datenpunkte string
         if (!await existsStateAsync(configModeState)) {
-            await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD oder UWZ oder Nina oder Zamg", type: "string", def: '' });
+            await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD, UWZ, Nina oder Zamg", type: "string", def: '' });
         }
         on({ id: configModeState, change: 'ne', ack: false }, function(obj) {
             if (obj.state.val && typeof obj.state.val === 'string' &&
@@ -1144,42 +1213,24 @@ function subscribeStates() {// on() für alles unter config.auto
 }
 // Hilfsfunktion zu on()
 function setConfigKonstanten(id, val, auto) {
-    let b = id.split('.');
-    let m = b[b.length - 2];
-    let d = konstanten.findIndex(function(c) { return (c.name === b[b.length - 1]); });
-    if (d == -1) return;
-    let value = konstanten[d].value
-    let tp = 0;
-    switch (m) {
-        case 'dwd': {
-            val = val && !!(MODE & DWD);
-            if (auto) dwdpushdienst = switchFlags(dwdpushdienst, value, val);
-            else dwdManpushdienst = switchFlags(dwdManpushdienst, value, val);
-            break;
-        }
-        case 'uwz': {
-            val = val && !!(MODE & UWZ);
-            if (auto) uwzpushdienst = switchFlags(uwzpushdienst, value, val);
-            else uwzManpushdienst = switchFlags(uwzManpushdienst, value, val);
-            break;
-        }
-        case 'nina': {
-            val = val && !!(MODE & NINA);
-            if (auto) ninapushdienst = switchFlags(ninapushdienst, value, val);
-            else ninaManpushdienst = switchFlags(ninaManpushdienst, value, val);
-            break;
-        }
-        case 'zamg': {
-            val = val && !!(MODE & ZAMG);
-            if (auto) zamgpushdienst = switchFlags(zamgpushdienst, value, val);
-            else zamgManpushdienst = switchFlags(zamgManpushdienst, value, val);
-            break;
-        }
-        default: {
-            log('unbekannter Mode:' + m + 'in setConfigKonstanten', 'error');
+    try {
+        let b = id.split('.');
+        let m1 = b[b.length - 2];
+        let m = MODES.findIndex(function(c) { return (c.text.toLocaleLowerCase() == m1); });
+        m = MODES[m].mode;
+        let d = konstanten.findIndex(function(c) { return (c.name === b[b.length - 1]); });
+        if (d == -1) return;
+        let value = konstanten[d].value
+        let tp = 0;
+        let typ = auto ? 'auto' : 'man';
+        if (MODE & m) {
+            nPushdienst[typ][m] = switchFlags(nPushdienst[typ][m], value, val);
+            setState(id, val, true);
         }
     }
-    setState(id, val, true);
+    catch(e) {
+        log('Fehler in setConfigKonstanten() ' + e)
+    }
 }
 
 // setzte die Alert States auf die höchste aktuelle Warnstufe
@@ -1274,51 +1325,38 @@ function getPushModeFlag(mode, noflags) {
 }
 
 function getAutoPushMode(mode) {
-    if (onClickCheckRun) return getManuellPushMode(mode);
-    if (mode !== undefined) {
-        if (mode & DWD) mode = switchFlags(mode, DWD, !!(uPushdienst & dwdpushdienst));
-        if (mode & UWZ) mode = switchFlags(mode, UWZ, !!(uPushdienst & uwzpushdienst));
-        if (mode & NINA) mode = switchFlags(mode, NINA, !!(uPushdienst & ninapushdienst));
-        if (mode & ZAMG) mode = switchFlags(mode, ZAMG, !!(uPushdienst & zamgpushdienst));
-        return mode;
-    }
-    myLog('getAutoPushFlags() mode unbekannt!', 'info');
-    return 0;
+    if (onClickCheckRun) return getManuellPushMode(mode, 'man');
+    else return getManuellPushMode(mode, 'auto');
 }
 
-function getManuellPushMode(mode) {
-    if (!onClickCheckRun) return getAutoPushMode(mode);
+function getManuellPushMode(mode, typ) {
+    if (!onClickCheckRun) typ = 'auto';
+    if (typ === undefined) typ = 'man';
     if (mode !== undefined) {
-        if (mode & DWD) mode = switchFlags(mode, DWD, !!(uPushdienst & dwdManpushdienst));
-        if (mode & UWZ) mode = switchFlags(mode, UWZ, !!(uPushdienst & uwzManpushdienst));
-        if (mode & NINA) mode = switchFlags(mode, NINA, !!(uPushdienst & ninaManpushdienst));
-        if (mode & ZAMG) mode = switchFlags(mode, ZAMG, !!(uPushdienst & zamgManpushdienst));
+        for (let a=0; a<MODES.length;a++) {
+            if (!(mode & MODES[a].mode) || MODES[a].mode == DWD2) continue;
+            mode = switchFlags(mode, MODES[a].mode, !!(uPushdienst & nPushdienst[typ][MODES[a].mode]))
+        }
         return mode;
     }
-    myLog('getAutoPushFlags() mode unbekannt!', 'error');
+    myLog('getManuellPushMode() mode unbekannt!', 'error');
     return 0;
 }
 
 function getAutoPushFlags(mode) {
-    if (mode !== undefined) {
-        let m = 0;
-        if (mode & DWD) m |= (uPushdienst & dwdpushdienst);
-        if (mode & UWZ) m |= (uPushdienst & uwzpushdienst);
-        if (mode & NINA) m |= (uPushdienst & ninapushdienst);
-        if (mode & ZAMG) m |= (uPushdienst & zamgpushdienst);
-        return m;
-    }
-    myLog('getAutoPushFlags() mode unbekannt!', 'error');
-    return 0;
+    if (onClickCheckRun) return getManuellPushFlags(mode, 'man');
+    else return getManuellPushFlags(mode, 'auto');
 }
 
-function getManuellPushFlags(mode) {
+function getManuellPushFlags(mode, typ) {
+    if (!onClickCheckRun) typ = 'auto';
+    if (typ === undefined) typ = 'man';
     if (mode !== undefined) {
         let m = 0;
-        if (mode & DWD) m |= (uPushdienst & dwdManpushdienst);
-        if (mode & UWZ) m |= (uPushdienst & uwzManpushdienst);
-        if (mode & NINA) m |= (uPushdienst & ninaManpushdienst);
-        if (mode & ZAMG) m |= (uPushdienst & zamgManpushdienst);
+        for (let a=0; a<MODES.length;a++) {
+            if (!(mode & MODES[a].mode) || MODES[a].mode == DWD2) continue;
+            m |= uPushdienst & nPushdienst[typ][MODES[a].mode]
+        }
         return m;
     }
     myLog('getManuellPushFlags() mode unbekannt!', 'error');
@@ -1393,7 +1431,6 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
-
     let ignoreWarningCount = 0;
     // Enferne neue Einträge die doppelt sind sortiert nach level und Höhe
     for (let a = 0; a < warnDatabase.new.length; a++) {
@@ -1559,7 +1596,6 @@ function checkWarningsMain() {
             if (begin) sTime += "vom " + begin + " Uhr";
             if ((begin && end)) sTime += SPACE;
             if (end) sTime += "bis " + end + " Uhr";
-
             // html
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
                 let he = '',
@@ -1661,11 +1697,13 @@ function checkWarningsMain() {
                     let color = '';
                     switch (level) {
                         case 0:
-                        case 1:
                         color = 'grün';
                         break;
-                        case 2:
+                        case 1:
                         color = 'gelb';
+                        break;
+                        case 2:
+                        color = 'orange';
                         break;
                         case 3:
                         color = 'rot';
@@ -2038,7 +2076,7 @@ function dataSubscribe() {
         subUWZhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeUWZ);
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
-    if (MODE & NINA) {
+    if (MODE & NINA && warncells[NINA].length == 0) {
         if (uLogAusgabe) log('Nutze Datenabruf für NINA über States in ' + ninaPath);
         let r = getRegEx(ninaPath, '^');
         r += '.*.rawJson$';
@@ -2091,32 +2129,32 @@ function onChange(dp, mode) {
 // Erstes befüllen der Database
 async function InitDatabase(first) {
     myLog('InitDatabase() first: ' + first);
-    if (first) {
+    if (firstRun) {
         setState(totalWarningCountState, 0, true);
         warnDatabase = { new: [], old: [] };
-        if ((enableInternDWD || enableInternDWD2 || enableInternUWZ) || enableInternZamg ) {
-            if (uLogAusgabe && (enableInternDWD)) log('Standalone DWD Datenabruf aktiviert');
-            if (uLogAusgabe && (enableInternDWD2)) log( 'Standalone DWD2 Datenabruf aktiviert');
-            if (uLogAusgabe && (enableInternUWZ)) log('Standalone UWZ Datenabruf aktiviert');
-            if (uLogAusgabe && (enableInternZamg)) log('Standalone ZAMG Datenabruf aktiviert');
-            if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(sendNoMessgesOnInit);
-            if (standaloneInterval) clearInterval(standaloneInterval);
-            standaloneInterval = setInterval(getDataFromServer, intervalMinutes * 60 * 1000);
-        }
+        if (uLogAusgabe && (enableInternDWD)) log('Standalone DWD Datenabruf aktiviert');
+        if (uLogAusgabe && (enableInternDWD2)) log( 'Standalone DWD2 Datenabruf aktiviert');
+        if (uLogAusgabe && (enableInternUWZ)) log('Standalone UWZ Datenabruf aktiviert');
+        if (uLogAusgabe && warncells[ZAMG].length > 0) log('Standalone ZAMG Datenabruf aktiviert');
+        if (uLogAusgabe && warncells[NINA].length > 0) log('Standalone NINA Datenabruf aktiviert');
+        if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
+        if (standaloneInterval) clearSchedule(standaloneInterval);
+        let sec = 18 + Math.round(Math.random()*30);
+        standaloneInterval = schedule(sec + ' */'+intervalMinutes+' * * * *', getDataFromServer);
     }
     if (MODE & DWD && !(enableInternDWD || enableInternDWD2)) {
-        _helper($("state[state.id=" + dwdPath + ".*.object]"), DWD, sendNoMessgesOnInit);
+        _helper($("state[state.id=" + dwdPath + ".*.object]"), DWD, first);
     }
     if (MODE & UWZ && !enableInternUWZ) {
-        _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, sendNoMessgesOnInit);
+        _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, first);
     }
     if (MODE & NINA) {
-        _helper($("state[state.id=" + ninaPath + ".*.rawJson]"), NINA, sendNoMessgesOnInit);
+        _helper($("state[state.id=" + ninaPath + ".*.rawJson]"), NINA, first);
     }
     warnDatabase.new = warnDatabase.new.filter(function(j) {
         return (j.mode & MODE);
     });
-    if (!first) {
+    if (!firstRun) {
         warnDatabase.new = _filter(warnDatabase.new);
         warnDatabase.old = _filter(warnDatabase.old);
     }
@@ -2152,8 +2190,8 @@ async function getDataFromServer(first) {
         log('DWD aktivieren, Warncell vorhanden');
     }
     for (let a = 0; a < warncells[DWD].length; a++) {
-        if (enableInternDWD)  await _getDataFromServer(internDWDUrl, DWD, first, warncells[DWD][a].id);
-        if (enableInternDWD2) await _getDataFromServer(replacePlaceholder(internDWD2Url, warncells[DWD][a].id), DWD2, first, warncells[DWD][a].id);
+        if (enableInternDWD)  await _getDataFromServer([internDWDUrl], DWD, first, warncells[DWD][a].id);
+        if (enableInternDWD2) await _getDataFromServer([replacePlaceholder(internDWD2Url, warncells[DWD][a].id)], DWD2, first, warncells[DWD][a].id);
     }
     if (enableInternUWZ && warncells[UWZ].length == 0) {
         enableInternUWZ = false;
@@ -2163,87 +2201,99 @@ async function getDataFromServer(first) {
         log('UWZ aktivieren, Warncell vorhanden');
     }
     for (let a = 0; a < warncells[UWZ].length; a++) {
-        if (enableInternUWZ)  await _getDataFromServer(internUWZUrl + warncells[UWZ][a].id, UWZ, first, warncells[UWZ][a].id);
-    }
-    if (enableInternZamg && warncells[ZAMG].length == 0) {
-        enableInternZamg = false;
-        log('ZAMG deaktivieren, keine Warncell vorhanden');
-    } else if (!enableInternZamg && warncells[ZAMG].length > 0) {
-        enableInternZamg = true;
-        log('ZAMG aktivieren, Warncell vorhanden');
+        if (enableInternUWZ)  await _getDataFromServer([internUWZUrl + warncells[UWZ][a].id], UWZ, first, warncells[UWZ][a].id);
     }
     for (let a = 0; a < warncells[ZAMG].length; a++) {
         let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
-        if (enableInternZamg)  await _getDataFromServer(url, ZAMG, first, '');
+        await _getDataFromServer([url], ZAMG, first, '');
     }
-    let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
-    if (warnObjs.length>0) {
-        let countObj = {};
-        let mpath =  mainStatePath + 'data';
-        for (let a = 0; a < warnObjs.length;a++){
-            let id = warnObjs[a];
-            let has = false;
-            const theData = await getStateAsync(id);
-            if (theData.val) {
-                has = Object.entries(theData.val).length > 0;
-            }
-            let x = 0;
-            id = id.substr(0,id.lastIndexOf('.'));
-            while (mpath !== id && x++ <4) {
-                id = id.substr(0,id.lastIndexOf('.'));
-                countObj[id] = (countObj[id] === undefined ? 0 : countObj[id]) + has ? 1:0;
-            }
-        }
-        for (let id in countObj) {
-            try {
-                let nid = id + '.rawTotalWarnings'
-                if (!await existsStateAsync(nid)) {
-                    await createStateAsync(nid,{def:0,read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
-                }
-                await setStateAsync(nid, countObj[id], true);
-            } catch(e) {
-                log('Fehler in getDataFromServer()', 'error');
-            }
-        }
+    if (warncells[NINA].length) {
+        //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
+        await _getDataFromServer(internMowasUrl, NINA, first, '');
     }
 
+    setTimeout( async function () {
+        let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
+        if (warnObjs.length>0) {
+            let countObj = {};
+            let mpath =  mainStatePath + 'data';
+            for (let a = 0; a < warnObjs.length;a++){
+                let id = warnObjs[a];
+                let has = false;
+                const theData = await getStateAsync(id);
+                if (theData && theData.val) {
+                    has = Object.entries(theData.val).length > 0;
+                }
+                let x = 0;
+                id = id.substr(0,id.lastIndexOf('.'));
+                while (mpath !== id && x++ <4) {
+                    id = id.substr(0,id.lastIndexOf('.'));
+                    countObj[id] = (countObj[id] === undefined ? 0 : countObj[id]) + (has ? 1 : 0);
+                }
+            }
+            for (let id in countObj) {
+                try {
+                    let nid = id + '.rawTotalWarnings'
+                    if (!await existsStateAsync(nid)) {
+                        await createStateAsync(nid,{def:0,read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
+                    }
+                    await setStateAsync(nid, countObj[id], true);
+                } catch(e) {
+                    log('Fehler in getDataFromServer()', 'error');
+                }
+            }
+        }
+    }, 2000);
 
     async function _getDataFromServer(url, m, first, area) {
-        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD & 2 ? ' DWD2' : ' ZAMG'))));
+        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : 'NINA')))));
         if (onStopped) return;
-        await axios.get(url)
-            .then(results => {
-                if((DWD|DWD2) & m) myLog("AREA: " + area);
-                if(UWZ & m) myLog("AREA: " + getAreaFromURI(results.config.url));
-                myLog("Status: " + results.status);
-                myLog("Url: " + url);
-                if (!results) log ('!results');
-                if (results === undefined) log('results === undefined')
-                if (results.status == 200) {
-                    if((DWD|DWD2|ZAMG) & m) processData(area, results.data, m, first);
-                    else if(UWZ & m) processData(getAreaFromURI(results.config.url), results.data, m, first);
-                    else {
-                        log('getDataFromServer wrong Mode', 'error');
-                        stopScript();
+        let results = [];
+        for (let a=0; a<url.length; a++) {
+            const result = await axios.get(url[a])
+                .then(results => {
+                    myLog("Status: " + results.status);
+                    myLog("Url: " + url);
+                    if (!results) log ('!results');
+                    if (results === undefined) log('results === undefined')
+                    if (results.status == 200) {
+                        return results.data
+
+                    } else {
+                        if (uLogAusgabe) log ('getDataFromServer() 1. Status: ' + results.status);
                     }
-                } else {
-                    if (uLogAusgabe) log ('getDataFromServer() 1. Status: ' + results.status);
-                }
-            })
-            .catch(error => {
-                if (error == undefined) {
-                    if (uLogAusgabe) log('getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
-                } else if (error.response == undefined) {
-                    if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
-                } else if (error.response.status == 404) {
-                    if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
-                } else {
-                    if (uLogAusgabe) log('getDataFromServer() 5. ')
-                    if (uLogAusgabe) log(error.response.data);
-                    if (uLogAusgabe) log(error.response.status);
-                    if (uLogAusgabe) log(error.response.headers);
-                }
-            })
+                    return null;
+                })
+                .catch(error => {
+                    if (error == undefined) {
+                        if (uLogAusgabe) log('getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
+                    } else if (error.response == undefined) {
+                        if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
+                    } else if (error.response.status == 404) {
+                        if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
+                    } else {
+                        if (uLogAusgabe) log('getDataFromServer() 5. ')
+                        if (uLogAusgabe) log(error.response.data);
+                        if (uLogAusgabe) log(error.response.status);
+                        if (uLogAusgabe) log(error.response.headers);
+                    }
+                    return null;
+                })
+            if((DWD|DWD2) & m) myLog("AREA: " + area);
+            if(UWZ & m) myLog("AREA: " + getAreaFromURI(url[a]));
+            if((DWD|DWD2|ZAMG) & m) await processData(area, result, m, first);
+            else if(UWZ & m) await processData(getAreaFromURI(url[a]), result, m, first);
+            else if(NINA & m) {
+                results = results.concat(result);
+            }
+            else {
+                log('getDataFromServer wrong Mode', 'error');
+                stopScript();
+            }
+        }
+        if(NINA & m) {
+            await processData(area, results, m, first);
+        }
     }
 
 
@@ -2315,21 +2365,135 @@ async function getDataFromServer(first) {
                         return JSON.stringify(a).hashCode() - JSON.stringify(b).hashCode();
                     });
                 }
+            } else if (NINA & m ) {
+                for (let ni in ninaIdentifier) {
+                    if (ninaIdentifier[ni].id < 0) delete ninaIdentifier[ni];
+                    else if (ninaIdentifier[ni].id > 0) ninaIdentifier[ni].id = -1;
+
+                }
+                newOBJ[0]={};
+                let tempOBJ = Object(thedata);
+                for (let a=0; a< tempOBJ.length; a++) {
+                    let obj = tempOBJ[a];
+                    if (obj.info === undefined) continue;
+                    for (let b=0; b<obj.info.length; b++) {
+                        let info = obj.info[b];
+                        if (info.area === undefined) continue;
+                        for (let d=0; d<info.area.length; d++) {
+                            // benutze einen Cache um das polygon nicht mehr als notwendig zu durchlaufen.
+                            if (ninaIdentifier[obj.identifier + obj.sent] === undefined) ninaIdentifier[obj.identifier + obj.sent] = {id:1};
+                            if (ninaIdentifier[obj.identifier + obj.sent].id == -1 ) {
+                                area = ninaIdentifier[obj.identifier + obj.sent].area;
+                            }
+                            else {
+                                let poly = info.area[d].polygon;
+                                area = await isAreaInPolygon(warncells[NINA], poly);
+                                ninaIdentifier[obj.identifier + obj.sent].area = area;
+                                if (uLogAusgabe && area != '') log(info.area[d].areaDesc + ' gefunden für Warnzelle: ' + area + ' obj.identifier: ' + obj.identifier);
+                                info.area[d].polygon = undefined;
+                            }
+                            info.area[d].polygon = undefined
+                            delete info.area[d].polygon;
+                            ninaIdentifier[obj.identifier + obj.sent].id = 1;
+                            //log(info.area[d].areaDesc);
+                            if (area != '') {
+                                //log(area);
+                                //log(info.area[d].polygon);
+                                info.area.areaDesc = info.area[d].areaDesc
+                                info.identifier = obj.identifier
+                                info.sent = obj.sent;
+                                if (newOBJ[0][area]){
+                                    newOBJ[0][area].push(info);
+                                } else {
+                                    newOBJ[0][area] = [info];
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+                // speicher frei geben
+                thedata = undefined;
+                tempOBJ = undefined;
             }
         }
-        let count = newOBJ.length;
-        for (var i = 0; i < numOfWarnings; i++) {
-            if (i < count) await writeResultEntry(newOBJ[i], i, m, first, area);
-            else await writeResultEntry({}, i, m, first, area);
+        let count = 0;
+        if (NINA & m) {
+            for (var w = 0; w < warncells[NINA].length; w++) {
+                count = 0;
+                area = warncells[NINA][w].text
+                if (newOBJ[0][area] !== undefined) count = newOBJ[0][area].length;
+                for (var i = 0; i < numOfWarnings; i++) {
+                    if (i < count) await writeResultEntry(newOBJ[0][area][i], i, m, first, warncells[NINA][w].id);
+                    else await writeResultEntry({}, i, m, first, warncells[NINA][w].id);
+                }
+            }
+        }
+        else {
+            count = newOBJ.length;
+            for (var i = 0; i < numOfWarnings; i++) {
+                if (i < count) await writeResultEntry(newOBJ[i], i, m, first, area);
+                else await writeResultEntry({}, i, m, first, area);
+            }
         }
         myLog('processData():' + count ? JSON.stringify(newOBJ) : '{}');
     }
+    async function isAreaInPolygon (posarr, polygonArr) {
+        for (let b=0;b<posarr.length;b++) {
+            const x = posarr[b].breiten; const y = posarr[b].laengen;
+            for (let a=0;a<polygonArr.length;a++) {
+                //log(await pointInPolygon(polygonArr[a].split(' '), [x, y]));
+                if ( await pointInPolygonwithDelay(polygonArr[a].split(' '), [x, y]) ) {
+                    return posarr[b].text
+                }
+            }
+        }
+        return '';
+    };
+
+    function pointInPolygonwithDelay(polygon, point) {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(pointInPolygon (polygon, point));
+        }, 50);
+    });
+    }
+    function pointInPolygon (polygon, point) {
+        //A point is in a polygon if a line from the point to infinity crosses the polygon an odd number of times
+        let odd = false;
+        polygon[polygon.length - 1] = polygon[polygon.length - 1].split(',');
+        let x = polygon[polygon.length - 1][0];
+        polygon[polygon.length - 1][0] = Number(polygon[polygon.length - 1][1])
+        polygon[polygon.length - 1][1] = Number(x)
+        //For each edge (In this case for each point of the polygon and the previous one)
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; i++) {
+            if (!Array.isArray(polygon[i])) {
+                polygon[i] = polygon[i].split(',');
+                let x = polygon[i][0];
+                polygon[i][0] = Number(polygon[i][1])
+                polygon[i][1] = Number(x)
+            }
+            //If a line from the point into infinity crosses this edge
+            if (((polygon[i][1] > point[1]) !== (polygon[j][1] > point[1])) // One point needs to be above, one below our y coordinate
+                // ...and the edge doesn't cross our Y corrdinate before our x coordinate (but between our x coordinate and infinity)
+                && (point[0] < ((polygon[j][0] - polygon[i][0]) * (point[1] - polygon[i][1]) / (polygon[j][1] - polygon[i][1]) + polygon[i][0]))) {
+                // Invert odd
+                odd = !odd;
+            }
+            j = i;
+
+        }
+        //If the number of crossings was odd, the point is in the polygon
+        return odd;
+    };
+
 
     async function writeResultEntry(warnObj, _i, m, first, area) {
         var baseChannelId = ''
         if (DWD & m || DWD2 & m) baseChannelId = internalDWDPath + area + internalWarningEnd;
         else if (UWZ & m) baseChannelId = internalUWZPath + area + internalWarningEnd;
         else if (ZAMG & m) baseChannelId = internalZamgPath + area + internalWarningEnd;
+        else if (NINA & m ) baseChannelId = internalMowasPath + area + internalWarningEnd;
         baseChannelId += (_i == 0 ? '' : _i) + '.';
 
         const oldObject = await getStateAsync(baseChannelId + "object");
@@ -2338,6 +2502,37 @@ async function getDataFromServer(first) {
             return;
         }
         let tempObj = {};
+        if (m & NINA) {
+            if(addDatabaseData(baseChannelId + statesNINAintern.object.id , {info:[warnObj]}, NINA, first)) {
+                if (timer) clearTimeout(timer);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                if (uLogAusgabe) log('NINA Warnung gefunden oder entfernt.');
+            }
+            tempObj[statesNINAintern.onset.id] = warnObj.onset !== undefined ? getDateObject(warnObj.onset).getTime() : Number("");
+            tempObj[statesNINAintern.description.id] = warnObj.description || '';
+            tempObj[statesNINAintern.expires.id] = warnObj.expires !== undefined ? getDateObject(warnObj.expires).getTime() : Number("");
+            tempObj[statesNINAintern.headline.id] = warnObj.headline || '';
+            tempObj[statesNINAintern.level.id] = warnObj.serverity === undefined || warnObj.serverity === '' ? -1 : getCapLevel(warnObj.serverity);
+            tempObj[statesNINAintern.serverity.id] = warnObj.serverity === undefined ? '' : warnObj.serverity;
+            tempObj[statesNINAintern.type.id] = -1;
+            tempObj[statesNINAintern.object.id] = warnObj;
+            tempObj[statesNINAintern.urgency.id] = warnObj.urgency || '';
+            tempObj[statesNINAintern.certainty.id] = warnObj.certainty || '';
+            tempObj[statesNINAintern.event.id] = warnObj.event|| '';
+
+            tempObj[statesNINAintern.eventCode.id] = warnObj.eventCode === undefined ? [] : warnObj.eventCode;
+            tempObj[statesNINAintern.web.id] = warnObj.web || '';
+            tempObj[statesNINAintern.contact.id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
+            tempObj[statesNINAintern.parameter.id] = JSON.stringify(warnObj.parameter) || JSON.stringify([]);
+            tempObj[statesNINAintern.areaDesc.id] = warnObj.area && warnObj.area.areaDesc ? warnObj.area.areaDesc : '';
+            tempObj[statesNINAintern.sent.id] = warnObj.sent !== undefined ? getDateObject(warnObj.sent).getTime() : Number("");
+            tempObj[statesNINAintern.category.id] = warnObj.category !== undefined ? JSON.stringify(warnObj.category) : '';
+
+            for (let a in statesNINAintern) {
+                let dp = statesNINAintern[a];
+                if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
+            }
+        }
         if (MODE & DWD && DWD2 & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
                 if (timer) clearTimeout(timer);
@@ -2367,6 +2562,10 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
             tempObj[statesDWDintern[14].id] = warnObj.ALTITUDE === undefined ? 0 : Math.round(warnObj.ALTITUDE * 0.3048);
             tempObj[statesDWDintern[15].id] = warnObj.CEILING === undefined ? 3000 : Math.round(warnObj.CEILING * 0.3048);
+            tempObj[statesDWDintern[16].id] = tempObj.level !== -1 ? getLevelColor(tempObj.level) : '';
+            tempObj[statesDWDintern[17].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, '') : '';
+            tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, tempObj.description) : '';
+
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -2402,6 +2601,9 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
             tempObj[statesDWDintern[14].id] = warnObj.altitudeStart === undefined ? 0 : warnObj.altitudeStart;
             tempObj[statesDWDintern[15].id] = warnObj.altitudeEnd === undefined ? 3000 : warnObj.altitudeEnd;
+            tempObj[statesDWDintern[16].id] = tempObj.level !== -1 ? getLevelColor(tempObj.level) : '';
+            tempObj[statesDWDintern[17].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, '') : '';
+            tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, tempObj.description) : '';
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -2444,13 +2646,14 @@ async function getDataFromServer(first) {
                     }
                 }
             }
+            if (tempObj.level) tempObj.level += 1
             tempObj[statesZAMGintern[13].id] = getLevelColor(tempObj.level, ZAMG);
-            let text = tempObj.type === -1  ? '' 	: 'Warnung vor ' + warningTypesString[ZAMG][tempObj.type][0];
-            tempObj[statesZAMGintern[11].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, text);
-            text += '</br>' + (tempObj.text + '</br>' + tempObj.auswirkungen).replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+            tempObj[statesZAMGintern[14].id] = tempObj.type === -1  ? '' 	: 'Warnung vor ' + warningTypesString[ZAMG][tempObj.type][0];
+            tempObj[statesZAMGintern[11].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj,tempObj.headline,'');
+            let text = '</br>' + (tempObj.text + '</br>' + tempObj.auswirkungen).replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
             text += '</br>' + tempObj.empfehlungen.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
             text += '</br>' + tempObj.meteotext.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
-            tempObj[statesZAMGintern[12].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, text);
+            tempObj[statesZAMGintern[12].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, tempObj.headline, text);
              for (let a = 0; a < statesZAMGintern.length; a++) {
                 let dp = statesZAMGintern[a];
                 //if (plainWarnObj.length > 0)log(baseChannelId + dp.id);
@@ -2475,8 +2678,13 @@ async function getDataFromServer(first) {
                 tempObj[statesUWZintern[4].id] = _getUWZLevel(warnObj.payload.levelName);
                 tempObj.urgency = _getUWZUrgency(warnObj.payload.levelName);
                 tempObj[statesUWZintern[5].id] = getLevelColor(warnObj.severity, UWZ);
-                tempObj[statesUWZintern[8].id] = _createHTMLtext(tempObj, warnObj.payload.translationsShortText.DE);
-                tempObj[statesUWZintern[9].id] = _createHTMLtext(tempObj, warnObj.payload.translationsLongText.DE);
+                let headline = '';
+                if (tempObj.urgency !== undefined && tempObj.urgency == 1) headline += "Vorwarnung vor ";
+                else headline += "Warnung vor ";
+                headline += warningTypesString[UWZ][tempObj.type];
+                tempObj[statesUWZintern[11].id] = headline;
+                tempObj[statesUWZintern[8].id] = _createHTMLtext(tempObj, headline, warnObj.payload.translationsShortText.DE);
+                tempObj[statesUWZintern[9].id] = _createHTMLtext(tempObj, headline, warnObj.payload.translationsLongText.DE);
             } else {
                 tempObj[statesUWZintern[2].id] = '';
                 tempObj[statesUWZintern[3].id] = '';
@@ -2485,6 +2693,7 @@ async function getDataFromServer(first) {
                 tempObj[statesUWZintern[5].id] = '';
                 tempObj[statesUWZintern[8].id] = '';
                 tempObj[statesUWZintern[9].id] = '';
+                tempObj[statesUWZintern[11].id] = '';
             }
             for (let a = 0; a < statesUWZintern.length; a++) {
                 let dp = statesUWZintern[a];
@@ -2517,12 +2726,10 @@ async function getDataFromServer(first) {
                 return result;
             }
         }
-        function _createHTMLtext(w, text) {
+        function _createHTMLtext(w, headline, text) {
             var html = '<div style="background: #' + w.color.toString(16) + '" border:"10px">';
             html += '<h3>';
-            if (w.urgency !== undefined && w.urgency == 1) html += "Vorwarnung vor ";
-            else html += "Warnung vor ";
-            html += warningTypesString[UWZ][w.type];
+            html += headline;
             html += "</h3>";
             html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
             html += text !== undefined && text !== '' ? '<p>' + text + '</p>' : '';
@@ -2556,6 +2763,7 @@ async function addWarncell(obj, i){
 
     let index=-1;
     let folder = ''
+    let breiten = 0, laengen = 0;
     switch (MODES[i].mode) {
         case DWD:
         var wcname = await testValueDWD2(wc);
@@ -2614,7 +2822,6 @@ async function addWarncell(obj, i){
             folder = internalUWZPath;
         break;
         case ZAMG:
-            let breiten, laengen;
             if (id) {
                 let t = id.split('.');
                 t[t.length-1] ='addLat#';
@@ -2630,8 +2837,8 @@ async function addWarncell(obj, i){
                 wc = wc.replace(/\./g,'#');
             } else {
                 let ar = wc.replace(/\#/g,'.').split('/');
-                breiten = ar[0];
-                laengen = ar[1];
+                breiten = Number(ar[0]);
+                laengen = Number(ar[1]);
             }
             wcname = await getZamgName(breiten, laengen);
             if (!wcname || wcname == 'Fehler') {
@@ -2657,6 +2864,7 @@ async function addWarncell(obj, i){
                 warncells[ZAMG].push({breiten:breiten, laengen:laengen, text:wcname, id:wc});
                 index = warncells[ZAMG].length-1
             }
+            warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
             if (!wcname) {
                 if (await existsStateAsync(warncellid)) {
                     wcname = getObject(warncellid).common.name;
@@ -2667,27 +2875,88 @@ async function addWarncell(obj, i){
                 return;
             }
             warncells[ZAMG][index].text = wcname;
-            warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
+
             folder = internalZamgPath;
+        break;
+        case NINA:
+            if (id) {
+                let t = id.split('.');
+                t[t.length-1] ='addLat#';
+                const lat = await getStateAsync(t.join('.'));
+                t[t.length-1] = 'addLong#';
+                const long = await getStateAsync(t.join('.'));
+                t[t.length-1] = 'addName#';
+                let wn = await getStateAsync(t.join('.'));
+                if (!lat.val || !long.val || lat.val == 'Fehler' || long.val == 'Fehler' || !wn.val || wn.val == 'Fehler'  ) {
+                    return;
+                }
+                breiten = lat.val;
+                laengen = long.val;
+                wcname = wn.val;
+                wc = breiten + '/' + laengen;
+                wc = wc.replace(/\./g,'#');
+                log(wc);
+            } else {
+                let ar = wc.replace(/\#/g,'.').split('/');
+                breiten =  Number(ar[0]);
+                laengen =  Number(ar[1]);
+            }
+            index=warncells[NINA].findIndex(w => wc == w.id);
+
+            if (index == -1) {
+                warncells[NINA].push({id:wc, breiten:breiten, laengen:laengen, text:wcname});
+                index = warncells[NINA].length-1
+            }
+            wcname = warncells[NINA][index].text;
+            warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
+            if (!wcname) {
+                if (await existsStateAsync(warncellid)) {
+                    wcname = getObject(warncellid).common.name;
+                }
+            }
+            if (!wcname || wcname == 'Fehler') {
+                if (id) {
+                    let t = id.split('.');
+                    t[t.length-1] ='addLat#';
+                    setState(t.join('.'),'Fehler', true);
+                    t[t.length-1] = 'addLong#';
+                    setState(t.join('.'),'Fehler', true);
+                    t[t.length-1] = 'addName#';
+                    setState(t.join('.'),'Fehler', true);
+                }
+                return;
+            } else {
+                if (id) {
+                    let t = id.split('.');
+                    t[t.length-1] ='addLat#';
+                    setState(t.join('.'),'', true);
+                    t[t.length-1] = 'addLong#';
+                    setState(t.join('.'),'', true);
+                    t[t.length-1] = 'addName#';
+                    setState(t.join('.'),'', true);
+                }
+            }
+
+            warncells[NINA][index].text = wcname;
+            folder = internalMowasPath;
         break;
         default:
         log('Unbekannter Mode in addWarncell', 'error');
         return;
     }
-
     if (!await existsStateAsync(warncellid)) {
         await createStateAsync(warncellid, {name: wcname,type: "boolean",read: true,write: true},);
         await setStateAsync(warncellid, true, true);
     }
     //  setzte den Namen für Datenpunkte unter data
-    if (getObject(warncellid).common.name != wcname) {
-        await extendObjectAsync (folder + warncells[MODES[i].mode][index].id, {
+    if (!(getObject(folder + wc) && getObject(folder + wc).common.name != wcname)) {
+        await extendObjectAsync (folder + wc, {
             type: 'channel',
             common: {
                 name: wcname
             }
         });
-        }
+    }
     if (restart) {
         log('Script neugestartet');
         startScript();
@@ -2780,7 +3049,7 @@ async function testValueDWD2 (value) {
     }
     if (templist[DWD].timeout) clearTimeout(templist[DWD].timeout);
     templist[DWD].timeout = setTimeout(function(){
-        templist[DWD].list = undefined;
+        delete templist[DWD].list;
     }, 30000);
 }
 
@@ -2818,8 +3087,7 @@ function addDatabaseData(id, value, mode, old) {
         } else if (uLogAusgabe && change) log("Remove Warning UWZ/DWD with id: " + id);
     } else if (mode == NINA) {
         // Nina benutzt keine eindeutigen Ids für Warnungen, so dass das löschen woanders erfolgen muß.
-        if (value.info === undefined || !Array.isArray(value.info))
-        return false;
+        if (value.info === undefined || !Array.isArray(value.info)) return false;
         let tempArr = [];
         let grouphash = 0;
         // sammele die neuen Daten
@@ -2957,7 +3225,7 @@ function getDatabaseData(warn, mode){
         result['start']         = warn.properties.rawinfo.start === undefined 	? null 	: warn.properties.rawinfo.start*1000 || null;
         result['end']           = warn.properties.rawinfo.end === undefined 	? null 	: warn.properties.rawinfo.end*1000 || null;
         result['instruction']   = !warn.properties.empfehlungen  	            ? '' 	: warn.properties.empfehlungen;
-        result['level']         = warn.properties.rawinfo.wlevel === undefined ? -1 	: warn.properties.rawinfo.wlevel;
+        result['level']         = warn.properties.rawinfo.wlevel === undefined ? -1 	: warn.properties.rawinfo.wlevel + 1;
         result['areaID'] 		= warn.area === undefined 	? '' 	: warn.area;
         result['html'] 					= {};
         result['html']['web'] 			= '';
@@ -3145,6 +3413,8 @@ function getLevelColor(level, typ) {
     switch (typ) {
         case NINA:
         case UWZ:
+        case DWD:
+        case DWD2:
             color = [
                 '#00ff00', // 0 - Grün
                 '#009b00', // 1 - Dunkelgrün
