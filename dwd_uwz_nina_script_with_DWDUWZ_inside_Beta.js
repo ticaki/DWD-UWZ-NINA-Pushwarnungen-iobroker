@@ -1,4 +1,4 @@
-//Version 0.99.09 Beta 2
+//Version 0.99.10 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -325,9 +325,9 @@ var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' +
 var html_end = '</table>';
 
 
-var mowasCoordinates = [];
+var ninaCoordinates = [];
 if ( DEBUG_VARS) {
-    mowasCoordinates = [{breiten:51.2277, laengen:6.7735, text:'dadrüben'}];
+    ninaCoordinates = [{breiten:51.2277, laengen:6.7735, text:'dadrüben'}, {breiten:53.0511000, laengen:8.6309100, text:'Delmenhorst'}];
     zamgCoordinates = [{laengen:13.05501,breiten:47.80949},{breiten:46.6247200, laengen:14.3052800},{breiten:48.332741,laengen:14.62274}];
 }
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
@@ -378,17 +378,20 @@ var internalDWDPath = mainStatePath + 'data.dwd.';
 var internalWarningEnd = '.warning';
 var standaloneInterval = null;
 
+const statesIntern = {[DWD]:{}, [UWZ]:{}, [ZAMG]:{}, [NINA]:{}};
+
+statesIntern[DWD].path = internalDWDPath
 var sendNoMessgesOnInit = true;
 var enableInternUWZ = false;
 var internUWZUrl='http://feed.alertspro.meteogroup.com/AlertsPro/AlertsProPollService.php?method=getWarning&language=de&areaID=';
 var internalUWZPath = mainStatePath + 'data.uwz-id.';
-
+statesIntern[UWZ].path = internalUWZPath
 var internZamgUrl = "https://warnungen.zamg.at/wsapp/api/getWarningsForCoords?lon=" + placeHolder+"&lat=" + placeHolder+"1&lang=de"
 var internalZamgPath = mainStatePath + 'data.zamg.';
-
+statesIntern[ZAMG].path = internalZamgPath
 var internMowasUrl = ["https://warnung.bund.de/bbk.mowas/gefahrendurchsagen.json", 'https://warnung.bund.de/bbk.biwapp/warnmeldungen.json', 'https://warnung.bund.de/bbk.katwarn/warnmeldungen.json'];
-var internalMowasPath = mainStatePath + 'data.mowas.';
-
+var internalMowasPath = mainStatePath + 'data.nina.';
+statesIntern[NINA].path = internalMowasPath
 
 var START = new Date();
 var ENDE = new Date();
@@ -431,6 +434,8 @@ var templist = {};
 templist[DWD] = {};
 templist[UWZ] = {};
 templist[ZAMG] = {};
+
+
 
 // Warning types
 var warningTypesString = [];
@@ -520,8 +525,8 @@ const statesDWDintern = [
     { id:"urgency", default: "", options: {name: "Warning urgency",type: "string",read: true,write: false}},
     { id:"responseType", default: "", options: {name: "Warning responseType",type: "string",read: true,write: false}},
     { id:"certainty", default: "", options: {name: "Warning certainty",type: "string",read: true,write: false}},
-    { id:"altitude", default: "", options: {name: "Start Höhenlage der Warnung",type: "number",read: true,write: false}},
-    { id:"ceiling", default: "", options: {name: "End Höhenlage der Warnung",type: "number",read: true,write: false}},
+    { id:"altitude", default: 0, options: {name: "Start Höhenlage der Warnung",type: "number",read: true,write: false}},
+    { id:"ceiling", default: 3000, options: {name: "End Höhenlage der Warnung",type: "number",read: true,write: false}},
     { id:"color", default:'', options: {name: "Farbe",type: "string",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text html",type: "string",read: true,write: false}},
     { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}}
@@ -533,7 +538,7 @@ const statesNINAintern = {
     expires: { id:"end", default:0, options: {name: "Warnungsende",type: "number",role: "value.time",read: true,write: false}},
     headline: { id:"headline", default:"", options: {name: "Schlagzeile",type: "string",role: "weather.state",read: true,write: false}},
     level: { id:"level",default: 0, options: {name: "Level",type: "number",role: "value.warning",read: true,write: false,states: {1: "Minor",2: "Moderate",3: "Severe",4: "Extreme"}}},
-    object: { id:"object", default: {}, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false}},
+    object: { id:"object", default: null, options: {name: "JSON object with warning", type: "object", role: "weather.json", read: true, write: false}},
     serverity: { id:"severity", default: '', options: {name: "Warning severity",type: "string",role: "value.severity",read: true,write: false,states: {0: "None",1: "Minor",2: "Moderate",3: "Severe",4: "Extreme",9: "Heat Warning",11: "No Warning",19: "UV Warning",49: "Strong Heat",50: "Extreme Heat"}}},
     type: { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false}},
     urgency:{ id:"urgency", default: "", options: {name: "Warning urgency",type: "string",read: true,write: false}},
@@ -545,7 +550,7 @@ const statesNINAintern = {
     contact: { id:"contact", default: "", options: {name: "Kontakt",type: "string",read: true,write: false}},
     parameter: { id:"parameter", default: '[]', options: {name: "",type: "string",read: true,write: false}},
     areaDesc: { id:"areaDesc", default: "", options: {name: "Bereich der Warnung",type: "string",read: true,write: false}},
-    category: { id:"category", default: "", options: {name: "Array von Kategorien",type: "string",read: true,write: false}}
+    category: { id:"category", default: [], options: {name: "Array von Kategorien",type: "array",read: true,write: false}}
 };
 
 //StatesDefinition für UWZ intern
@@ -554,8 +559,8 @@ for (let a = 0; a < warningTypesString[UWZ].length; a++) {
     wtsObj[String(a)] = warningTypesString[UWZ][a][0];
 }
 const statesUWZintern = [
-    { id:"begin",default:null, options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false,}},
-    { id:"end", default:null, options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"begin",default:Number(''), options: {name: "Warning begin",type: "number",role: "value.time",read: true,write: false,}},
+    { id:"end", default:Number(''), options: {name: "Warning end",type: "number",role: "value.time",read: true,write: false,}},
     { id:"longText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"shortText", default:"", options: {name: "Warning description",type: "string",role: "weather.state",read: true,write: false,}},
     { id:"uwzLevel",default: 0, options: {name: "Warning level",type: "number",role: "value.warning",read: true,write: false,}},
@@ -586,7 +591,10 @@ const statesZAMGintern = [
     { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}}
 ];
 
-
+statesIntern[DWD].states = statesDWDintern
+statesIntern[UWZ].states = statesUWZintern
+statesIntern[ZAMG].states = statesZAMGintern
+statesIntern[NINA].states = statesNINAintern
 // State über den man gesonderte Aktionen auslösen kann, gibt die höchste Warnstufe aus.
 const stateAlert = // Änderungen auch in setAlertState() anpassen
 [
@@ -679,13 +687,13 @@ for (let a = 0; a < konstanten.length; a++) {
         }
     }
 
-    if (mowasCoordinates) {
-        if (Array.isArray(mowasCoordinates)){
-            for(let a = 0; a < mowasCoordinates.length; a++) {
-                let id = mowasCoordinates[a].breiten + '/' + mowasCoordinates[a].laengen;
+    if (ninaCoordinates) {
+        if (Array.isArray(ninaCoordinates)){
+            for(let a = 0; a < ninaCoordinates.length; a++) {
+                let id = ninaCoordinates[a].breiten + '/' + ninaCoordinates[a].laengen;
                 id = id.replace(/\./g,'#');
-                mowasCoordinates[a].id = id;
-                warncells[NINA].push(mowasCoordinates[a]);
+                ninaCoordinates[a].id = id;
+                warncells[NINA].push(ninaCoordinates[a]);
             }
         }
     }
@@ -907,18 +915,10 @@ async function init() { // erster fund von create custom
                 continue;
             }
             for (let x = 0; x<app.length;x++) {
-                if (!await existsStateAsync(warncellid + app[x])) {
-                    await createStateAsync(warncellid + app[x], {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
-                    await setStateAsync(warncellid + app[x], '', true);
-                    //if (MODES[c].mode == NINA) log(warncellid)
-                }
+                await createStateCustomAsync(warncellid + app[x], '', {name: "Füge ein Warncelle ein",type: "string",read: true,write: true},);
                 on ({id: warncellid + app[x], ack:false}, addWarncell);
             }
-            if (!await existsStateAsync(warncellid + '.refresh#')) {
-                await createStateAsync(warncellid + '.refresh#',{def:false, name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
-                await setStateAsync(warncellid + '.refresh#', false, true);
-
-    }
+            await createStateCustomAsync(warncellid + '.refresh#',false ,{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
             on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
         } catch(error) {
             log('Fehler in CreateStates #2');
@@ -978,16 +978,7 @@ async function init() { // erster fund von create custom
                 for (let a = 0; a < statesDWDintern.length; a++) {
                     let dp = statesDWDintern[a];
                     let id = p + dp.id;
-                    dp.options.def = dp.default;
-                    try {
-                        if (!await existsStateAsync(id)) {
-                            await createStateAsync(id, dp.options,);
-                        }
-                    } catch(error) {
-                        log('Fehler in CreateStates #4');
-                        log(error);
-                        stopScript();
-                    }
+                    await createStateCustomAsync(id, dp.default,dp.options);
                 }
             }
         }
@@ -997,9 +988,7 @@ async function init() { // erster fund von create custom
                 for (let a = 0; a < statesUWZintern.length; a++) {
                     let dp = statesUWZintern[a];
                     let id = p + dp.id;
-                    if (!await existsStateAsync(id)) {
-                        await createStateAsync(id, dp.options,);
-                    }
+                    await createStateCustomAsync(id, dp.default,dp.options);
                 }
             }
         }
@@ -1008,11 +997,8 @@ async function init() { // erster fund von create custom
                 let p = internalMowasPath + warncells[NINA][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a in statesNINAintern) {
                     let dp = statesNINAintern[a];
-                    dp.options.def = dp.default;
                     let id = p + dp.id;
-                    if (!await existsStateAsync(id)) {
-                        await createStateAsync(id, dp.options,);
-                    }
+                    await createStateCustomAsync(id, dp.default,dp.options);
                 }
             }
         }
@@ -1022,9 +1008,8 @@ async function init() { // erster fund von create custom
     }
     try {
         // MODE änderung über Datenpunkte string
-        if (!await existsStateAsync(configModeState)) {
-            await createStateAsync(configModeState, { read: true, write: true, desc: "Modusauswahl DWD, UWZ, Nina oder Zamg", type: "string", def: '' });
-        }
+        await createStateCustomAsync(configModeState, '', { read: true, write: true, desc: "Modusauswahl DWD, UWZ, Nina oder Zamg", type: "string"});
+
         on({ id: configModeState, change: 'ne', ack: false }, function(obj) {
             if (obj.state.val && typeof obj.state.val === 'string' &&
                 (obj.state.val.toUpperCase().includes('DWD') || obj.state.val.toUpperCase().includes('UWZ') || obj.state.val.toUpperCase().includes('NINA') || obj.state.val.toUpperCase().includes('ZAMG'))) {
@@ -1049,7 +1034,7 @@ async function init() { // erster fund von create custom
             let id = mainStatePath + 'config.' + tok;
             if (!await existsStateAsync(id)) {
                 let mi = !!(MODE & MODES[a].mode);
-                await createStateAsync(id, { read: true, write: true, desc: "Aktivere " + tok.toUpperCase() + '.', type: "boolean", def: mi });
+                await createStateCustomAsync(id, mi, { read: true, write: true, desc: "Aktivere " + tok.toUpperCase() + '.', type: "boolean" });
             }
             on({ id: id, change: 'ne', ack: false }, function(obj) {
                 let arr = obj.id.split('.');
@@ -1065,9 +1050,8 @@ async function init() { // erster fund von create custom
         }
         // Automodus ein und ausschalten
         let id = mainStatePath + 'config.auto.on';
-        if (!await existsStateAsync(id)) {
-            await createStateAsync(id, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean", def: true });
-        }
+        await createStateCustomAsync(id, true, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean" });
+
         autoSendWarnings = getState(id).val;
         await setStateAsync(id, autoSendWarnings, true);
 
@@ -1075,7 +1059,7 @@ async function init() { // erster fund von create custom
             let p = mainStatePath + 'config.' + configObj.data[a].id
             if (!await existsStateAsync(p)) {
                 let n = configObj.data[a].name !== undefined ? configObj.data[a].name : configObj.data[a].id;
-                await createStateAsync(p, {read:true, write:true, type: configObj.data[a].type, def: configObj.data[a].def, name:n});
+                await createStateCustomAsync(p, configObj.data[a].def, {read:true, write:true, type: configObj.data[a].type, name:n});
             }
             const v = await getStateAsync(p);
             configObj.data[a].on({id:p, state:{val:v.val}});
@@ -2235,7 +2219,7 @@ async function getDataFromServer(first) {
                 try {
                     let nid = id + '.rawTotalWarnings'
                     if (!await existsStateAsync(nid)) {
-                        await createStateAsync(nid,{def:0,read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
+                        await createStateAsync(nid,{ read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
                     }
                     await setStateAsync(nid, countObj[id], true);
                 } catch(e) {
@@ -2526,7 +2510,7 @@ async function getDataFromServer(first) {
             tempObj[statesNINAintern.parameter.id] = JSON.stringify(warnObj.parameter) || JSON.stringify([]);
             tempObj[statesNINAintern.areaDesc.id] = warnObj.area && warnObj.area.areaDesc ? warnObj.area.areaDesc : '';
             tempObj[statesNINAintern.sent.id] = warnObj.sent !== undefined ? getDateObject(warnObj.sent).getTime() : Number("");
-            tempObj[statesNINAintern.category.id] = warnObj.category !== undefined ? JSON.stringify(warnObj.category) : '';
+            tempObj[statesNINAintern.category.id] = warnObj.category !== undefined ? warnObj.category : [];
 
             for (let a in statesNINAintern) {
                 let dp = statesNINAintern[a];
@@ -2944,12 +2928,11 @@ async function addWarncell(obj, i){
         log('Unbekannter Mode in addWarncell', 'error');
         return;
     }
-    if (!await existsStateAsync(warncellid)) {
-        await createStateAsync(warncellid, {name: wcname,type: "boolean",read: true,write: true},);
-        await setStateAsync(warncellid, true, true);
-    }
+    await createStateCustomAsync(warncellid, true, {name: wcname,type: "boolean",read: true,write: true},);
+
+
     //  setzte den Namen für Datenpunkte unter data
-    if (!(getObject(folder + wc) && getObject(folder + wc).common.name != wcname)) {
+    if (!(await existsObjectAsync(folder + wc)) || getObject(folder + wc).common.name != wcname) {
         await extendObjectAsync (folder + wc, {
             type: 'channel',
             common: {
@@ -3749,6 +3732,18 @@ function isValidUrl(str) {
   return pattern.test(str.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,''));
 }
 
+async function createStateCustomAsync(id, def, options) {
+    if (options === undefined ) {
+        if (typeof(def) == 'object') {
+            options = def;
+            def = null;
+        }
+    }
+    if (!await existsStateAsync(id)) {
+        await createStateAsync(id, options);
+        if (def) await setStateAsync(id, def, true);
+    }
+}
 /* *************************************************************************
 * Hilffunktion sonstiges
 *           ENDE
