@@ -1,4 +1,4 @@
-//Version 0.99.11 Beta 3
+//Version 0.99.12 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -612,22 +612,22 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
 ];
 
 const configObj = {data: [
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', type:'boolean', def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', type:'boolean', def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', type:'boolean', def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', type:'boolean', def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', type:'boolean', def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', type:'boolean', def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', type:'boolean', def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.auto-nachrichtenlänge.zamg.wetterinformationen', type:'boolean', def: uZAMGMitMeteoinformationen,on: function(obj) {uZAMGMitMeteoinformationen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.filter.level_minimum', type:'number', def: minlevel,on: function(obj) {minlevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.filter.level_hervorheben', type:'number', def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.filter.mindest_höhe', type:'number', def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.filter.maximale_höhe', type:'number', def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.log.erweitert', type:'boolean', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.log.debug', type:'boolean', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.log.ausgabe', type:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', type:'boolean', def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}}
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', typ:'boolean', def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', typ:'boolean', def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', typ:'boolean', def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', typ:'boolean', def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', typ:'boolean', def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', typ:'boolean', def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', typ:'boolean', def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.auto-nachrichtenlänge.zamg.wetterinformationen', typ:'boolean', def: uZAMGMitMeteoinformationen,on: function(obj) {uZAMGMitMeteoinformationen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.level_minimum', typ:'number', def: minlevel,on: function(obj) {minlevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.level_hervorheben', typ:'number', def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.mindest_höhe', typ:'number', def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.filter.maximale_höhe', typ:'number', def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.erweitert', typ:'boolean', def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.debug', typ:'boolean', def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.log.ausgabe', typ:'boolean', def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', typ:'boolean', def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}}
 ]};
 
 // hash erzeugen
@@ -853,6 +853,7 @@ async function changeMode(modeFromState) {
                     if (extendedExists(oid)) {
                         setState(oid, update || !!(getAutoPushFlags(MODE & MODES[x].mode) & konstanten[a].value));
                     }
+
                     oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
                     if (extendedExists(oid)) {
                         setState(oid, update || !!(getManuellPushFlags(MODE & MODES[x].mode) & konstanten[a].value));
@@ -866,9 +867,10 @@ async function changeMode(modeFromState) {
     }
     setConfigModeStates(modeFromState);
 }
-init();
+
 async function init() { // erster fund von create custom
     try {
+
         // State der Pushnachrichten über pushover / telegram spiegelt
         if (!await existsStateAsync(mirrorMessageState)) {
             createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
@@ -957,10 +959,7 @@ async function init() { // erster fund von create custom
                 let stateAlertIdFull = stateAlertId + warningTypesString[MODES[c].mode][b][0] + '.' + stateAlert[a].name;
                 stateAlert[a].type.name = stateAlert[a].name;
                 try {
-                    if (!await existsStateAsync(stateAlertIdFull)) {
-                        await createStateAsync(stateAlertIdFull, stateAlert[a].type,);
-                        await setStateAsync(stateAlertIdFull, stateAlert[a].default,true);
-                    }
+                    await createStateCustomAsync(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
                 } catch(error) {
                     log('Fehler in CreateStates #3');
                     log(error);
@@ -1053,13 +1052,14 @@ async function init() { // erster fund von create custom
         await createStateCustomAsync(id, true, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean" });
 
         autoSendWarnings = getState(id).val;
-        await setStateAsync(id, autoSendWarnings, true);
+        await setStateAsync(id, !!(autoSendWarnings), true);
 
         for (var a = 0; a < configObj.data.length; a++) {
             let p = mainStatePath + 'config.' + configObj.data[a].id
             if (!await existsStateAsync(p)) {
                 let n = configObj.data[a].name !== undefined ? configObj.data[a].name : configObj.data[a].id;
-                await createStateAsync(p, configObj.data[a].def, {read:true, write:true, type: configObj.data[a].type, name:n});
+                let def = configObj.data[a].def;
+                await createStateAsync(p, {read:true, write:true, def: def, type:configObj.data[a].typ, name:n});
             }
             const v = await getStateAsync(p);
             configObj.data[a].on({id:p, state:{val:v.val}});
@@ -1082,15 +1082,11 @@ async function init() { // erster fund von create custom
                 }
                 for (let x = 0; x < MODES.length; x++) {
                     let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
-                    if (!await existsStateAsync(oid)) {
-                        await createStateAsync(oid, { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
-                    }
+                    await createStateCustomAsync(oid, true, { read: true, write: true, desc: "Schalte Autopushmöglichkeiten ein / aus", type: "boolean" });
                     setConfigKonstanten(oid, getState(oid).val, true);
 
                     oid = mainStatePath + 'config.manuell.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
-                    if (!await existsStateAsync(oid)) {
-                        await createStateAsync(oid, { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean", def: ((uPushdienst & konstanten[a].value) != 0) });
-                    }
+                    await createStateCustomAsync(oid, true, { read: true, write: true, desc: "Schalte Manuellepushmöglichkeiten ein / aus", type: "boolean" });
                     setConfigKonstanten(oid, getState(oid).val, false);
                     // letzer fund von Create Custom
                 }
@@ -1120,7 +1116,11 @@ function setConfigModeStates(mode) {
 
 
 function subscribeStates() {// on() für alles unter config.auto
-    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.auto', '^') + '.*'), change: 'ne', ack: false }, function(obj) {
+    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.auto', '^') + '.*'), ack: false }, function(obj) {
+        if (obj.state.val == obj.oldState.val) {
+            setState(obj.id, obj.state.val, true);
+            return;
+        }
         if (obj.id == mainStatePath + 'config.auto.on') {
             myLog('Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
             autoSendWarnings = !!obj.state.val;
@@ -1139,7 +1139,11 @@ function subscribeStates() {// on() für alles unter config.auto
         }
     });
     // on() für alles unter config.manuell
-    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.manuell', '^') + '.*'), change: 'ne', ack: false }, function(obj) {
+    subscribe({ id: new RegExp(getRegEx(mainStatePath + 'config.manuell', '^') + '.*'), ack: false }, function(obj) {
+        if (obj.state.val == obj.oldState.val) {
+            setState(obj.id, obj.state.val, true);
+            return;
+        }
         myLog('Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
         setConfigKonstanten(obj.id, obj.state.val, false);
     });
@@ -1201,12 +1205,14 @@ function setConfigKonstanten(id, val, auto) {
         let b = id.split('.');
         let m1 = b[b.length - 2];
         let m = MODES.findIndex(function(c) { return (c.text.toLocaleLowerCase() == m1); });
+        if (m == -1) return;
         m = MODES[m].mode;
         let d = konstanten.findIndex(function(c) { return (c.name === b[b.length - 1]); });
         if (d == -1) return;
         let value = konstanten[d].value
         let tp = 0;
         let typ = auto ? 'auto' : 'man';
+        //log ('Mode: ' + m + ' oldflags:' + nPushdienst[typ][m] + ' newflags' + switchFlags(nPushdienst[typ][m], value, val) +' Value: ' + val)
         if (MODE & m) {
             nPushdienst[typ][m] = switchFlags(nPushdienst[typ][m], value, val);
             setState(id, val, true);
@@ -1317,11 +1323,12 @@ function getManuellPushMode(mode, typ) {
     if (!onClickCheckRun) typ = 'auto';
     if (typ === undefined) typ = 'man';
     if (mode !== undefined) {
+        let result;
         for (let a=0; a<MODES.length;a++) {
             if (!(mode & MODES[a].mode) || MODES[a].mode == DWD2) continue;
-            mode = switchFlags(mode, MODES[a].mode, !!(uPushdienst & nPushdienst[typ][MODES[a].mode]))
+            result = switchFlags(mode, MODES[a].mode, !!(uPushdienst & nPushdienst[typ][MODES[a].mode]))
         }
-        return mode;
+        return result;
     }
     myLog('getManuellPushMode() mode unbekannt!', 'error');
     return 0;
@@ -2189,7 +2196,7 @@ async function getDataFromServer(first) {
     }
     for (let a = 0; a < warncells[ZAMG].length; a++) {
         let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
-        await _getDataFromServer([url], ZAMG, first, '');
+        await _getDataFromServer([url], ZAMG, first, warncells[ZAMG].text);
     }
     if (warncells[NINA].length) {
         //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
@@ -2303,17 +2310,24 @@ async function getDataFromServer(first) {
                 if (thedata.properties !== undefined) {
                     newOBJ = thedata.properties.warnings;
                     area = thedata.properties.location.properties.name;
-                    let tpath = internalZamgPath + area
+                    let ind = warncells[ZAMG].findIndex((a) => a.text == area);
+                    if (ind === -1) {
+                        log('ZAMG Area: '+ area +' nicht gefunden ')
+                        return
+                    }
+                    area = warncells[ZAMG][ind].id
+                    /*let tpath = internalZamgPath + area
                     for (let i = 0; i < numOfWarnings; i++) {
                         let p = tpath + internalWarningEnd + (i == 0 ? '' : i) + '.';
                         for (let a = 0; a < statesZAMGintern.length; a++) {
                             let dp = statesZAMGintern[a];
                             let id = p + dp.id;
+                            log(id);
                             if (!await existsStateAsync(id)) {
                                 await createStateAsync(id, dp.options,);
                             }
                         }
-                    }
+                    }*/
 
                     for (let a= 0; a<newOBJ.length;a++) {
                         newOBJ[a].area = area;
@@ -2733,7 +2747,7 @@ async function addWarncell(obj, i){
     let wc = '';
     let id = '';
     let restart = false;
-    if ((typeof obj === 'object')) {
+    if ((typeof(obj) === 'object')) {
         if (obj.state.ack) return;
         let e = obj.id.split('.');
         i = MODES.findIndex((a) => a.text.toLowerCase() == e[e.length-2])
@@ -2861,6 +2875,16 @@ async function addWarncell(obj, i){
             warncells[ZAMG][index].text = wcname;
 
             folder = internalZamgPath;
+            for (let i = 0; i < numOfWarnings; i++) {
+                let p = folder + wc + internalWarningEnd + (i == 0 ? '' : i) + '.';
+                for (let a = 0; a < statesZAMGintern.length; a++) {
+                    let dp = statesZAMGintern[a];
+                    let id = p + dp.id;
+                    if (!await existsStateAsync(id)) {
+                        await createStateAsync(id, dp.options,);
+                    }
+                }
+            }
         break;
         case NINA:
             if (id) {
@@ -2879,7 +2903,6 @@ async function addWarncell(obj, i){
                 wcname = wn.val;
                 wc = breiten + '/' + laengen;
                 wc = wc.replace(/\./g,'#');
-                log(wc);
             } else {
                 let ar = wc.replace(/\#/g,'.').split('/');
                 breiten =  Number(ar[0]);
@@ -2940,6 +2963,7 @@ async function addWarncell(obj, i){
             }
         });
     }
+
     if (restart) {
         log('Script neugestartet');
         startScript();
@@ -3324,7 +3348,7 @@ function getDatabaseData(warn, mode){
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
         result['picture']                = '';
-        if ( result.level < minlevel ) { if (uLogAusgabeErweitert) log('Übergebenene Warnung NINA verworfen');return null;}
+        if ( result.level < minlevel ) { if (uLogAusgabeErweitert) log('Übergebenene Warnung NINA verworfen. Level kleiner als minlevel');return null;}
     }
     result['color'] = getLevelColor(result.level, NINA);
     result['id']='';
@@ -3734,17 +3758,34 @@ function isValidUrl(str) {
 
 async function createStateCustomAsync(id, def, options) {
     if (options === undefined ) {
-        if (typeof(def) == 'object') {
+        if (typeof(def) === 'object') {
             options = def;
-            def = null;
+            def = undefined;
         }
     }
+    switch (options.type) {
+        case 'number':
+        options.def = def === undefined || typeof def !== 'number' ? 0 : def;
+        break;
+        case 'string':
+        options.def = def === undefined || typeof def !== 'string' ? '' : def;
+        break;
+        case 'boolean':
+        options.def = def === undefined || typeof def !== 'boolean' ? false : !!(def);
+        break;
+        default:
+        def = def === undefined ? null : def;
+        break;
+    }
+    if (options.def !== undefined) def = undefined
     if (!await existsStateAsync(id)) {
         await createStateAsync(id, options);
-        if (def) await setStateAsync(id, def, true);
+        if (def !== undefined) await setStateAsync(id, def, true);
     }
 }
 /* *************************************************************************
 * Hilffunktion sonstiges
 *           ENDE
 /* ************************************************************************* */
+
+init();
