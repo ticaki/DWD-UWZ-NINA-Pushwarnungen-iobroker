@@ -1,4 +1,4 @@
-//Version 0.99.10 Beta 3
+//Version 0.99.11 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1059,7 +1059,7 @@ async function init() { // erster fund von create custom
             let p = mainStatePath + 'config.' + configObj.data[a].id
             if (!await existsStateAsync(p)) {
                 let n = configObj.data[a].name !== undefined ? configObj.data[a].name : configObj.data[a].id;
-                await createStateCustomAsync(p, configObj.data[a].def, {read:true, write:true, type: configObj.data[a].type, name:n});
+                await createStateAsync(p, configObj.data[a].def, {read:true, write:true, type: configObj.data[a].type, name:n});
             }
             const v = await getStateAsync(p);
             configObj.data[a].on({id:p, state:{val:v.val}});
