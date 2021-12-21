@@ -1,4 +1,4 @@
-//Version 0.99.13 Beta 3
+//Version 0.99.14 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -247,8 +247,7 @@ var uZAMGMitMeteoinformationen = true; // gibt die Wetterinformationen mit der B
 
 var scriptOverrides = false; // Die Einstellung im Skript überschreiben bei jedem Start die Einstellungen in den Objekten (punkte unter Basiskonfiguration außer warnzelle.
 
-var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
-var uLogAusgabeErweitert = false;
+uLogLevel = 1 // 0:OFF, 1:INFO, 2:ADVANCE, 4:DEBUG
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
@@ -301,7 +300,6 @@ var emailInstanz=       'email.0';
 /* ************************************************************************* */
 
 //Logausgabe
-var DEBUG = false;
 var DEBUGSENDEMAIL = false;
 var DEBUG_VARS = false;
 //ab hier bei Update
@@ -344,16 +342,9 @@ checkConfigVariable('uZAMGMitMeteoinformationen');
 checkConfigVariable('ZAMG');
 checkConfigVariable('zamgCoordinates');
 checkConfigVariable('DEBUGINGORESTART');
-checkConfigVariable('uLogAusgabeErweitert');
 checkConfigVariable('dwdWarncellId');
 checkConfigVariable('dwdBundesland');
 checkConfigVariable('DWD2');
-
-// Debughilfe
-if (DEBUG || uLogAusgabeErweitert) {
-    uLogAusgabe = true;
-    uLogAusgabeErweitert = true;
-}
 
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
@@ -423,7 +414,6 @@ var onChangeTimeoutObj = {};
 var onStopped = false;
 var setAlertStateTimeout = null;
 var ninaIdentifier = {};
-
 var warncells = {};
 warncells[DWD] = [];
 warncells[UWZ] = [];
@@ -436,7 +426,8 @@ templist[DWD] = {};
 templist[UWZ] = {};
 templist[ZAMG] = {};
 
-
+var uLogLevel;
+if (uLogLevel === undefined) uLogLevel = 1;
 
 // Warning types
 var warningTypesString = [];
@@ -625,9 +616,9 @@ const configObj = {
     9: {id: 'basiskonfiguration.filter.level_hervorheben', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[9].id, attentionWarningLevel, true)}, def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
     10: {id: 'basiskonfiguration.filter.mindest_höhe', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[10].id, minhoehe, true)}, def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
     11: {id: 'basiskonfiguration.filter.maximale_höhe', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[11].id, maxhoehe, true)}, def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    12: {id: 'basiskonfiguration.log.erweitert', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[12].id, uLogAusgabeErweitert, true)}, def: uLogAusgabeErweitert,on: function(obj) {uLogAusgabeErweitert = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    13: {id: 'basiskonfiguration.log.debug', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[13].id, DEBUG, true)}, def: DEBUG,on: function(obj) {DEBUG = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    14: {id: 'basiskonfiguration.log.ausgabe', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[14].id, uLogAusgabe, true)}, def: uLogAusgabe,on: function(obj) {uLogAusgabe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    12: {id: 'basiskonfiguration.log.erweitert', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[12].id, !!(uLogLevel & 2), true)}, def: !!(uLogLevel & 2),on: function(obj) {uLogLevel = switchFlags(uLogLevel,2,obj.state.val); setState(obj.id,!!(uLogLevel & 2),true);}},
+    13: {id: 'basiskonfiguration.log.debug', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[13].id, !!(uLogLevel & 4), true)}, def: !!(uLogLevel & 4),on: function(obj) {uLogLevel = switchFlags(uLogLevel,4,obj.state.val); setState(obj.id,!!(uLogLevel & 4),true);}},
+    14: {id: 'basiskonfiguration.log.ausgabe', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[14].id, !!(uLogLevel & 1), true)}, def: !!(uLogLevel & 1),on: function(obj) {uLogLevel = switchFlags(uLogLevel,1,obj.state.val); setState(obj.id,!!(uLogLevel & 1),true);}},
     15: {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[15].id, !sendNoMessgesOnInit, true)}, def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}},
     length: 16,
     path: mainStatePath + 'config.'
@@ -645,7 +636,7 @@ String.prototype.hashCode = function() {
     return hash;
 };
 
-if (uLogAusgabe) log('Skripts gestartet: ID:' + randomID);
+ticaLog(1, 'Skripts gestartet: ID:' + randomID);
 
 for (let a = 0; a < konstanten.length; a++) {
     deviceList[konstanten[a].value] = {};
@@ -724,7 +715,7 @@ for (let a = 0; a < konstanten.length; a++) {
         b++;
         if (Array.isArray(regionName) && regionName[a].length != 0) {
             if (regionName[a].length != 2) {
-                log('Konfiguration enthält Fehler. var regionName - Eintrag: ' + (b) + ' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
+                ticaLog(0,'Konfiguration enthält Fehler. var regionName - Eintrag: ' + (b) + ' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
                 stopScript(scriptName);
             } else {
                 if (!regionName[a][0] && !regionName[a][1]) regionName.splice(a--, 1)
@@ -768,12 +759,12 @@ for (let a = 0; a < konstanten.length; a++) {
     if ((uPushdienst & ALEXA) != 0) {
         testValueTypeLog(idAlexaSerial, 'idAlexaSerial', 'array');
         if (idAlexaSerial.length == 0) {
-            log('Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
+            ticaLog(0,'Keine Alexa / Echoseriennummer eingetragen. Überpüfen!', 'error');
             stopScript(scriptName);
         }
         for (let a = 0; a < idAlexaSerial.length; a++) {
             if (!extendedExists(replacePlaceholder(idAlexa, idAlexaSerial[a]))) {
-                log('Alexa - Serial ' + idAlexaSerial[a] + ' ist fehlerhaft. Überpüfen! Object ID:' + replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
+                ticaLog(0,'Alexa - Serial ' + idAlexaSerial[a] + ' ist fehlerhaft. Überpüfen! Object ID:' + replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
                 stopScript(scriptName);
             }
         }
@@ -785,14 +776,14 @@ for (let a = 0; a < konstanten.length; a++) {
             if (
                 !extendedExists(idSayIt[a])
             ) {
-                log('SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
+                ticaLog(0,'SayIt - Konfiguration ist fehlerhaft. Überpüfen!', 'error');
                 stopScript(scriptName);
             }
         }
     }
     if ((uPushdienst & EMAIL) != 0) {
         if (senderEmailID.length > 1) {
-            log('eMail - Konfiguration ist fehlerhaft. Nur 1 Eintrag in senderEmailID erlaubt!', 'error');
+            ticaLog(0,'eMail - Konfiguration ist fehlerhaft. Nur 1 Eintrag in senderEmailID erlaubt!', 'error');
             stopScript(scriptName);
         }
     }
@@ -808,13 +799,13 @@ for (let a = 0; a < konstanten.length; a++) {
 function testValueTypeLog(test, teststring, typ, need = false) {
     if (test === undefined) {
         let errorLog = 'Konfiguration enthält Fehler. Der / Ein Wert von var ' + teststring + ' ist undefiniert oder fehlt!';
-        log(errorLog, 'error');
+        ticaLog(0,errorLog, 'error');
         stopScript(scriptName);
     }
     if (typ == 'array') {
         if (!test || !Array.isArray(test)) {
             let errorLog = 'Konfiguration enthält Fehler. Der / Ein Wert von var ' + teststring + ' ist kein Array. Es fehlen wohl die umschließenden []!';
-            log(errorLog, 'error');
+            ticaLog(0,errorLog, 'error');
             stopScript(scriptName);
         }
     } else if (typeof test !== typ) {
@@ -824,11 +815,11 @@ function testValueTypeLog(test, teststring, typ, need = false) {
         } else {
             errorLog += '\'' + test + '\'];//(' + typeof test + ') in ' + teststring + ' = [' + test + '];//(' + typ + ')';
         }
-        log(errorLog, 'error');
+        ticaLog(0,errorLog, 'error');
         stopScript(scriptName);
     }
     if (need && !test) {
-        log('Konfiguration enthält Fehler. Der Wert von var ' + teststring + ' wird benötigt, ist jedoch nicht konfiguriert!', 'error');
+        ticaLog(0,'Konfiguration enthält Fehler. Der Wert von var ' + teststring + ' wird benötigt, ist jedoch nicht konfiguriert!', 'error');
         stopScript(scriptName);
     }
 }
@@ -844,8 +835,8 @@ async function changeMode(modeFromState) {
     if (MODE != modeFromState || firstRun) {
         let oldMode = MODE;
         MODE = modeFromState;
-        if (uLogAusgabeErweitert) log('MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
-        if ( MODE == 0 ) log('Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - '+ mainStatePath + '.config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
+        ticaLog(2, 'MODE wurde geändert. MODE: ' + MODE + ' firstRun:' + firstRun);
+        if ( MODE == 0 ) ticaLog(0,'Alle Benachrichtigungen ausgeschaltet, bitte unter ioBroker - Objektansicht - '+ mainStatePath + '.config - UWZ und/oder DWD und/oder NINA auf true stellen.', 'warn');
         await InitDatabase(sendNoMessgesOnInit);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
@@ -864,7 +855,7 @@ async function changeMode(modeFromState) {
                 }
             }
         }
-        if (autoSendWarnings && (sendNoMessgesOnInit)) checkWarningsMain();
+        if (autoSendWarnings && (!sendNoMessgesOnInit)) checkWarningsMain();
         firstRun = false;
         sendNoMessgesOnInit = false;
     }
@@ -886,8 +877,8 @@ async function init() { // erster fund von create custom
         }
     }
     catch(error) {
-            log('Fehler in CreateStates #1');
-            log(error);
+            ticaLog(0,'Fehler in CreateStates #1');
+            ticaLog(0,error);
             stopScript();
     }
     // erstelle Datenpunkte für DWD/UWZ standalone
@@ -926,8 +917,8 @@ async function init() { // erster fund von create custom
             await createStateCustomAsync(warncellid + '.refresh#',false ,{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
             on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
         } catch(error) {
-            log('Fehler in CreateStates #2');
-            log(error);
+            ticaLog(0,'Fehler in CreateStates #2');
+            ticaLog(0,error);
             stopScript();
         }
         let mode = MODES[c].mode;
@@ -966,8 +957,8 @@ async function init() { // erster fund von create custom
                 try {
                     await createStateCustomAsync(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
                 } catch(error) {
-                    log('Fehler in CreateStates #3');
-                    log(error);
+                    ticaLog(0,'Fehler in CreateStates #3');
+                    ticaLog(0,error);
                     stopScript();
                 }
 
@@ -1008,7 +999,7 @@ async function init() { // erster fund von create custom
         }
     }
     catch (e) {
-        log('error in .data create ' + e, 'error');
+        ticaLog(0,'error in .data create ' + e, 'error');
     }
     try {
         // MODE änderung über Datenpunkte string
@@ -1022,7 +1013,7 @@ async function init() { // erster fund von create custom
                 if (firstRun) return;
                 for (let a = 0; a < MODES.length; a++) mode |= obj.state.val.toUpperCase().includes(MODES[a].text) ? MODES[a].mode : 0;
                 if (MODE != mode) {
-                    myLog('Modus wird geändert von: ' + mode + ' String:' + obj.state.val);
+                    ticaLog(4, 'Modus wird geändert von: ' + mode + ' String:' + obj.state.val);
                     changeMode(mode);
                 } else {
                     changeMode(MODE);
@@ -1046,7 +1037,7 @@ async function init() { // erster fund von create custom
                 let mode = MODES[MODES.findIndex(function(j) { return j.text == tok })].mode;
                 let oldMode = MODE;
                 oldMode = switchFlags(oldMode, mode, obj.state.val);
-                myLog('Modus wird geändert von: ' + MODE);
+                ticaLog(4, 'Modus wird geändert von: ' + MODE);
                 changeMode(oldMode);
             });
             MODE = switchFlags(MODE, MODES[a].mode, getState(id).val);
@@ -1106,8 +1097,8 @@ async function init() { // erster fund von create custom
         setWeekend();
         activateSchedule();
     } catch(error) {
-        log('Fehler in CreateStates #5');
-        log(error);
+        ticaLog(0,'Fehler in CreateStates #5');
+        ticaLog(0,error);
         stopScript();
     }
 }
@@ -1131,7 +1122,7 @@ function subscribeStates() {// on() für alles unter config.auto
             return;
         }
         if (obj.id == mainStatePath + 'config.auto.on') {
-            myLog('Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
+            ticaLog(4, 'Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
             autoSendWarnings = !!obj.state.val;
             setState(obj.id, autoSendWarnings, true);
             for (var a = 0; a < konstanten.length; a++) {
@@ -1143,7 +1134,7 @@ function subscribeStates() {// on() für alles unter config.auto
                 }
             }
         } else {
-            myLog('else auto trigger: ' + obj.id + ' Value:' + obj.state.val);
+            ticaLog(4, 'else auto trigger: ' + obj.id + ' Value:' + obj.state.val);
             setConfigKonstanten(obj.id, obj.state.val, true);
         }
     });
@@ -1153,7 +1144,7 @@ function subscribeStates() {// on() für alles unter config.auto
             setState(obj.id, obj.state.val, true);
             return;
         }
-        myLog('Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
+        ticaLog(4, 'Manuell trigger: ' + obj.id + ' Value:' + obj.state.val);
         setConfigKonstanten(obj.id, obj.state.val, false);
     });
     subscribe({ id: new RegExp(getRegEx(mainStatePath + 'commands', '^') + '.*') }, function(obj) {
@@ -1221,14 +1212,13 @@ function setConfigKonstanten(id, val, auto) {
         let value = konstanten[d].value
         let tp = 0;
         let typ = auto ? 'auto' : 'man';
-        //log ('Mode: ' + m + ' oldflags:' + nPushdienst[typ][m] + ' newflags' + switchFlags(nPushdienst[typ][m], value, val) +' Value: ' + val)
         if (MODE & m) {
             nPushdienst[typ][m] = switchFlags(nPushdienst[typ][m], value, val);
             setState(id, val, true);
         }
     }
     catch(e) {
-        log('Fehler in setConfigKonstanten() ' + e)
+        ticaLog(0,'Fehler in setConfigKonstanten() ' + e)
     }
 }
 
@@ -1242,7 +1232,7 @@ function setAlertState() {
             let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b][0] + '.';
             let AlertLevel = -1, AlertIndex = -1;
             for (let c = 0; c < warnDatabase.new.length; c++) {
-                //if(warnDatabase.new[c].mode == ZAMG) log('im here')
+                //if(warnDatabase.new[c].mode == ZAMG) ticaLog(0,'im here')
                 if (warnDatabase.new[c].mode == mode[a].mode && warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
                     AlertLevel = warnDatabase.new[c].level;
                     AlertIndex = c;
@@ -1339,7 +1329,7 @@ function getManuellPushMode(mode, typ) {
         }
         return result;
     }
-    myLog('getManuellPushMode() mode unbekannt!', 'error');
+    ticaLog(4, 'getManuellPushMode() mode unbekannt!', 'error');
     return 0;
 }
 
@@ -1359,7 +1349,7 @@ function getManuellPushFlags(mode, typ) {
         }
         return m;
     }
-    myLog('getManuellPushFlags() mode unbekannt!', 'error');
+    ticaLog(4, 'getManuellPushFlags() mode unbekannt!', 'error');
     return 0;
 }
 
@@ -1421,7 +1411,7 @@ function convertStringToDate(s) {
 
 // Hauptfunktion entscheiden was wohin gesendet wird
 function checkWarningsMain() {
-    myLog('start checkWarningsMain()')
+    ticaLog(4, 'start checkWarningsMain()')
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend || !startTimeSpeak || !endTimeSpeak);
     setWeekend();
     let DebugMail = '';
@@ -1438,28 +1428,40 @@ function checkWarningsMain() {
         for (let b = 0; b < warnDatabase.new.length; b++) {
             let w2 = warnDatabase.new[b];
             if (
-                (
-                    w.mode !== DWD ||
-                    w2.mode !== DWD ||
-                    w.type !== w2.type ||
-                    a == b ||
-                    w2.start < w.start ||
-                    w2.end > w.end ||
-                    w.areaID != w2.areaID
-                )
+                (w.mode | w2.mode) & NINA ||
+                w.mode !== w2.mode ||
+                w.type !== w2.type ||
+                w.wcID === w2.wcID ||
+                w.level < w2.level ||
+                a == b
             ) continue;
-            if (w.level > w2.level) {
+            let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID  && w.favorit) ? 2 : 0)
+            if (test != 0) {
+                w.useAreaGroup = true;
+                ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaGroup+ ' Lösche: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaGroup );
                 warnDatabase.new.splice(b, 1);
-                if (uLogAusgabe) log('Nr 3 Behalte Warnung mit Headline: ' + w.headline + ' Level:' + w.level + ' Lösche: ' + w2.headline +' Level:' + w2.level  );
                 if (a >= b--) {
                     a--;
                     break;
                 }
-            } else if (w.altitudeEnd > w2.altitudeEnd && w.level == w2.level) {
-                if (w.altitudeStart > w2.altitudeStart) w.altitudeStart = w2.altitudeStart;
+            }
+            if (
+                w2.start < w.start ||
+                w2.end > w.end ||
+                w.areaID != w2.areaID
+            ) continue
+            if (w.level > w2.level) {
+                ticaLog(1, 'Nr 3 Behalte Warnung wegen Überschneidung und höherem Level mit Headline: ' + w.headline + ' Level:' + w.level + ' Lösche: ' + w2.headline +' Level:' + w2.level  );
+                warnDatabase.new.splice(b, 1);
+                if (a >= b--) {
+                    a--;
+                    break;
+                }
+            } else if (w.altitudeEnd !== undefined && w2.altitudeEnd !== undefined && w.altitudeEnd > w2.altitudeEnd && w.level == w2.level) {
+                if (w.altitudeStart !== undefined && w2.altitudeStart !== undefined && w.altitudeStart > w2.altitudeStart ) w.altitudeStart = w2.altitudeStart;
                 w.repeatCounter = w2.rerepeatCounter
                 warnDatabase.new.splice(b, 1);
-                if (uLogAusgabe) log('Nr 4 (Level gleich - Höhen unterschiedlich) Behalte Warnung mit Headline:' + w.headline + ' Lösche:' + w2.headline);
+                ticaLog(1, 'Nr 4 (Level gleich - Höhen unterschiedlich) Behalte Warnung mit Headline:' + w.headline + ' Lösche:' + w2.headline);
                 if (a >= b--) {
                     a--;
                     break;
@@ -1486,7 +1488,7 @@ function checkWarningsMain() {
                 ) continue;
                 if (w2.end >= w.start) {
                     if (w.repeatCounter > 30) {
-                        if (uLogAusgabe) log('Nr 5 reset repeatCounter... push message with headline: ' + w.headline);
+                        ticaLog(1, 'Nr 5 reset repeatCounter... push message with headline: ' + w.headline);
                         w.repeatCounter = 0;
                     }
                     if (w2.level == w.level) {
@@ -1494,7 +1496,7 @@ function checkWarningsMain() {
                         let i = getIndexOfHash(warnDatabase.new, w2.hash);
                         if (w.start > w2.start) w.start = w2.start
                         warnDatabase.old.splice(b--, 1);
-                        if (uLogAusgabe) log('Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
+                        ticaLog(1, 'Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
                         if (i != -1) {
                             warnDatabase.new.splice(i, 1);
                             if (i <= a) --a;
@@ -1521,18 +1523,18 @@ function checkWarningsMain() {
     collectMode = 0;
     let debugdata = '';
     /* Bereich für 'Wetterwarnung gültig bis wurde aufgehoben' */
-    myLog('Nr 6 Build messages');
+    ticaLog(4, 'Nr 6 Build messages');
     for (let i = 0; i < warnDatabase.old.length; i++) {
         let entry = warnDatabase.old[i];
         let headline = entry.headline;
         let hash = entry.hash;
-        let area = entry.areaID;
+        let area = entry.useAreaGroup !== undefined ? entry.areaGroup : entry.areaID;
         let mode = entry.mode;
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (isWarnIgnored(entry)) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
         if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.new.length > ignoreWarningCount)) {
-            myLog('Old Msg with headline:' + headline + ' onClickCheckRun:' + onClickCheckRun +' hash:' +hash);
+            ticaLog(4, 'Old Msg with headline:' + headline + ' onClickCheckRun:' + onClickCheckRun +' hash:' +hash);
             let prefix = ''
             let end = entry.end ? getFormatDate(entry.end) : null;
             collectMode |= mode;
@@ -1552,13 +1554,13 @@ function checkWarningsMain() {
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
             sendMessage(getPushModeFlag(mode) & PUSH, picture + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung') + SPACE + (i + 1), pushMsg);
-            myLog('text old:' + pushMsg);
+            ticaLog(4, 'text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + (!uSpracheMitOhneAlles ?  getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : ''): '') + ' wurde aufgehoben' + '  .  ';
             if (forceSpeak || compareTime(START, ENDE, 'between')) {
                 sendMessage(getPushModeFlag(mode) & SPEAK, '', pushMsg, entry);
             }
-            myLog('Sprache old:' + pushMsg);
+            ticaLog(4, 'Sprache old:' + pushMsg);
         }
     }
     if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-New Flags', debugdata, null);
@@ -1573,13 +1575,13 @@ function checkWarningsMain() {
         let level = entry.level;
         let instruction = entry.instruction;
         let hash = entry.hash;
-        let area = entry.areaID;
+        let area = entry.useAreaGroup === true ? entry.areaGroup : entry.areaID;
         let color = entry.color;
         let mode = entry.mode;
         let meteo = entry.meteo || '';
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
-        myLog('New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash + ' level:' + level);
+        ticaLog(4, 'New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash + ' level:' + level);
         if (isWarnIgnored(entry) && !onClickCheckRun) continue;
         if (hash) {
             let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
@@ -1627,7 +1629,7 @@ function checkWarningsMain() {
                     }
                 }
                 let html = (bt ? sTime + '<br>' : '') + de;
-                html = html[0].toUpperCase() + html.substring(1);
+                html = html.length > 0 ? html[0].toUpperCase() + html.substring(1) : html;
                 he += getArtikelMode(mode) + area + ':';
                 if (entry.repeatCounter == 1 && !onClickCheckRun) he += ' wurde verlängert.';
                 emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, picture + he, html, color, false);
@@ -1665,7 +1667,7 @@ function checkWarningsMain() {
                 if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
                 sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry);
-                myLog('text new:' + pushMsg);
+                ticaLog(4, 'text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
             // Sprache
@@ -1742,7 +1744,7 @@ function checkWarningsMain() {
                 if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
                 }
-                myLog('Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
+                ticaLog(4, 'Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
             }
 
             function getTopic(mode, level, s) {
@@ -1772,13 +1774,13 @@ function checkWarningsMain() {
 
         // Einen Mode ermitteln der aktiv ist und der das Versenden erlauben würde.
         if (!getPushModeFlag(collectMode)) collectMode = getPushModeFlag(switchFlags(ALLMODES, collectMode, false) & MODE, true);
-        if (!getPushModeFlag(collectMode)) log('Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus über ID: ' + onClickCheckRunCmd : 'Automatikmodus') + ' gefunden!', 'warn');
+        if (!getPushModeFlag(collectMode)) ticaLog(0,'Keine erlaubten Versandmöglichkeiten im ' + (onClickCheckRun ? 'manuellen Modus über ID: ' + onClickCheckRunCmd : 'Automatikmodus') + ' gefunden!', 'warn');
 
         /* Bereich für Sprachausgabe über SayIt & Alexa & Home24*/
         if (forceSpeak || compareTime(START, ENDE, 'between')) { // Ansage über Sayit nur im definierten Zeitbereich
             sendMessage(getPushModeFlag(collectMode) & SPEAK, '', pushMsg);
         }
-        myLog('all all:' + pushMsg + ' PUSH' + (getPushModeFlag(collectMode) & PUSH).toString(2) + ' ALLMSG:' + (getPushModeFlag(collectMode) & ALLMSG).toString(2));
+        ticaLog(4, 'all all:' + pushMsg + ' PUSH' + (getPushModeFlag(collectMode) & PUSH).toString(2) + ' ALLMSG:' + (getPushModeFlag(collectMode) & ALLMSG).toString(2));
 
         let topic = ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung');
         sendMessage(getPushModeFlag(collectMode) & PUSH, topic, pushMsg, );
@@ -1792,10 +1794,10 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null, true);
         if (DEBUGSENDEMAIL) sendMessage(uPushdienst & EMAIL, 'Debug checkWarningsMain() ' + scriptName, DebugMail);
-        //log(DebugMail);
+        //ticaLog(0,DebugMail);
     }
     /* Neue Werte sichern */
-    myLog('done');
+    ticaLog(4, 'done');
     setState(totalWarningCountState, warnDatabase.new.length, true);
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
@@ -1812,7 +1814,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
     if (entry === undefined) entry = null;
 
     if ((pushdienst & TELEGRAM) != 0) {
-        myLog('send Msg with Telegram');
+        ticaLog(4, 'send Msg with Telegram');
         let nMsg = {};
         if (entry && entry.web && entry.webname) nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
         if (uTelegramReplyMarkup) nMsg.reply_markup = uTelegramReplyMarkup;
@@ -1844,7 +1846,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         }
     }
     if ((pushdienst & PUSHOVER) != 0) {
-        myLog('send Msg with Pushover');
+        ticaLog(4, 'send Msg with Pushover');
         let newMsg = { html: 1 };
         let usesound = ((deviceList[PUSHOVER].count == undefined || deviceList[PUSHOVER].count == 0) || !(!entry || entry.level < attentionWarningLevel));
         newMsg.message = msg;
@@ -1868,7 +1870,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
         });
     }
     if ((pushdienst & IOGO) != 0) {
-        myLog('send Msg with Iogo');
+        ticaLog(4, 'send Msg with Iogo');
         let j = {};
         j.text = msg;
         j.title = topic;
@@ -1891,11 +1893,11 @@ function sendMessage(pushdienst, topic, msg, entry) {
         setState(mirrorMessageStateHtml, msg, true);
     }
     if ((pushdienst & SPEAK) != 0) {
-        myLog('send Msg with Speak');
+        ticaLog(4, 'send Msg with Speak');
         _speakTo(pushdienst & SPEAK, msg);
     }
     if ((pushdienst & EMAIL) != 0) {
-        myLog('send Msg with Email');
+        ticaLog(4, 'send Msg with Email');
         let j = {};
         j.html = msg;
         j.subject = topic;
@@ -1911,7 +1913,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
     }
 
     function _sendTo(dienst, a, b) {
-        myLog('send Msg _sendTo dienst:' + dienst);
+        ticaLog(4, 'send Msg _sendTo dienst:' + dienst);
         if (deviceList[dienst].count == undefined) {
             sendTo(a, b);
         } else {
@@ -1944,7 +1946,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
                     if (entry.dienst == HOMETWO) {
                         for (let a = 0; a < idMediaplayer.length; a++) {
                             var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst);
-                            myLog('Url2 :' + Url2);
+                            ticaLog(4, 'Url2 :' + Url2);
                             request(Url2);
                         }
                     } else if (entry.dienst == SAYIT) {
@@ -1958,7 +1960,7 @@ function sendMessage(pushdienst, topic, msg, entry) {
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
                         }
                     }
-                    myLog('Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
+                    ticaLog(4, 'Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
                     _speakToArray.shift();
                     _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
 
@@ -2061,26 +2063,26 @@ function sendMessage(pushdienst, topic, msg, entry) {
 function dataSubscribe() {
     if (subDWDhandler) unsubscribe(subDWDhandler);
     if (MODE & DWD && !(enableInternDWD || enableInternDWD2)) {
-        if (uLogAusgabe) log('Nutze Datenabruf für DWD über States in ' + dwdPath);
+        ticaLog(1, 'Nutze Datenabruf für DWD über States in ' + dwdPath);
         let r = getRegEx(dwdPath, '^');
         r += '.*\.object$';
-        myLog('subscribe path:' + r);
+        ticaLog(4, 'subscribe path:' + r);
         subDWDhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeDWD);
     }
     if (subUWZhandler) unsubscribe(subUWZhandler);
     if (MODE & UWZ && !enableInternUWZ) {
-        if (uLogAusgabe) log('Nutze Datenabruf für UWZ über States in ' + uwzPath);
+        ticaLog(1, 'Nutze Datenabruf für UWZ über States in ' + uwzPath);
         let r = getRegEx(uwzPath, '^');
         r += '.*\.object$';
-        myLog('subscribe path:' + r);
+        ticaLog(4, 'subscribe path:' + r);
         subUWZhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeUWZ);
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
     if (MODE & NINA && warncells[NINA].length == 0) {
-        if (uLogAusgabe) log('Nutze Datenabruf für NINA über States in ' + ninaPath);
+        ticaLog(1, 'Nutze Datenabruf für NINA über States in ' + ninaPath);
         let r = getRegEx(ninaPath, '^');
         r += '.*.rawJson$';
-        myLog('subscribe path:' + r);
+        ticaLog(4, 'subscribe path:' + r);
         subNINAhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeNina);
     }
 }
@@ -2089,7 +2091,7 @@ function onChangeDWD(dp) {
     if (onChangeTimeoutObj[dp.id]) clearTimeout(onChangeTimeoutObj[dp.id]);
     onChangeTimeoutObj[dp.id] = setTimeout( function(dp) {
         onChangeTimeoutObj[dp.id] = null;
-        myLog('onchange DWD id:' + dp.id);
+        ticaLog(4, 'onchange DWD id:' + dp.id);
         onChange(dp, DWD);
     },500, dp);
 }
@@ -2098,7 +2100,7 @@ function onChangeUWZ(dp) {
     if (onChangeTimeoutObj[dp.id]) clearTimeout(onChangeTimeoutObj[dp.id]);
     onChangeTimeoutObj[dp.id] = setTimeout( function(dp) {
         onChangeTimeoutObj[dp.id] = null;
-        myLog('onchange UWZ id:' + dp.id);
+        ticaLog(4, 'onchange UWZ id:' + dp.id);
         onChange(dp, UWZ);
     },500, dp);
 }
@@ -2107,7 +2109,7 @@ function onChangeNina(dp) {
     if (onChangeTimeoutObj[dp.id]) clearTimeout(onChangeTimeoutObj[dp.id]);
     onChangeTimeoutObj[dp.id] = setTimeout( function(dp) {
         onChangeTimeoutObj[dp.id] = null;
-        myLog('onchange NINA ' + dp.id);
+        ticaLog(4, 'onchange NINA ' + dp.id);
         onChange(dp, NINA);
     },500, dp);
 }
@@ -2115,7 +2117,7 @@ function onChangeNina(dp) {
 // funktion die von on() aufgerufen wird
 function onChange(dp, mode) {
     if (addDatabaseData(dp.id, dp.state.val, mode, false)) {
-        myLog('Datenbank wurde geändert - checkWarningsMain():' + autoSendWarnings + ' id:' + dp.id + ' Mode:' + mode);
+        ticaLog(4, 'Datenbank wurde geändert - checkWarningsMain():' + autoSendWarnings + ' id:' + dp.id + ' Mode:' + mode);
         if (timer) clearTimeout(timer);
         if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
     }
@@ -2128,16 +2130,16 @@ function onChange(dp, mode) {
 /* ************************************************************************* */
 // Erstes befüllen der Database
 async function InitDatabase(first) {
-    myLog('InitDatabase() first: ' + first);
+    ticaLog(4, 'InitDatabase() first: ' + first);
     if (firstRun) {
         setState(totalWarningCountState, 0, true);
         warnDatabase = { new: [], old: [] };
-        if (uLogAusgabe && (enableInternDWD)) log('Standalone DWD Datenabruf aktiviert');
-        if (uLogAusgabe && (enableInternDWD2)) log( 'Standalone DWD2 Datenabruf aktiviert');
-        if (uLogAusgabe && (enableInternUWZ)) log('Standalone UWZ Datenabruf aktiviert');
-        if (uLogAusgabe && warncells[ZAMG].length > 0) log('Standalone ZAMG Datenabruf aktiviert');
-        if (uLogAusgabe && warncells[NINA].length > 0) log('Standalone NINA Datenabruf aktiviert');
-        if (!(DEBUG && DEBUGINGORESTART)) await getDataFromServer(first);
+        if ((enableInternDWD)) ticaLog(1,'Standalone DWD Datenabruf aktiviert');
+        if ((enableInternDWD2)) ticaLog(1,'Standalone DWD2 Datenabruf aktiviert');
+        if ((enableInternUWZ)) ticaLog(1,'Standalone UWZ Datenabruf aktiviert');
+        if (warncells[ZAMG].length > 0) ticaLog(1,'Standalone ZAMG Datenabruf aktiviert');
+        if (warncells[NINA].length > 0) ticaLog(1,'Standalone NINA Datenabruf aktiviert');
+        if (!((uLogLevel & 4) && DEBUGINGORESTART)) await getDataFromServer(first);
         if (standaloneInterval) clearSchedule(standaloneInterval);
         let sec = 18 + Math.round(Math.random()*30);
         standaloneInterval = schedule(sec + ' */'+intervalMinutes+' * * * *', getDataFromServer);
@@ -2172,7 +2174,7 @@ async function InitDatabase(first) {
                 let b = (-1 == database.findIndex(function(j2, i2){
                     return i > i2 && j.mode == j2.mode && j.hash == j2.hash;
                 }));
-                if (!b) myLog('filtere: '+JSON.stringify(j));
+                if (!b) ticaLog(4, 'filtere: '+JSON.stringify(j));
                 return b;}
             )
         }
@@ -2184,32 +2186,34 @@ async function getDataFromServer(first) {
     if (first === undefined) first = false;
     if (enableInternDWD2 && warncells[DWD].length == 0) {
         enableInternDWD2 = false;
-        log('DWD deaktivieren, keine Warncell vorhanden');
+        enableInternDWD = false;
+        ticaLog(0,'DWD deaktivieren, keine Warncell vorhanden');
     } else if (!enableInternDWD2 && warncells[DWD].length > 0) {
-        enableInternDWD2 = true;
-        log('DWD aktivieren, Warncell vorhanden');
+        enableInternDWD2 = true; //12345
+        enableInternDWD = true;
+        ticaLog(0,'DWD aktivieren, Warncell vorhanden');
     }
     for (let a = 0; a < warncells[DWD].length; a++) {
-        if (enableInternDWD)  await _getDataFromServer([internDWDUrl], DWD, first, warncells[DWD][a].id);
-        if (enableInternDWD2) await _getDataFromServer([replacePlaceholder(internDWD2Url, warncells[DWD][a].id)], DWD2, first, warncells[DWD][a].id);
+        if (warncells[DWD][a][DWD2] === undefined)  await _getDataFromServer([internDWDUrl], DWD, first, warncells[DWD][a].id, a);
+        if (warncells[DWD][a][DWD] === undefined) await _getDataFromServer([replacePlaceholder(internDWD2Url, warncells[DWD][a].id)], DWD2, first, warncells[DWD][a].id, a);
     }
     if (enableInternUWZ && warncells[UWZ].length == 0) {
         enableInternUWZ = false;
-        log('UWZ deaktivieren, keine Warncell vorhanden');
+        ticaLog(0,'UWZ deaktivieren, keine Warncell vorhanden');
     } else if (!enableInternUWZ && warncells[UWZ].length > 0) {
         enableInternUWZ = true;
-        log('UWZ aktivieren, Warncell vorhanden');
+        ticaLog(0,'UWZ aktivieren, Warncell vorhanden');
     }
     for (let a = 0; a < warncells[UWZ].length; a++) {
-        if (enableInternUWZ)  await _getDataFromServer([internUWZUrl + warncells[UWZ][a].id], UWZ, first, warncells[UWZ][a].id);
+        if (enableInternUWZ)  await _getDataFromServer([internUWZUrl + warncells[UWZ][a].id], UWZ, first, warncells[UWZ][a].id, a);
     }
     for (let a = 0; a < warncells[ZAMG].length; a++) {
         let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
-        await _getDataFromServer([url], ZAMG, first, warncells[ZAMG].text);
+        await _getDataFromServer([url], ZAMG, first, warncells[ZAMG].text, a);
     }
     if (warncells[NINA].length) {
         //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
-        await _getDataFromServer(internMowasUrl, NINA, first, '');
+        await _getDataFromServer(internMowasUrl, NINA, first, '', a);
     }
 
     setTimeout( async function () {
@@ -2239,65 +2243,65 @@ async function getDataFromServer(first) {
                     }
                     await setStateAsync(nid, countObj[id], true);
                 } catch(e) {
-                    log('Fehler in getDataFromServer()', 'error');
+                    ticaLog(0,'Fehler in getDataFromServer()', 'error');
                 }
             }
         }
     }, 2000);
 
-    async function _getDataFromServer(url, m, first, area) {
-        if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : 'NINA')))));
+    async function _getDataFromServer(url, m, first, area, wcIndex) {
+        ticaLog(2, 'Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : 'NINA')))));
         if (onStopped) return;
         let results = [];
         for (let a=0; a<url.length; a++) {
             const result = await axios.get(url[a])
                 .then(results => {
-                    myLog("Status: " + results.status);
-                    myLog("Url: " + url);
-                    if (!results) log ('!results');
-                    if (results === undefined) log('results === undefined')
+                    ticaLog(4, "Status: " + results.status);
+                    ticaLog(4, "Url: " + url);
+                    if (!results) ticaLog(0,'!results');
+                    if (results === undefined) ticaLog(0,'results === undefined')
                     if (results.status == 200) {
                         return results.data
 
                     } else {
-                        if (uLogAusgabe) log ('getDataFromServer() 1. Status: ' + results.status);
+                        ticaLog(1,'getDataFromServer() 1. Status: ' + results.status);
                     }
                     return null;
                 })
                 .catch(error => {
                     if (error == undefined) {
-                        if (uLogAusgabe) log('getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
+                        ticaLog(1, 'getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
                     } else if (error.response == undefined) {
-                        if (uLogAusgabe) log('getDataFromServer() 3. ' + error);
+                        ticaLog(1, 'getDataFromServer() 3. ' + error);
                     } else if (error.response.status == 404) {
-                        if (uLogAusgabe) log('getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
+                        ticaLog(1, 'getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
                     } else {
-                        if (uLogAusgabe) log('getDataFromServer() 5. ')
-                        if (uLogAusgabe) log(error.response.data);
-                        if (uLogAusgabe) log(error.response.status);
-                        if (uLogAusgabe) log(error.response.headers);
+                        ticaLog(1, 'getDataFromServer() 5. ')
+                        ticaLog(1, error.response.data);
+                        ticaLog(1, error.response.status);
+                        ticaLog(1, error.response.headers);
                     }
                     return null;
                 })
-            if((DWD|DWD2) & m) myLog("AREA: " + area);
-            if(UWZ & m) myLog("AREA: " + getAreaFromURI(url[a]));
-            if((DWD|DWD2|ZAMG) & m) await processData(area, result, m, first);
-            else if(UWZ & m) await processData(getAreaFromURI(url[a]), result, m, first);
+            if((DWD|DWD2) & m) ticaLog(4, "AREA: " + area);
+            if(UWZ & m) ticaLog(4, "AREA: " + getAreaFromURI(url[a]));
+            if((DWD|DWD2|ZAMG) & m) await processData(area, result, m, first, wcIndex);
+            else if(UWZ & m) await processData(getAreaFromURI(url[a]), result, m, first, wcIndex);
             else if(NINA & m) {
                 results = results.concat(result);
             }
             else {
-                log('getDataFromServer wrong Mode', 'error');
+                ticaLog(0,'getDataFromServer wrong Mode', 'error');
                 stopScript();
             }
         }
         if(NINA & m) {
-            await processData(area, results, m, first);
+            await processData(area, results, m, first, wcIndex);
         }
     }
 
 
-    async function processData(area, thedata, m, first) {
+    async function processData(area, thedata, m, first, wcIndex) {
         let newOBJ = [];
         if (thedata) {
             if ((DWD & m)) {
@@ -2307,9 +2311,8 @@ async function getDataFromServer(first) {
                 newString = newString.replace(/\);$/sg, ''); // damit findet es diesen String nur am Ende
                 let tOBJ = JSON.parse(newString);
                 if (tOBJ.warnings.hasOwnProperty(area)) {
+                    warncells[DWD][wcIndex][DWD] = true;
                     newOBJ = tOBJ.warnings[area];
-                    if (uLogAusgabe && enableInternDWD2) log('DWD2 ausgeschaltet, nutze DWD.')
-                    enableInternDWD2 = false;
                 }
                 else newOBJ = [];
             } else if (UWZ & m) {
@@ -2322,22 +2325,10 @@ async function getDataFromServer(first) {
 
                     let ind = warncells[ZAMG].findIndex((a) => a.text == areaname);
                     if (ind === -1) {
-                        log('ZAMG Area: '+ area +' nicht gefunden ')
+                        ticaLog(0,'ZAMG Area: '+ area +' nicht gefunden ')
                         return
                     }
                     area = warncells[ZAMG][ind].id;
-                    /*let tpath = internalZamgPath + area
-                    for (let i = 0; i < numOfWarnings; i++) {
-                        let p = tpath + internalWarningEnd + (i == 0 ? '' : i) + '.';
-                        for (let a = 0; a < statesZAMGintern.length; a++) {
-                            let dp = statesZAMGintern[a];
-                            let id = p + dp.id;
-                            log(id);
-                            if (!await existsStateAsync(id)) {
-                                await createStateAsync(id, dp.options,);
-                            }
-                        }
-                    }*/
 
                     for (let a= 0; a<newOBJ.length;a++) {
                         newOBJ[a].area = warncells[ZAMG][ind].text;
@@ -2356,12 +2347,11 @@ async function getDataFromServer(first) {
                 let tempOBJ = Object(thedata);
                 for(let data in tempOBJ.features) {
                     if (tempOBJ.features[data].properties.WARNCELLID == area) {
+                        warncells[DWD][wcIndex][DWD2] = true;
                         newOBJ.push(tempOBJ.features[data].properties);
                     }
                 }
                 if (newOBJ.length) {
-                    if (uLogAusgabe && enableInternDWD) log('DWD ausgeschaltet, nutze DWD2.')
-                    enableInternDWD = false;
                     newOBJ.sort(function(a,b) {
                         let result = getCapLevel(b.SEVERITY) - getCapLevel(a.SEVERITY);
                         if (result) return result;
@@ -2397,16 +2387,13 @@ async function getDataFromServer(first) {
                                 let poly = info.area[d].polygon;
                                 area = await isAreaInPolygon(warncells[NINA], poly);
                                 ninaIdentifier[obj.identifier + obj.sent].area = area;
-                                if (uLogAusgabe && area != '') log(info.area[d].areaDesc + ' gefunden für Warnzelle: ' + area + ' obj.identifier: ' + obj.identifier);
+                                if (area != '') ticaLog(1, info.area[d].areaDesc + ' gefunden für Warnzelle: ' + area + ' obj.identifier: ' + obj.identifier);
                                 info.area[d].polygon = undefined;
                             }
                             info.area[d].polygon = undefined
                             delete info.area[d].polygon;
                             ninaIdentifier[obj.identifier + obj.sent].id = 1;
-                            //log(info.area[d].areaDesc);
                             if (area != '') {
-                                //log(area);
-                                //log(info.area[d].polygon);
                                 info.area.areaDesc = info.area[d].areaDesc
                                 info.identifier = obj.identifier
                                 info.sent = obj.sent;
@@ -2432,7 +2419,10 @@ async function getDataFromServer(first) {
                 area = warncells[NINA][w].text
                 if (newOBJ[0][area] !== undefined) count = newOBJ[0][area].length;
                 for (var i = 0; i < numOfWarnings; i++) {
-                    if (i < count) await writeResultEntry(newOBJ[0][area][i], i, m, first, warncells[NINA][w].id);
+                    if (i < count) {
+                        newOBJ[0][area][i].warncellObj = warncells[NINA][wcIndex];
+                        await  writeResultEntry(newOBJ[0][area][i], i, m, first, warncells[NINA][w].id);
+                    }
                     else await writeResultEntry({}, i, m, first, warncells[NINA][w].id);
                 }
             }
@@ -2440,18 +2430,21 @@ async function getDataFromServer(first) {
         else {
             count = newOBJ.length;
             for (var i = 0; i < numOfWarnings; i++) {
-                if (i < count) await writeResultEntry(newOBJ[i], i, m, first, area);
+                if (i < count) {
+                    let mode = m !== DWD2 ? m : DWD;
+                    newOBJ[i].warncellObj = warncells[mode][wcIndex];
+                    await writeResultEntry(newOBJ[i], i, m, first, area);
+                }
                 else await writeResultEntry({}, i, m, first, area);
             }
         }
-        myLog('processData():' + count ? JSON.stringify(newOBJ) : '{}');
+        ticaLog(4, 'processData():' + count ? JSON.stringify(newOBJ) : '{}');
     }
     async function isAreaInPolygon (posarr, polygonArr) {
         for (let b=0;b<posarr.length;b++) {
             const x = posarr[b].breiten; const y = posarr[b].laengen;
             for (let a=0;a<polygonArr.length;a++) {
-                //log(await pointInPolygon(polygonArr[a].split(' '), [x, y]));
-                if ( await pointInPolygonwithDelay(polygonArr[a].split(' '), [x, y]) ) {
+               if ( await pointInPolygonwithDelay(polygonArr[a].split(' '), [x, y]) ) {
                     return posarr[b].text
                 }
             }
@@ -2496,7 +2489,7 @@ async function getDataFromServer(first) {
     };
 
 
-    async function writeResultEntry(warnObj, _i, m, first, area) {
+    async function writeResultEntry(warnObj, _i, m, first, area, wcIndex) {
         var baseChannelId = ''
         if (DWD & m || DWD2 & m) baseChannelId = internalDWDPath + area + internalWarningEnd;
         else if (UWZ & m) baseChannelId = internalUWZPath + area + internalWarningEnd;
@@ -2506,7 +2499,7 @@ async function getDataFromServer(first) {
 
         const oldObject = await getStateAsync(baseChannelId + "object");
         if (!firstRun && oldObject && JSON.stringify(warnObj) == JSON.stringify(oldObject.val)) {
-            myLog('Datensatz ' + (_i+1) + ' ist schon vorhanden');
+            ticaLog(4, 'Datensatz ' + (_i+1) + ' ist schon vorhanden');
             return;
         }
         let tempObj = {};
@@ -2514,7 +2507,7 @@ async function getDataFromServer(first) {
             if(addDatabaseData(baseChannelId + statesNINAintern.object.id , {info:[warnObj]}, NINA, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
-                if (uLogAusgabe) log('NINA Warnung gefunden oder entfernt.');
+                ticaLog(1, 'NINA Warnung gefunden oder entfernt.');
             }
             tempObj[statesNINAintern.onset.id] = warnObj.onset !== undefined ? getDateObject(warnObj.onset).getTime() : Number("");
             tempObj[statesNINAintern.description.id] = warnObj.description || '';
@@ -2545,7 +2538,7 @@ async function getDataFromServer(first) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
-                if (uLogAusgabe) log('DWD2 Warnung gefunden oder entfernt.');
+                ticaLog(1, 'DWD2 Warnung gefunden oder entfernt.');
             }
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
 
@@ -2583,7 +2576,7 @@ async function getDataFromServer(first) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD, first)) {
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
-                if (uLogAusgabe) log('DWD Warnung gefunden oder entfernt.');
+                ticaLog(1, 'DWD Warnung gefunden oder entfernt.');
             }
 
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
@@ -2598,10 +2591,10 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[8].id] = warnObj.event || '';
             tempObj[statesDWDintern[9].id] = warnObj.type === undefined || warnObj.type === null ? -1 : parseInt(warnObj.type, 10);
             tempObj[statesDWDintern[10].id] = warnObj.EC_II === undefined || warnObj.EC_II === null ? -1 : parseInt(warnObj.EC_II, 10);
-            if (warnObj.type !== undefined && warnObj.type !== null) {
+            /*if (warnObj.type !== undefined && warnObj.type !== null) {
                 let land = enableInternDWD && (DWD & m) ? dwdBundesland : '';
                 tempObj[statesDWDintern[5].id] = 'https://www.dwd.de/DWD/warnungen/warnapp_gemeinden/json/warnungen_gemeinde_map_' + land + '_' + maps[warnObj.type] + '.png';
-            } else {
+            } else */{
                 tempObj[statesDWDintern[5].id] = '';
             }
             tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
@@ -2621,6 +2614,7 @@ async function getDataFromServer(first) {
             if (addDatabaseData(baseChannelId + statesZAMGintern[6].id, warnObj, m, first)){
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                ticaLog(1, 'ZAMG Warnung gefunden oder entfernt.');
             }
             tempObj[statesZAMGintern[6].id] = warnObj;
             tempObj[statesZAMGintern[10].id] = warnObj.area === undefined ? '' : warnObj.area ;
@@ -2628,7 +2622,6 @@ async function getDataFromServer(first) {
             if (plainWarnObj.length > 0) {
                 tempObj[statesZAMGintern[7].id] = warnObj.properties.warntypid;
                 tempObj[statesZAMGintern[9].id] = warningTypesString[ZAMG][warnObj.properties.warntypid][0];
-                //log(warningTypesString[ZAMG][warnObj.properties.warntypid][0])
                 tempObj[statesZAMGintern[0].id] = Number(warnObj.properties.rawinfo.start)*1000;
                 tempObj[statesZAMGintern[1].id] =  Number(warnObj.properties.rawinfo.end)*1000;
             } else {
@@ -2650,7 +2643,7 @@ async function getDataFromServer(first) {
                         tempObj[data.id] = warnObj.properties !== undefined && warnObj.properties[data.json] !== undefined && warnObj.properties[data.json] ? warnObj.properties[data.json] : def;
                     }
                     catch(e) {
-                        log(warnObj,'error');
+                        ticaLog(0,warnObj,'error');
                     }
                 }
             }
@@ -2664,8 +2657,6 @@ async function getDataFromServer(first) {
             tempObj[statesZAMGintern[12].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, tempObj.headline, text);
              for (let a = 0; a < statesZAMGintern.length; a++) {
                 let dp = statesZAMGintern[a];
-                //if (plainWarnObj.length > 0)log(baseChannelId + dp.id);
-                //if (plainWarnObj.length > 0)log(tempObj[dp.id]);
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
             }
         }
@@ -2673,6 +2664,7 @@ async function getDataFromServer(first) {
             if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
                 if (timer) clearTimeout(timer);
                 if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                ticaLog(1, 'UWZ Warnung gefunden oder entfernt.');
             }
             tempObj[statesUWZintern[6].id] = warnObj;
 
@@ -2824,7 +2816,7 @@ async function addWarncell(obj, i){
                 }
             }
             if (!wcname) {
-                log('Fehler 2#');
+                ticaLog(0,'Fehler 2#');
                 return;
             }
             folder = internalUWZPath;
@@ -2879,7 +2871,7 @@ async function addWarncell(obj, i){
                 }
             }
             if (!wcname) {
-                log('Fehler 3#');
+                ticaLog(0,'Fehler 3#');
                 return;
             }
             warncells[ZAMG][index].text = wcname;
@@ -2958,7 +2950,7 @@ async function addWarncell(obj, i){
             folder = internalMowasPath;
         break;
         default:
-        log('Unbekannter Mode in addWarncell', 'error');
+        ticaLog(0,'Unbekannter Mode in addWarncell', 'error');
         return;
     }
     if (!await existsStateAsync(warncellid)) {
@@ -2974,6 +2966,9 @@ async function addWarncell(obj, i){
             await setStateAsync(warncellid, wcname, true);
         } else {
             warncells[MODES[i].mode][index].area = getState(warncellid).val;
+            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area)) {
+                warncells[MODES[i].mode][index].favorit = true;
+            }
         }
     }
 
@@ -2989,36 +2984,36 @@ async function addWarncell(obj, i){
     }
 
     if (restart) {
-        log('Script neugestartet');
+        ticaLog(0,'Script neugestartet');
         startScript();
     }
 };
 async function getZamgName(lat, long) {
-    if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab - ZAMG Area');
+    ticaLog(2, 'Rufe Daten vom Server ab - ZAMG Area');
     if (onStopped) return false;
     const data = await axios.get(replacePlaceholder(internZamgUrl,long,lat))
             .then(results => {
-                myLog("Status: " + results.status);
-                if (!results) log ('!results');
-                if (results === undefined) log('results === undefined')
+                ticaLog(4, "Status: " + results.status);
+                if (!results) ticaLog(0,'!results');
+                if (results === undefined) ticaLog(0,'results === undefined')
                 if (results.status == 200) {
                     return results.data
                 } else {
-                    if (uLogAusgabe) log ('testValueDWD2() 1. Status: ' + results.status);
+                    ticaLog(1,'testValueDWD2() 1. Status: ' + results.status);
                     return undefined;
                 }
             })
             .catch(error => {
                 if (error == undefined) {
-                    if (uLogAusgabe) log('testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                    ticaLog(1, 'testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
                 } else if (error.response == undefined) {
-                    if (uLogAusgabe) log('testValueDWD2() 3. ' + error);
+                    ticaLog(1, 'testValueDWD2() 3. ' + error);
                 } else if (error.response.status == 404) {
-                    if (uLogAusgabe) log('testValueDWD2() 4. ' + error.message);
+                    ticaLog(1, 'testValueDWD2() 4. ' + error.message);
                 } else {
-                    if (uLogAusgabe) log('testValueDWD2() 5. ' + error.response.data);
-                    if (uLogAusgabe) log(error.response.status);
-                    if (uLogAusgabe) log(error.response.headers);
+                    ticaLog(1, 'testValueDWD2() 5. ' + error.response.data);
+                    ticaLog(1, error.response.status);
+                    ticaLog(1, error.response.headers);
                 }
                 return undefined;
             })
@@ -3028,32 +3023,32 @@ async function getZamgName(lat, long) {
 }
 
 async function testValueDWD2 (value) {
-    if (uLogAusgabeErweitert) log('Rufe Daten vom Server ab - DWD2 WarncellID');
+    ticaLog(2, 'Rufe Daten vom Server ab - DWD2 WarncellID');
     if (onStopped) return false;
     if (templist[DWD].list === undefined) {
         templist[DWD].list =  await axios.get('https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3')
             .then(results => {
-                myLog("Status: " + results.status);
-                if (!results) log ('!results');
-                if (results === undefined) log('results === undefined')
+                ticaLog(4, "Status: " + results.status);
+                if (!results) ticaLog(0,'!results');
+                if (results === undefined) ticaLog(0,'results === undefined')
                 if (results.status == 200) {
                     return results.data
                 } else {
-                    if (uLogAusgabe) log ('testValueDWD2() 1. Status: ' + results.status);
+                    ticaLog(1,'testValueDWD2() 1. Status: ' + results.status);
                     return undefined;
                 }
             })
             .catch(error => {
                 if (error == undefined) {
-                    if (uLogAusgabe) log('testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                    ticaLog(1, 'testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
                 } else if (error.response == undefined) {
-                    if (uLogAusgabe) log('testValueDWD2() 3. ' + error);
+                    ticaLog(1, 'testValueDWD2() 3. ' + error);
                 } else if (error.response.status == 404) {
-                    if (uLogAusgabe) log('testValueDWD2() 4. ' + error.message);
+                    ticaLog(1, 'testValueDWD2() 4. ' + error.message);
                 } else {
-                    if (uLogAusgabe) log('testValueDWD2() 5. ' + error.response.data);
-                    if (uLogAusgabe) log(error.response.status);
-                    if (uLogAusgabe) log(error.response.headers);
+                    ticaLog(1, 'testValueDWD2() 5. ' + error.response.data);
+                    ticaLog(1, error.response.status);
+                    ticaLog(1, error.response.headers);
                 }
                 return undefined;
             })
@@ -3070,11 +3065,11 @@ async function testValueDWD2 (value) {
             let city = data.substr(b, e - b)
             if (value[a].single === undefined) {
                 warncells[DWD][a].text = city
-                if (uLogAusgabe) log('DWD Warncell-Id: ' + warncells[DWD][a].id + ' gefunden: '+ warncells[DWD][a].text );
+                ticaLog(1, 'DWD Warncell-Id: ' + warncells[DWD][a].id + ' gefunden: '+ warncells[DWD][a].text );
             }
             else  return city;
         } else {
-            log('Warnzelle '+ value[a].id +' für DWD nicht gefunden.','warn');
+            ticaLog(0,'Warnzelle '+ value[a].id +' für DWD nicht gefunden.','warn');
             return false;
         }
     }
@@ -3092,7 +3087,7 @@ function addDatabaseData(id, value, mode, old) {
     if (!value || value === undefined ) value = {};
     // Kompatibilität zur Stableversion
     if (typeof value === 'string' ) value = JSON.parse(value);
-    myLog("1. addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
+    ticaLog(4, "1. addDatabaseData() ID + JSON:" + id + ' - ' + JSON.stringify(value));
     if (mode & (UWZ |DWD | DWD2 | ZAMG)) {
         change = removeDatabaseDataID(id);
         if (Object.entries(value).length > 0 ) {
@@ -3105,14 +3100,13 @@ function addDatabaseData(id, value, mode, old) {
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
                 change = warnDatabase.old.findIndex(function(j){return j.hash == warn.hash}) == -1;
-                if (uLogAusgabe) {
-                    if (!change) {
-                        if (uLogAusgabeErweitert || (uLogAusgabe && old)) log("No change or init! id: " + id + " headline: " + warn.headline);
-                    }
-                    else log("Add UWZ/DWD/ZAMG warning to database. id: " + id + " headline: " + warn.headline);
+                if (!change) {
+                    if (old) ticaLog(1, "Init! id: " + id + " headline: " + warn.headline);
+                    else ticaLog(2, "No change! id: " + id + " headline: " + warn.headline);
                 }
+                else ticaLog(1,"Add UWZ/DWD/ZAMG warning to database. id: " + id + " headline: " + warn.headline);
             }
-        } else if (uLogAusgabe && change) log("Remove Warning UWZ/DWD with id: " + id);
+        } else if (change) ticaLog(1,"Remove Warning UWZ/DWD with id: " + id);
     } else if (mode == NINA) {
         // Nina benutzt keine eindeutigen Ids für Warnungen, so dass das löschen woanders erfolgen muß.
         if (value.info === undefined || !Array.isArray(value.info)) return false;
@@ -3135,7 +3129,7 @@ function addDatabaseData(id, value, mode, old) {
                 if (!grouphash) grouphash = warn.hash;
                 warn.grouphash = grouphash;
                 tempArr.push(warn);
-                myLog("Added to tempdatabase");
+                ticaLog(4, "Added to tempdatabase");
             }
         }
         // Vergleiche vorhandene und neue Daten wenn hash = hash aktualisiere ID, wenn nicht und ID = ID setzte ID auf null
@@ -3143,8 +3137,8 @@ function addDatabaseData(id, value, mode, old) {
             for (let a = 0; a < tempArr.length; a++) {
                 for (let b = 0; b < warnDatabase.new.length; b++) {
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
-                        if (uLogAusgabe && warnDatabase.new[b].id != tempArr[a].id) {
-                            log( "Update database Nina warning old id<>new id. headline: " +warn.headline );
+                        if (warnDatabase.new[b].id != tempArr[a].id) {
+                            ticaLog(1,"Update database Nina warning old id<>new id. headline: " +warn.headline );
                         }
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--, 1);
@@ -3153,7 +3147,7 @@ function addDatabaseData(id, value, mode, old) {
                         tempArr[a].id == warnDatabase.new[b].id &&
                         tempArr[a].grouphash != warnDatabase.new[b].grouphash
                     ) {
-                        myLog(
+                        ticaLog(4,
                             "warnDatabase.new set id to null - duplicate id and wrong grouphash: " +
                             warnDatabase.new[b].headline
                         );
@@ -3167,12 +3161,11 @@ function addDatabaseData(id, value, mode, old) {
                 warn = tempArr[a];
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
-                if (uLogAusgabe) {
-                    log(
-                        "Add Nina warning to database. headline: " +
-                        warn.headline
-                    );
-                }
+                ticaLog(1,
+                    "Add Nina warning to database. headline: " +
+                    warn.headline
+                );
+
             }
             change = true;
         }
@@ -3188,7 +3181,7 @@ function addDatabaseData(id, value, mode, old) {
         if (!Array.isArray(warncells[mode]) || warncells[mode].length == 0) return "";
         for (let a = 0; a < warncells[mode].length; a++) {
             if (id.includes(warncells[mode][a].id)) {
-                return warncells[mode][a].area;
+                return warncells[mode][a].text;
             }
         }
         return "";
@@ -3200,7 +3193,7 @@ function isWarnIgnored(warn) {
         if ((uFilterList & warn.mode) != 0) return true;
         if ((warn.mode & NINA) != 0) {
             if (uAutoNinaFilterList.indexOf(warn.sender) != -1) {
-                myLog('Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - level: ' + warn.level);
+                ticaLog(4, 'Filter: \'' + warn.sender + '\' ist in uAutoNinaFilterList - level: ' + warn.level);
                 return true;
             }
         }
@@ -3216,15 +3209,16 @@ function getIndexOfHash(db, hash) {
 
 // Wandelt den Datensatz in ein internes Format um
 function getDatabaseData(warn, mode){
-
-    if (!warn || warn === undefined || typeof warn !== 'object' || warn === {} || warn =='{}') return null;
+    if (!warn || warn === undefined || typeof warn !== 'object' || Object.entries(warn).length == 0 || warn === {} || warn =='{}') {
+        return null;
+    }
     let result={};
     if (mode === DWD) {
         if (
             warn.altitudeStart > maxhoehe
             || (warn.altitudeEnd && warn.altitudeEnd < minhoehe)
             || warn.level < minlevel
-        ) {if (uLogAusgabeErweitert) log('Übergebenene Warnung DWD verworfen');return null;}
+        ) {ticaLog(2, 'Übergebenene Warnung DWD verworfen');return null;}
         result['mode'] = DWD;
         result['description']   = warn.description === undefined 	? '' 	: warn.description;
         result['headline']      = warn.headline === undefined 		? '' 	: warn.headline;
@@ -3232,7 +3226,7 @@ function getDatabaseData(warn, mode){
         result['end']           = warn.end === undefined 			? null 	: warn.end || null;
         result['instruction']   = warn.instruction === undefined 	? '' 	: warn.instruction;
         result['type']          = warn.type === undefined 			? -1 	: warn.type;
-        result['level']         = warn.level === undefined 			? -1 	: warn.level-1;
+        result['level']         = warn.level === undefined 			? 0 	: warn.level-1;
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
         result['altitudeStart'] = warn.altitudeStart === undefined 	? 0 	: warn.altitudeStart;
         result['altitudeEnd'] 	= warn.altitudeEnd === undefined 	? 3000 	: warn.altitudeEnd;
@@ -3244,7 +3238,7 @@ function getDatabaseData(warn, mode){
         if (
             warn.properties === undefined ||
             warn.properties.rawinfo.wlevel < minlevel
-        ) {if (uLogAusgabeErweitert) log('Übergebenene Warnung ZAMG verworfen');return null;}
+        ) {ticaLog(1, 'Übergebenene Warnung ZAMG verworfen, level niedriger als minlevel');return null;}
         result['type']          = warn.properties.warntypid === undefined 	    ? -1 	: warn.properties.warntypid;
         result['mode'] = ZAMG;
         result['description']   = !warn.properties.text 	                    ? '' 	: warn.properties.text + ' ';
@@ -3254,7 +3248,7 @@ function getDatabaseData(warn, mode){
         result['start']         = warn.properties.rawinfo.start === undefined 	? null 	: warn.properties.rawinfo.start*1000 || null;
         result['end']           = warn.properties.rawinfo.end === undefined 	? null 	: warn.properties.rawinfo.end*1000 || null;
         result['instruction']   = !warn.properties.empfehlungen  	            ? '' 	: warn.properties.empfehlungen;
-        result['level']         = warn.properties.rawinfo.wlevel === undefined ? -1 	: warn.properties.rawinfo.wlevel + 1;
+        result['level']         = warn.properties.rawinfo.wlevel === undefined  ? 0 	: warn.properties.rawinfo.wlevel + 1;
         result['areaID'] 		= warn.area === undefined 	? '' 	: warn.area;
         result['html'] 					= {};
         result['html']['web'] 			= '';
@@ -3267,8 +3261,8 @@ function getDatabaseData(warn, mode){
         result['webname'] 		= '';
         result['picture']        = result.type === -1                ? ''    : warningTypesString[ZAMG][result.type][1];
         if (warningTypesString[ZAMG][result.type][0] == 'unbekannt') {
-            log('Bitte folgende Zeile im Forum posten. Danke', warn);
-            log('Unbekannter Typ: ' + result.type + ' Schlagzeile: ' + result.headline, warn);
+            ticaLog(0,'Bitte folgende Zeile im Forum posten. Danke', warn);
+            ticaLog(0,'Unbekannter Typ: ' + result.type + ' Schlagzeile: ' + result.headline, warn);
         }
         result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
 
@@ -3279,14 +3273,13 @@ function getDatabaseData(warn, mode){
             || getCapLevel(warn.SEVERITY) < minlevel
             || (warn.ALTITUDE && warn.ALTITUDE * 0.3048 > maxhoehe)
             || (warn.CEILING && warn.CEILING * 0.3048 < minhoehe)
-        ) {if (uLogAusgabeErweitert)  {
-                let why = warn.RESPONSETYPE != 'Prepare' ? 'Responsetype nicht Prepare - ':'';
-                why = warn.STATUS == 'Test' ? 'Testwarnung - ':'';
-                why += (warn.ALTITUDE && warn.ALTITUDE * 0.3048 > maxhoehe) ? 'Höhenlage der Warnung ist zu hoch - ':'';
-                why += (getCapLevel(warn.SEVERITY) < minlevel) ? 'Level zu niedrig - ':'';
-                why += (warn.CEILING && warn.CEILING * 0.3048 < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
-                log (why + 'Übergebenene Warnung UWZ verworfen');
-            }
+        ) {
+            let why = warn.RESPONSETYPE != 'Prepare' ? 'Responsetype nicht Prepare - ':'';
+            why = warn.STATUS == 'Test' ? 'Testwarnung - ':'';
+            why += (warn.ALTITUDE && warn.ALTITUDE * 0.3048 > maxhoehe) ? 'Höhenlage der Warnung ist zu hoch - ':'';
+            why += (getCapLevel(warn.SEVERITY) < minlevel) ? 'Level zu niedrig - ':'';
+            why += (warn.CEILING && warn.CEILING * 0.3048 < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
+            ticaLog(2, why + 'Übergebenene Warnung UWZ verworfen');
             return null;
         }
         result['mode'] = DWD;
@@ -3299,14 +3292,14 @@ function getDatabaseData(warn, mode){
         result['picture']       = '';
         if (result.ec_ii_type != -1) {
             if (warningTypesString[DWD2][result.ec_ii_type] === undefined) {
-                log('Bitte das Json im Forum posten: EC: ' + warningTypesString[DWD2][result.ec_ii_type] ,'warn')
-                log(warn, 'warn');
+                ticaLog(0,'Bitte das Json im Forum posten: EC: ' + warningTypesString[DWD2][result.ec_ii_type] ,'warn')
+                ticaLog(0, warn, 'warn');
             } else {
                 result.type = warningTypesString[DWD2][String(result.ec_ii_type)];
                 result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
             }
         }
-        result['level']         = warn.SEVERITY === undefined 		? -1 	: getCapLevel(warn.SEVERITY);
+        result['level']         = warn.SEVERITY === undefined 		? 0 	: getCapLevel(warn.SEVERITY);
         result['areaID'] 		= warn.AREADESC === undefined 	    ? '' 	: warn.AREADESC;
         result['altitudeStart'] = warn.ALTITUDE === undefined 	    ? 0 	: warn.ALTITUDE * 0.3048;
         result['altitudeEnd']   = warn.CEILING === undefined 	    ? 0 	: warn.CEILING * 0.3048;
@@ -3321,12 +3314,10 @@ function getDatabaseData(warn, mode){
             || (warn.payload.altMax && warn.payload.altMax < minhoehe)
 
         ) {
-            if (uLogAusgabeErweitert) {
-                let why = warn.payload === undefined ? 'Datensatz unvollständig - ':'';
-                why += warn.payload.altMin > maxhoehe ? 'Höhenlage der Warnung ist zu hoch - ':'';
-                why += (warn.payload.altMax && warn.payload.altMax < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
-                log (why + 'Übergebenene Warnung UWZ verworfen');
-                }
+            let why = warn.payload === undefined ? 'Datensatz unvollständig - ':'';
+            why += warn.payload.altMin > maxhoehe ? 'Höhenlage der Warnung ist zu hoch - ':'';
+            why += (warn.payload.altMax && warn.payload.altMax < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
+            ticaLog(2,why + 'Übergebenene Warnung UWZ verworfen');
             return null;
             }
         result['mode'] = UWZ;
@@ -3335,14 +3326,14 @@ function getDatabaseData(warn, mode){
         result['end'] 			= warn.dtgEnd === undefined 							? null 	: warn.dtgEnd * 1000 || null;
         result['instruction'] 	= warn.instruction === undefined 						? '' 	: warn.instruction;
         result['type'] 			= warn.type === undefined 								? -1 	: warn.type;
-        result['level'] 		= warn.payload.levelName === undefined 					? -1 	: getUWZLevel(warn.payload.levelName);
+        result['level'] 		= warn.payload.levelName === undefined 					? 0 	: getUWZLevel(warn.payload.levelName);
         result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type][0];
         result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
         result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
-        if ( result.level < minlevel ) {if (uLogAusgabeErweitert) log('Level zu niedrig - Übergebenene Warnung UWZ verworfen');return null;}
+        if ( result.level < minlevel ) {ticaLog(2, 'Level zu niedrig - Übergebenene Warnung UWZ verworfen');return null;}
     } else if (mode === NINA) {
         // level 2, 3, 4
         let web='';
@@ -3363,21 +3354,24 @@ function getDatabaseData(warn, mode){
         //result['certainty']		 	= warn.certainty === undefined 			      ? ''	: warn.certainty;
         result['headline'] 				= warn.headline === undefined 			      ? ''	: removeHtml(warn.headline);
         result['areaID'] 				= warn.area === undefined 				      ? ''	: getNinaArea(warn.area);
-        result['level'] 				= warn.severity === undefined 			      ? -1	: getCapLevel(warn.severity, result.typename);
+        result['level'] 				= warn.severity === undefined 			      ? 0	: getCapLevel(warn.severity, result.typename);
         result['html'] 					= {};
         result['html']['web'] 			= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? '' 	: warn.web;
         result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
         result['picture']                = '';
-        if ( result.level < minlevel ) { if (uLogAusgabeErweitert) log('Übergebenene Warnung NINA verworfen. Level kleiner als minlevel');return null;}
+        if ( result.level < minlevel ) { ticaLog(2, 'Übergebenene Warnung NINA verworfen. Level' + result.level + ' kleiner als minlevel ' + minlevel);return null;}
     }
-    result['color'] = getLevelColor(result.level, NINA);
-    result['id']='';
-    result['pending'] = 0;
-    result['hash'] = 0;
-    result['repeatCounter'] = 0;
-    myLog('2. getDatabaseData(warn, mode) result: ' + JSON.stringify(result));
+    result['areaGroup']          = warn.warncellObj === undefined   ? ''    : 'für die Region ' + warn.warncellObj.area
+    result['favorit']           = warn.warncellObj === undefined || warn.warncellObj.favorit === undefined  ? false    : warn.warncellObj.favorit
+    result['wcID']              = warn.warncellObj === undefined || warn.warncellObj.id === undefined  ? ''    : warn.warncellObj.id
+    result['color']             = getLevelColor(result.level, mode);
+    result['id']                ='';
+    result['pending']           = 0;
+    result['hash']              = 0;
+    result['repeatCounter']     = 0;
+    ticaLog(4, '2. getDatabaseData(warn, mode) result: ' + JSON.stringify(result));
     return result;
 
     function getNinaArea(value) {
@@ -3497,7 +3491,7 @@ function activateSchedule() {
             let w = warnDatabase.new[a];
             if (!extendedExists(w.id)) {
                 if (warnDatabase.new[a].pending++ >= 10) { //  9 Durchläufe
-                    if (uLogAusgabe) log('Remove old warning with id: ' + warnDatabase.new[a].id + ' and headline: ' + warnDatabase.new[a].headline);
+                    ticaLog(1, 'Remove old warning with id: ' + warnDatabase.new[a].id + ' and headline: ' + warnDatabase.new[a].headline);
                     warnDatabase.new.splice(a--, 1);
                     c = true;
                 }
@@ -3505,7 +3499,7 @@ function activateSchedule() {
                 w.pending = 0;
             }
             if (w.end && new Date(w.end + intervalMinutes * 61000) < new Date()) {
-                if (uLogAusgabe) log('Remove expired warning with id: ' + warnDatabase.new[a].id + ', headline: ' + warnDatabase.new[a].headline + ' expire:' + new Date(w.end));
+                ticaLog(1, 'Remove expired warning with id: ' + warnDatabase.new[a].id + ', headline: ' + warnDatabase.new[a].headline + ' expire:' + new Date(w.end));
                 warnDatabase.new.splice(a--, 1);
                 c = true;
             }
@@ -3537,16 +3531,16 @@ function removeDatabaseDataID(id) {
 /* ************************************************************************* */
 function getArtikelMode(mode, speak = false) {
     let r = SPACE;
-    if (mode & DWD) r += (DEBUG ? 'des DWD('+scriptName+') ' : 'des DWD ');
-    if (mode & ZAMG) r += (DEBUG ? 'des ZAMG('+scriptName+') ' : 'des ZAMG ');
+    if (mode & DWD) r += ((uLogLevel&4) ? 'des DWD('+scriptName+') ' : 'des DWD ');
+    if (mode & ZAMG) r += ((uLogLevel&4) ? 'des ZAMG('+scriptName+') ' : 'des ZAMG ');
     if (mode & UWZ) {
         if (r.length > 1) r += 'und ';
-        if (speak) r += (DEBUG ? 'der Unwetterzentrale('+scriptName+') ' : 'der Unwetterzentrale ');
-        else r += (DEBUG ? 'der UWZ('+scriptName+') ' : 'der UWZ ');
+        if (speak) r += ((uLogLevel&4) ? 'der Unwetterzentrale('+scriptName+') ' : 'der Unwetterzentrale ');
+        else r += ((uLogLevel&4) ? 'der UWZ('+scriptName+') ' : 'der UWZ ');
     }
     if (mode & NINA) {
         if (r.length > 1) r += 'und ';
-        r += (DEBUG ? 'von Nina('+scriptName+') ' : 'von Nina ');
+        r += ((uLogLevel&4) ? 'von Nina('+scriptName+') ' : 'von Nina ');
     }
     return r;
 }
@@ -3601,7 +3595,7 @@ function replaceTokenForSpeak(beschreibung) {
             rueckgabe = rueckgabe.replace(/Bft/g, " Windstärke");
             rueckgabe = rueckgabe.replace(/m\/s/g, " Meter pro Sekunde");
         }
-    } catch (e) { log('replaceTokenForSpeak' + e, 'warn'); }
+    } catch (e) { ticaLog(0,'replaceTokenForSpeak' + e, 'warn'); }
     return rueckgabe;
 }
 // Formatiere Date zu string
@@ -3650,9 +3644,9 @@ if ((uPushdienst & TELEGRAM) != 0) {
     on({ id: telegramInstanz + '.communicate.request', change: "any"}, function(obj) {
         var msg = obj.state.val;
         var user = msg.substring(1, msg.indexOf(']'));
-        myLog('Telegramnachricht erhalten. Nutzer: ' + user + ' Nachricht: ' + msg);
+        ticaLog(4, 'Telegramnachricht erhalten. Nutzer: ' + user + ' Nachricht: ' + msg);
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
-        if (DEBUG && msg.includes('Wwdmail')) {
+        if ((uLogLevel&4) && msg.includes('Wwdmail')) {
             let olddebug = DEBUGSENDEMAIL;
             DEBUGSENDEMAIL = true;
             setState(mainStatePath + 'commands.' + konstanten[2].name, true, function() {
@@ -3661,11 +3655,11 @@ if ((uPushdienst & TELEGRAM) != 0) {
                 }, 200);
             });
         } else if (msg.includes('Wwdon') || msg == 'DWDUZWNINA#!§$debugan') {
-            DEBUG = true;
-            log('Debugmodus an');
+            uLogLevel = switchFlags(uLogLevel, 4, true)
+            ticaLog(0,'Debugmodus an');
         } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
-            DEBUG = false;
-            log('Debugmodus aus');
+            uLogLevel = switchFlags(uLogLevel, 4, false)
+            ticaLog(0,'Debugmodus aus');
         } else if (msg === uTelegramMessageLong || msg === 'DWDUZWNINA#!§$LONG' || msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
             warnDatabase.old = [];
             let oPd = uPushdienst;
@@ -3700,7 +3694,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
 
 onStop(function (callback) {
     onStopped = true;
-    if (uLogAusgabe) log('Skripts gestoppt: ID:' + randomID);
+    ticaLog(1, 'Skripts gestoppt: ID:' + randomID);
     if (standaloneInterval) clearInterval(standaloneInterval);
     callback();
 })
@@ -3732,18 +3726,38 @@ function cloneObj(j) {
     }
     return JSON.parse(JSON.stringify(j));
 }
-function myLog(msg, channel){
-    if (DEBUG) {
+function ticaLog(loglevel, msg, channel){
+    if (typeof loglevel === 'string') {
+        channel = msg
+        msg = loglevel
+        loglevel = 1
+    }
+    if (loglevel <= uLogLevel) {
         if (channel=== undefined) channel = 'info';
-        log('DEBUG: ' + msg,channel);
+        let pre = '';
+        switch (loglevel) {
+            case 0:
+            pre = 'always: '
+            case 1:
+            pre = 'info: '
+            break
+            case 2:
+            pre = 'advance: '
+            break
+            case 4:
+            pre = 'debug: '
+            break
+        }
+        log(pre + msg,channel);
     }
 }
+
 function checkConfigVariable(v) {
     try {
         if (eval(v)) {let t = ''};
     } catch (e) {
         let m = 'Variable in der Konfiguration fehlt: "' + v +'" bitte auf Github nachlagen und die Konfigzeile in dein lokales Skript kopieren.';
-        log(m, 'warn');
+        ticaLog(0,m, 'warn');
         stopScript();
     }
 }
