@@ -1,4 +1,4 @@
-//Version 0.99.14 Beta 3
+//Version 0.99.15 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -373,7 +373,7 @@ var standaloneInterval = null;
 const statesIntern = {[DWD]:{}, [UWZ]:{}, [ZAMG]:{}, [NINA]:{}};
 
 statesIntern[DWD].path = internalDWDPath
-var sendNoMessgesOnInit = true;
+var sendNoMessgesOnInit = false;
 var enableInternUWZ = false;
 var internUWZUrl='http://feed.alertspro.meteogroup.com/AlertsPro/AlertsProPollService.php?method=getWarning&language=de&areaID=';
 var internalUWZPath = mainStatePath + 'data.uwz-id.';
@@ -946,24 +946,6 @@ async function init() { // erster fund von create custom
             if (wIndex == -1 && obj.state.val) addWarncell(val, c);
             else if (wIndex > -1 && obj.state.val == '') warncells[mode].splice(wIndex, 1);
         });
-
-
-
-        let stateAlertId = mainStatePath + 'alert.' + MODES[c].text.toLowerCase() + '.';
-        for (let b = 0; b < warningTypesString[MODES[c].mode].length; b++) {
-            for (let a = 0; a < stateAlert.length; a++) {
-                let stateAlertIdFull = stateAlertId + warningTypesString[MODES[c].mode][b][0] + '.' + stateAlert[a].name;
-                stateAlert[a].type.name = stateAlert[a].name;
-                try {
-                    await createStateCustomAsync(stateAlertIdFull, stateAlert[a].default, stateAlert[a].type);
-                } catch(error) {
-                    ticaLog(0,'Fehler in CreateStates #3');
-                    ticaLog(0,error);
-                    stopScript();
-                }
-
-            }
-        }
     }
 
     try {
@@ -1223,24 +1205,41 @@ function setConfigKonstanten(id, val, auto) {
 }
 
 // setzte die Alert States auf die höchste aktuelle Warnstufe
-function setAlertState() {
+async function setAlertState() {
+    var setAlertStateCount;
+    if (setAlertStateCount === undefined) setAlertStateCount = 0;
+    if (++setAlertStateCount > 1) { // lasse keine mehrfach Aufrufe zu
+        setAlertStateCount = 2;
+        return;
+    }
+
     let mode = [MODES[0], MODES[1], MODES[3]];
+    let sA = mainStatePath + 'alert.';
+    let tempExistIds = [];
     for (let a = 0; a < mode.length; a++) {
         if (!(MODE & mode[a].mode)) continue;
-        let stateAlertid = mainStatePath + 'alert.' + mode[a].text.toLowerCase() + '.';
-        for (let b = 0; b < warningTypesString[mode[a].mode].length; b++) {
-            let stateAlertIdFull = stateAlertid + warningTypesString[mode[a].mode][b][0] + '.';
-            let AlertLevel = -1, AlertIndex = -1;
-            for (let c = 0; c < warnDatabase.new.length; c++) {
-                //if(warnDatabase.new[c].mode == ZAMG) ticaLog(0,'im here')
-                if (warnDatabase.new[c].mode == mode[a].mode && warnDatabase.new[c].type == b && warnDatabase.new[c].level > AlertLevel) {
-                    AlertLevel = warnDatabase.new[c].level;
-                    AlertIndex = c;
+
+        let stateAlertid = sA + mode[a].text.toLowerCase() + '.';
+        for (let wcIndex = 0; wcIndex < warncells[mode[a].mode].length; wcIndex++) {
+            let area = warncells[mode[a].mode][wcIndex].area;
+            if (area === undefined) continue;
+            let stateAlertIdArea = stateAlertid + area + '.'
+            for (let b = 0; b < warningTypesString[mode[a].mode].length; b++) {
+                let stateAlertIdFull = stateAlertIdArea + warningTypesString[mode[a].mode][b][0] + '.';
+                stateAlertIdFull.split(' ').join('_');
+                let AlertLevel = -1, AlertIndex = -1;
+                for (let c = 0; c < warnDatabase.new.length; c++) {
+                    let entry = warnDatabase.new[c];
+                    //if(warnDatabase.new[c].mode == ZAMG) ticaLog(0,'im here')
+                    if (entry.mode == mode[a].mode && entry.type == b && entry.level > AlertLevel && entry.area == area && entry.ignored) {
+                        AlertLevel = warnDatabase.new[c].level;
+                        AlertIndex = c;
+                    }
                 }
-            }
-            if (extendedExists(stateAlertIdFull + stateAlert[0].name)) {
-                if (getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
-                    (AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[8].name).val != warnDatabase.new[AlertIndex].hash)) {
+
+                tempExistIds.push(stateAlertIdFull);
+                if (!await existsStateAsync(stateAlertIdFull + stateAlert[0].name) || getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
+                    (AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[9].name).val != warnDatabase.new[AlertIndex].hash)) {
                     let cwarn = false;
                     if (AlertIndex > -1) {
                         let start = warnDatabase.new[AlertIndex].start ? new Date(warnDatabase.new[AlertIndex].start) : new Date(new Date().setHours(new Date().getHours() - 2));
@@ -1257,20 +1256,58 @@ function setAlertState() {
                             }
                         }
                     }
-                    setState(stateAlertIdFull + stateAlert[0].name, AlertLevel, true);
-                    setState(stateAlertIdFull + stateAlert[1].name, b, true);
-                    setState(stateAlertIdFull + stateAlert[2].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0), true);
-                    setState(stateAlertIdFull + stateAlert[3].name, (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].end).getTime() : 0), true);
-                    setState(stateAlertIdFull + stateAlert[4].name, (AlertIndex > -1 ? cwarn : false), true);
-                    setState(stateAlertIdFull + stateAlert[5].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : ''), true);
-                    setState(stateAlertIdFull + stateAlert[6].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : ''), true);
-                    setState(stateAlertIdFull + stateAlert[7].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : ''), true);
-                    setState(stateAlertIdFull + stateAlert[8].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : ''), true);
-                    setState(stateAlertIdFull + stateAlert[9].name, (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0), true);
-                    setState(stateAlertIdFull + stateAlert[10].name, (AlertIndex > -1 ? (warnDatabase.new[AlertIndex].ec_ii_type !== undefined ? warnDatabase.new[AlertIndex].ec_ii_type : -1) : -1), true);
+
+                    let ci = 0
+                    try {
+                        let data = []
+                        data[0] = AlertLevel;
+                        data[1] = b;
+                        data[2] = (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].start).getTime() : 0)
+                        data[3] = (AlertIndex > -1 ? new Date(warnDatabase.new[AlertIndex].end).getTime() : 0)
+                        data[4] = (AlertIndex > -1 ? cwarn : false);
+                        data[5] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].headline : '')
+                        data[6] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].description : '')
+                        data[7] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].color : '')
+                        data[8] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].picture : '')
+                        data[9] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0)
+                        data[10] = (AlertIndex > -1 ? (warnDatabase.new[AlertIndex].ec_ii_type !== undefined ? warnDatabase.new[AlertIndex].ec_ii_type : -1) : -1)
+                        for (let index=0; index < data.length; index++) {
+                            if (await extendedExistsAsync(stateAlertIdFull + stateAlert[index].name)) await setStateAsync(stateAlertIdFull + stateAlert[index].name, data[index], true)
+                            else {
+                                try {
+                                    await createStateCustomAsync(stateAlertIdFull + stateAlert[index].name, data[index], stateAlert[index].type);
+                                } catch(error) {
+                                    ticaLog(0,'Fehler in setAlertState #2 id:' + stateAlertIdFull + stateAlert[index].name);
+                                    ticaLog(0,error);
+                                    stopScript();
+                                    return;
+                                }
+                            }
+                        }
+                    } catch(error) {
+                        ticaLog(0,'Fehler in setAlertState #3 id:' + stateAlertIdFull + stateAlert[ci].name + ' Index:' + ci, 'error');
+                        ticaLog(0,error);
+                        stopScript();
+                        return;
+                    }
                 }
             }
         }
+    }
+    let tempDelIds = $('state(state.id='+sA+'*)')
+    for (let i=0;i<tempDelIds.length;i++) {
+        let t = tempExistIds.findIndex((a) => {
+            if (tempDelIds[i].includes(a)) return true;
+        })
+        try {
+            if (t == -1 && await existsStateAsync(tempDelIds[i])) await deleteStateAsync(tempDelIds[i]);
+        } catch (e) {
+            ticaLog(0, 'Fehler setAlertState(): id' + tempDelIds[i], 'error')
+        }
+    }
+    ticaLog(1, 'Alert States wurden gesetzt');
+    if (--setAlertStateCount > 1) { // rufe sich selbst auf, wenn während der Verarbeitung ein weiterer Aufruf stattfand
+        setAlertState();
     }
 }
 
@@ -1428,22 +1465,19 @@ function checkWarningsMain() {
         for (let b = 0; b < warnDatabase.new.length; b++) {
             let w2 = warnDatabase.new[b];
             if (
-                (w.mode | w2.mode) & NINA ||
+                (w.mode | w2.mode) & NINA || w.ignored || w2.ignored ||
                 w.mode !== w2.mode ||
                 w.type !== w2.type ||
                 w.wcID === w2.wcID ||
                 w.level < w2.level ||
+                w2.favorit ||
                 a == b
             ) continue;
             let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID  && w.favorit) ? 2 : 0)
             if (test != 0) {
                 w.useAreaGroup = true;
-                ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaGroup+ ' Lösche: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaGroup );
-                warnDatabase.new.splice(b, 1);
-                if (a >= b--) {
-                    a--;
-                    break;
-                }
+                ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaID+ ' Ignoriere: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaID );
+                w2.ignored = true;
             }
             if (
                 w2.start < w.start ||
@@ -1451,21 +1485,13 @@ function checkWarningsMain() {
                 w.areaID != w2.areaID
             ) continue
             if (w.level > w2.level) {
-                ticaLog(1, 'Nr 3 Behalte Warnung wegen Überschneidung und höherem Level mit Headline: ' + w.headline + ' Level:' + w.level + ' Lösche: ' + w2.headline +' Level:' + w2.level  );
-                warnDatabase.new.splice(b, 1);
-                if (a >= b--) {
-                    a--;
-                    break;
-                }
+                ticaLog(1, 'Nr 3 Behalte Warnung wegen Überschneidung und höherem Level mit Headline: ' + w.headline + ' Level:' + w.level + ' Ignoriere: ' + w2.headline +' Level:' + w2.level  );
+                w2.ignored = true;
             } else if (w.altitudeEnd !== undefined && w2.altitudeEnd !== undefined && w.altitudeEnd > w2.altitudeEnd && w.level == w2.level) {
                 if (w.altitudeStart !== undefined && w2.altitudeStart !== undefined && w.altitudeStart > w2.altitudeStart ) w.altitudeStart = w2.altitudeStart;
                 w.repeatCounter = w2.rerepeatCounter
-                warnDatabase.new.splice(b, 1);
-                ticaLog(1, 'Nr 4 (Level gleich - Höhen unterschiedlich) Behalte Warnung mit Headline:' + w.headline + ' Lösche:' + w2.headline);
-                if (a >= b--) {
-                    a--;
-                    break;
-                }
+                ticaLog(1, 'Nr 4 (Level gleich - Höhen unterschiedlich) Behalte Warnung mit Headline:' + w.headline + ' Ignoriere:' + w2.headline);
+                w2.ignored = true;
             }
         }
     }
@@ -1477,7 +1503,7 @@ function checkWarningsMain() {
             for (let b = 0; b < warnDatabase.old.length; b++) {
                 let w2 = warnDatabase.old[b];
                 if (
-                    w.mode !== w2.mode ||
+                    w.mode !== w2.mode || w.ignored || w2.ignored ||
                     w.type !== w2.type ||
                     w2.end > w.end  ||
                     w.level >= attentionWarningLevel ||
@@ -1508,7 +1534,7 @@ function checkWarningsMain() {
     }
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
-        if (isWarnIgnored(w)) {
+        if (isWarnIgnored(w) || w.ignored) {
             ignoreWarningCount++
         }
     }
@@ -1531,7 +1557,7 @@ function checkWarningsMain() {
         let area = entry.useAreaGroup !== undefined ? entry.areaGroup : entry.areaID;
         let mode = entry.mode;
         let picture = entry.picture ? entry.picture + SPACE : '';
-        if (isWarnIgnored(entry)) continue;
+        if (isWarnIgnored(entry) || entry.ignored) continue;
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.new, hash) + SPACE + (getPushModeFlag(mode) & PUSH).toString(2) + '<br';
         if (headline && getIndexOfHash(warnDatabase.new, hash) == -1 && (warnDatabase.new.length > ignoreWarningCount)) {
             ticaLog(4, 'Old Msg with headline:' + headline + ' onClickCheckRun:' + onClickCheckRun +' hash:' +hash);
@@ -1582,7 +1608,7 @@ function checkWarningsMain() {
         let picture = entry.picture ? entry.picture + SPACE : '';
         if (DEBUGSENDEMAIL) debugdata += i + SPACE + mode + SPACE + hash + SPACE + getIndexOfHash(warnDatabase.old, hash) + SPACE + (getPushModeFlag(mode)).toString(2) + SPACE + isWarnIgnored(entry) + '<br';
         ticaLog(4, 'New Msg with headline:' + headline + ' isWarnIgnored:' + isWarnIgnored(entry) + ' onClickCheckRun:' + onClickCheckRun +' hash:' + hash + ' level:' + level);
-        if (isWarnIgnored(entry) && !onClickCheckRun) continue;
+        if ((isWarnIgnored(entry) && !onClickCheckRun) || entry.ignored) continue;
         if (hash) {
             let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
             let todoBitmask = uPushdienst;
@@ -1741,10 +1767,10 @@ function checkWarningsMain() {
                     }
                     speakMsg += ' - ab ' + day + pre + ' - ';
                 }
-                if (!isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
+                if (!entry.ignored && !isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
                 }
-                ticaLog(4, 'Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry));
+                ticaLog(4, 'Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry)) + 'entry.ignored: ' +entry.ignored;
             }
 
             function getTopic(mode, level, s) {
@@ -1798,7 +1824,7 @@ function checkWarningsMain() {
     }
     /* Neue Werte sichern */
     ticaLog(4, 'done');
-    setState(totalWarningCountState, warnDatabase.new.length, true);
+    setState(totalWarningCountState, warnDatabase.new.length - ignoreWarningCount, true);
     warnDatabase.old = cloneObj(warnDatabase.new);
 }
 
@@ -2566,10 +2592,15 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[16].id] = tempObj.level !== -1 ? getLevelColor(tempObj.level) : '';
             tempObj[statesDWDintern[17].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, '') : '';
             tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, tempObj.description) : '';
-
-            for (let a = 0; a < statesDWDintern.length; a++) {
-                let dp = statesDWDintern[a];
-                if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
+            let a
+            try {
+                for (a = 0; a < statesDWDintern.length; a++) {
+                    let dp = statesDWDintern[a];
+                    if (extendedExists(baseChannelId + dp.id)) await setStateAsync(baseChannelId + dp.id, tempObj[dp.id], true);
+                }
+            } catch (e) {
+                ticaLog(0, 'Fehler in SetState() #1 ' + e +' index' + a)
+                ticaLog(0, 'Fehler in SetState() #1 Obj:' + tempObj)
             }
         }
         if (MODE & DWD & m) {
@@ -2600,8 +2631,8 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
             tempObj[statesDWDintern[12].id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
-            tempObj[statesDWDintern[14].id] = warnObj.altitudeStart === undefined ? 0 : warnObj.altitudeStart;
-            tempObj[statesDWDintern[15].id] = warnObj.altitudeEnd === undefined ? 3000 : warnObj.altitudeEnd;
+            tempObj[statesDWDintern[14].id] = warnObj.altitudeStart === undefined || warnObj.altitudeStart == null ? 0 : warnObj.altitudeStart;
+            tempObj[statesDWDintern[15].id] = warnObj.altitudeEnd === undefined || warnObj.altitudeEnd == null? 3000 : warnObj.altitudeEnd;
             tempObj[statesDWDintern[16].id] = tempObj.level !== -1 ? getLevelColor(tempObj.level) : '';
             tempObj[statesDWDintern[17].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, '') : '';
             tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, tempObj.description) : '';
@@ -2953,8 +2984,9 @@ async function addWarncell(obj, i){
         ticaLog(0,'Unbekannter Mode in addWarncell', 'error');
         return;
     }
+    if (index != -1) warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].text
     if (!await existsStateAsync(warncellid)) {
-        await createStateCustomAsync(warncellid, true, {name: wcname,type: "string",def:wcname, read: true,write: true},);
+        await createStateCustomAsync(warncellid, wcname, {name: wcname,type: "string",def:wcname, read: true,write: true},);
     } else {
         if (getObject(warncellid).common.type !== 'string') {
             await extendObjectAsync(warncellid, {
@@ -3094,8 +3126,14 @@ function addDatabaseData(id, value, mode, old) {
             warn = getDatabaseData(value, mode);
            if (warn) {
                 let m = mode == DWD2 ? DWD : mode;
-                warn.areaID = "für " + getRegionName(id, m)
+                warn.areaGroup         = value.warncellObj === undefined   ? ''    : 'für die Region ' + value.warncellObj.area;
+                warn.area              = value.warncellObj === undefined   ? ''    :  value.warncellObj.area;
+                warn.areaID = '';
                 warn.hash = JSON.stringify(warn).hashCode();
+                warn.areaID = "für " + getRegionName(id, m)
+
+                warn.favorit           = value.warncellObj === undefined || value.warncellObj.favorit === undefined  ? false    : value.warncellObj.favorit
+                warn.wcID              = value.warncellObj === undefined || value.warncellObj.id === undefined  ? ''    : value.warncellObj.id
                 warn.id = id;
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
@@ -3121,6 +3159,9 @@ function addDatabaseData(id, value, mode, old) {
                 warn.sender         = value.sender      === undefined ? "" : value.sender;
                 warn.areaID = "für " + getRegionName(id, NINA)
                 warn.hash           = JSON.stringify(warn).hashCode();
+                warn['areaGroup']          = ''
+                warn['favorit']           = false
+                warn['wcID']              = ''
                 // setzte start auf das Sendungsdatum, aber nicht im Hash berücksichtigen, ist keine neue Nachricht nur weil sich das datum ändert.
                 warn.start          = warn.start || value.sent === undefined     ? warn.start    : getDateObject(value.sent).getTime();
                 warn.id             = id;
@@ -3173,7 +3214,7 @@ function addDatabaseData(id, value, mode, old) {
     change = old !== undefined && old ? false : change;
     setState(totalWarningCountState, warnDatabase.new.length, true);
     if (setAlertStateTimeout) clearTimeout(setAlertStateTimeout)
-    setTimeout(setAlertState,7000);
+    setAlertStateTimeout = setTimeout(setAlertState,7000);
     return change;
 
     // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
@@ -3363,14 +3404,12 @@ function getDatabaseData(warn, mode){
         result['picture']                = '';
         if ( result.level < minlevel ) { ticaLog(2, 'Übergebenene Warnung NINA verworfen. Level' + result.level + ' kleiner als minlevel ' + minlevel);return null;}
     }
-    result['areaGroup']          = warn.warncellObj === undefined   ? ''    : 'für die Region ' + warn.warncellObj.area
-    result['favorit']           = warn.warncellObj === undefined || warn.warncellObj.favorit === undefined  ? false    : warn.warncellObj.favorit
-    result['wcID']              = warn.warncellObj === undefined || warn.warncellObj.id === undefined  ? ''    : warn.warncellObj.id
     result['color']             = getLevelColor(result.level, mode);
     result['id']                ='';
     result['pending']           = 0;
     result['hash']              = 0;
     result['repeatCounter']     = 0;
+    result.ignored              = false;
     ticaLog(4, '2. getDatabaseData(warn, mode) result: ' + JSON.stringify(result));
     return result;
 
@@ -3710,6 +3749,10 @@ onStop(function (callback) {
 function extendedExists(id) {
     return (id) && ($(id).length > 0) && (existsState(id));
 }
+
+async function extendedExistsAsync(id) {
+    return (id) && ($(id).length > 0) && (existsStateAsync(id));
+}
 /* *************************************************************************
 * Erstellung von States incl. 0_userdata & Zugehöriges
 *           ENDE
@@ -3732,7 +3775,7 @@ function ticaLog(loglevel, msg, channel){
         msg = loglevel
         loglevel = 1
     }
-    if (loglevel <= uLogLevel) {
+    if (loglevel <= uLogLevel || loglevel == 0) {
         if (channel=== undefined) channel = 'info';
         let pre = '';
         switch (loglevel) {
