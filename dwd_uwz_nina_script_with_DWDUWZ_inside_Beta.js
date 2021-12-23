@@ -1,4 +1,4 @@
-//Version 0.99.17 Beta 3
+//Version 0.99.18 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -855,7 +855,9 @@ async function changeMode(modeFromState) {
                 }
             }
         }
-        if (autoSendWarnings && (!sendNoMessgesOnInit)) checkWarningsMain();
+        if (autoSendWarnings && (!sendNoMessgesOnInit)) {
+            checkWarningsMain()
+        }
         firstRun = false;
         sendNoMessgesOnInit = false;
     }
@@ -1166,7 +1168,7 @@ function subscribeStates() {// on() für alles unter config.auto
         onClickCheckRunCmd = obj.id;
         if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
 
-        checkWarningsMain();
+        checkWarningsMain(true);
 
         uTextMitAnweisungen     = oldA;
         uTextMitBeschreibung    = oldB;
@@ -1223,14 +1225,12 @@ async function setAlertState() {
         for (let wcIndex = 0; wcIndex < warncells[mode[a].mode].length; wcIndex++) {
             let area = warncells[mode[a].mode][wcIndex].area;
             if (area === undefined) continue;
-            let stateAlertIdArea = stateAlertid + area + '.'
+            let stateAlertIdArea = stateAlertid + area.split(' ').join('_') + '.'
             for (let b = 0; b < warningTypesString[mode[a].mode].length; b++) {
                 let stateAlertIdFull = stateAlertIdArea + warningTypesString[mode[a].mode][b][0] + '.';
-                stateAlertIdFull.split(' ').join('_');
                 let AlertLevel = -1, AlertIndex = -1;
                 for (let c = 0; c < warnDatabase.new.length; c++) {
                     let entry = warnDatabase.new[c];
-                    //if(warnDatabase.new[c].mode == ZAMG) ticaLog(0,'im here')
                     if (entry.mode == mode[a].mode && entry.type == b && entry.level > AlertLevel && entry.area == area && entry.ignored) {
                         AlertLevel = warnDatabase.new[c].level;
                         AlertIndex = c;
@@ -1447,7 +1447,12 @@ function convertStringToDate(s) {
 /* ************************************************************************* */
 
 // Hauptfunktion entscheiden was wohin gesendet wird
-function checkWarningsMain() {
+function checkWarningsMain(instant) {
+    if (instant === undefined) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function() {checkWarningsMain(true)}, 20000)
+        return;
+    }
     ticaLog(4, 'start checkWarningsMain()')
     if (!forcedSpeak) forceSpeak = (!startTimeSpeakWeekend || !startTimeSpeak || !endTimeSpeak);
     setWeekend();
@@ -2148,8 +2153,7 @@ function onChangeNina(dp) {
 function onChange(dp, mode) {
     if (addDatabaseData(dp.id, dp.state.val, mode, false)) {
         ticaLog(4, 'Datenbank wurde geändert - checkWarningsMain():' + autoSendWarnings + ' id:' + dp.id + ' Mode:' + mode);
-        if (timer) clearTimeout(timer);
-        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
+        checkWarningsMain()
     }
 }
 /* *************************************************************************
@@ -2214,6 +2218,7 @@ async function InitDatabase(first) {
 // Daten vom Server abfragen
 async function getDataFromServer(first) {
     if (first === undefined) first = false;
+    var noChange = false;
     if (enableInternDWD2 && warncells[DWD].length == 0) {
         enableInternDWD2 = false;
         enableInternDWD = false;
@@ -2239,13 +2244,12 @@ async function getDataFromServer(first) {
     }
     for (let a = 0; a < warncells[ZAMG].length; a++) {
         let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
-        await _getDataFromServer([url], ZAMG, first, warncells[ZAMG].text, a);
+        await _getDataFromServer([url], ZAMG, first, warncells[ZAMG][a].text, a);
     }
     if (warncells[NINA].length) {
         //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
         await _getDataFromServer(internMowasUrl, NINA, first, '', a);
     }
-
     setTimeout( async function () {
         let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
         if (warnObjs.length>0) {
@@ -2280,7 +2284,7 @@ async function getDataFromServer(first) {
     }, 2000);
 
     async function _getDataFromServer(url, m, first, area, wcIndex) {
-        ticaLog(2, 'Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : 'NINA')))));
+        ticaLog(2, 'Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : 'NINA')))) + ' Area: ' + area);
         if (onStopped) return;
         let results = [];
         for (let a=0; a<url.length; a++) {
@@ -2535,9 +2539,8 @@ async function getDataFromServer(first) {
         let tempObj = {};
         if (m & NINA) {
             if(addDatabaseData(baseChannelId + statesNINAintern.object.id , {info:[warnObj]}, NINA, first)) {
-                if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'NINA Warnung gefunden oder entfernt.');
+                checkWarningsMain()
             }
             tempObj[statesNINAintern.onset.id] = warnObj.onset !== undefined ? getDateObject(warnObj.onset).getTime() : Number("");
             tempObj[statesNINAintern.description.id] = warnObj.description || '';
@@ -2566,9 +2569,8 @@ async function getDataFromServer(first) {
         }
         if (MODE & DWD && DWD2 & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
-                if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'DWD2 Warnung gefunden oder entfernt.');
+                checkWarningsMain()
             }
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
 
@@ -2609,9 +2611,8 @@ async function getDataFromServer(first) {
         }
         if (MODE & DWD & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD, first)) {
-                if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'DWD Warnung gefunden oder entfernt.');
+                checkWarningsMain()
             }
 
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
@@ -2647,9 +2648,8 @@ async function getDataFromServer(first) {
         }
         if (MODE & ZAMG & m) {
             if (addDatabaseData(baseChannelId + statesZAMGintern[6].id, warnObj, m, first)){
-                if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'ZAMG Warnung gefunden oder entfernt.');
+                checkWarningsMain()
             }
             tempObj[statesZAMGintern[6].id] = warnObj;
             tempObj[statesZAMGintern[10].id] = warnObj.area === undefined ? '' : warnObj.area ;
@@ -2697,9 +2697,8 @@ async function getDataFromServer(first) {
         }
         if (MODE & UWZ & m) {
             if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
-                if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'UWZ Warnung gefunden oder entfernt.');
+                checkWarningsMain()
             }
             tempObj[statesUWZintern[6].id] = warnObj;
 
@@ -3002,11 +3001,11 @@ async function addWarncell(obj, i){
             await setStateAsync(warncellid, wcname, true);
         } else {
             warncells[MODES[i].mode][index].area = getState(warncellid).val;
-            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area) || warncells[MODES[i].mode][index].area.includes('(*)')) {
+            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area) || warncells[MODES[i].mode][index].area.includes('(#)')) {
                 for (let a = 0; a < warncells[MODES[i].mode].length; a++) warncells[MODES[i].mode][a].favorit = false;
                 warncells[MODES[i].mode][index].favorit = true;
-                warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('(*)','')
-                warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].text.replace('(*)','')
+                warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('(#)','')
+                warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].text.replace('(#)','')
             }
             let sfavorit = false;
             for (let a = 0; a < warncells[MODES[i].mode].length; a++) if (warncells[MODES[i].mode][a].favorit) sfavorit = true;
@@ -3553,8 +3552,7 @@ function activateSchedule() {
             }
         }
         if (c && autoSendWarnings) {
-            if (timer) clearTimeout(timer);
-            checkWarningsMain();
+            checkWarningsMain()
         }
     });
 }
@@ -3721,7 +3719,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
             uTextMitAnweisungen = long;
             uTextMitBeschreibung = long;
 
-            checkWarningsMain();
+            checkWarningsMain(true);
 
             uTextMitAnweisungen = oldA;
             uTextMitBeschreibung = oldB;
