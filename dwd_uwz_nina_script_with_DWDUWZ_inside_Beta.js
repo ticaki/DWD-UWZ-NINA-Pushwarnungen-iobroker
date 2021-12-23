@@ -1,4 +1,4 @@
-//Version 0.99.15 Beta 3
+//Version 0.99.16 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -915,7 +915,7 @@ async function init() { // erster fund von create custom
                 on ({id: warncellid + app[x], ack:false}, addWarncell);
             }
             await createStateCustomAsync(warncellid + '.refresh#',false ,{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
-            on(warncellid + '.refresh#', function(obj) {setState(obj.id, obj.state.val, true); startScript();});
+            on({id: warncellid + '.refresh#', change:'any'}, function(obj) {setState(obj.id, obj.state.val, true); startScript();});
         } catch(error) {
             ticaLog(0,'Fehler in CreateStates #2');
             ticaLog(0,error);
@@ -1473,7 +1473,7 @@ function checkWarningsMain() {
                 w2.favorit ||
                 a == b
             ) continue;
-            let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID  && w.favorit) ? 2 : 0)
+            let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID) ? 2 : 0)
             if (test != 0) {
                 w.useAreaGroup = true;
                 ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaID+ ' Ignoriere: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaID );
@@ -2998,12 +2998,16 @@ async function addWarncell(obj, i){
             await setStateAsync(warncellid, wcname, true);
         } else {
             warncells[MODES[i].mode][index].area = getState(warncellid).val;
-            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area)) {
+            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area) || warncells[MODES[i].mode][index].area.includes('(*)')) {
+                for (let a = 0; a < warncells[MODES[i].mode].length; a++) warncells[MODES[i].mode][a].favorit = false;
                 warncells[MODES[i].mode][index].favorit = true;
+                warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('(*)','')
             }
+            let sfavorit = false;
+            for (let a = 0; a < warncells[MODES[i].mode].length; a++) if (warncells[MODES[i].mode][a].favorit) sfavorit = false;
+            if (sfavorit) warncells[MODES[i].mode][0].favorit = true;
         }
     }
-
 
     //  setzte den Namen für Datenpunkte unter data
     if (!(await existsObjectAsync(folder + wc)) || getObject(folder + wc).common.name != wcname) {
