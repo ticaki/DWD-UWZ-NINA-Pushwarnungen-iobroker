@@ -1,4 +1,4 @@
-//Version 0.99.18 Beta 3
+//Version 0.99.19 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -655,7 +655,7 @@ for (let a = 0; a < konstanten.length; a++) {
         enableInternDWD = true;
         enableInternDWD2 = true;
         if (Array.isArray(dwdWarncellId)){
-            for(let a = 0; a < dwdWarncellId.length; a++) warncells[DWD].push({id:dwdWarncellId[a],text:''})
+            for(let a = 0; a < dwdWarncellId.length; a++) warncells[DWD].push({id:dwdWarncellId[a],text:'', area:''})
         } else warncells[DWD].push({id:dwdWarncellId, text:''});
     }
 
@@ -666,7 +666,7 @@ for (let a = 0; a < konstanten.length; a++) {
     if (regionName.length > 0) {
         enableInternUWZ = true;
         if (Array.isArray(regionName)){
-            for(let a = 0; a < regionName.length; a++) warncells[UWZ].push({id:regionName[a][0],text:regionName[a][1]})
+            for(let a = 0; a < regionName.length; a++) warncells[UWZ].push({id:regionName[a][0],text:regionName[a][1], area:''})
         }
     }
     if (zamgCoordinates) {
@@ -2218,7 +2218,6 @@ async function InitDatabase(first) {
 // Daten vom Server abfragen
 async function getDataFromServer(first) {
     if (first === undefined) first = false;
-    var noChange = false;
     if (enableInternDWD2 && warncells[DWD].length == 0) {
         enableInternDWD2 = false;
         enableInternDWD = false;
@@ -2809,7 +2808,7 @@ async function addWarncell(obj, i){
         warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
         folder = internalDWDPath;
         if ((index=warncells[DWD].findIndex(w => wc == w.id)) == -1 ) {
-            warncells[DWD].push({id:wc, text:wcname});
+            warncells[DWD].push({id:wc, text:wcname, area:''});
             index = warncells[DWD].length-1;
         }
         else warncells[DWD][index].text = wcname;
@@ -2839,7 +2838,7 @@ async function addWarncell(obj, i){
             }
             index=warncells[UWZ].findIndex(w => wc == w.id);
             if (index == -1) {
-                warncells[UWZ].push({id:wc, text:wcname});
+                warncells[UWZ].push({id:wc, text:wcname, area:''});
                 index = warncells[UWZ].length-1
             }
             wcname = warncells[UWZ][index].text;
@@ -2895,7 +2894,7 @@ async function addWarncell(obj, i){
             }
             index=warncells[ZAMG].findIndex(w => wc == w.id);
             if (index == -1) {
-                warncells[ZAMG].push({breiten:breiten, laengen:laengen, text:wcname, id:wc});
+                warncells[ZAMG].push({breiten:breiten, laengen:laengen, text:wcname, id:wc, area:''});
                 index = warncells[ZAMG].length-1
             }
             warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
@@ -2947,7 +2946,7 @@ async function addWarncell(obj, i){
             index=warncells[NINA].findIndex(w => wc == w.id);
 
             if (index == -1) {
-                warncells[NINA].push({id:wc, breiten:breiten, laengen:laengen, text:wcname});
+                warncells[NINA].push({id:wc, breiten:breiten, laengen:laengen, text:wcname, area:''});
                 index = warncells[NINA].length-1
             }
             wcname = warncells[NINA][index].text;
@@ -3001,7 +3000,10 @@ async function addWarncell(obj, i){
             await setStateAsync(warncellid, wcname, true);
         } else {
             warncells[MODES[i].mode][index].area = getState(warncellid).val;
-            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area) || warncells[MODES[i].mode][index].area.includes('(#)')) {
+            if (warncells[MODES[i].mode][index].text === undefined) warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].area
+            if (warncells[MODES[i].mode][index].text.includes(warncells[MODES[i].mode][index].area)
+                || warncells[MODES[i].mode][index].area.includes('(#)')
+            ) {
                 for (let a = 0; a < warncells[MODES[i].mode].length; a++) warncells[MODES[i].mode][a].favorit = false;
                 warncells[MODES[i].mode][index].favorit = true;
                 warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('(#)','')
