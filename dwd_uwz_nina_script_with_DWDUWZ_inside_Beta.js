@@ -1,4 +1,4 @@
-//Version 0.99.16 Beta 3
+//Version 0.99.17 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1239,7 +1239,7 @@ async function setAlertState() {
 
                 tempExistIds.push(stateAlertIdFull);
                 if (!await existsStateAsync(stateAlertIdFull + stateAlert[0].name) || getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
-                    (AlertIndex > -1 && getState(stateAlertIdFull + stateAlert[9].name).val != warnDatabase.new[AlertIndex].hash)) {
+                    (AlertIndex > -1 && (!await existsStateAsync(stateAlertIdFull + stateAlert[9].name) || getState(stateAlertIdFull + stateAlert[9].name).val != warnDatabase.new[AlertIndex].hash))) {
                     let cwarn = false;
                     if (AlertIndex > -1) {
                         let start = warnDatabase.new[AlertIndex].start ? new Date(warnDatabase.new[AlertIndex].start) : new Date(new Date().setHours(new Date().getHours() - 2));
@@ -1459,6 +1459,7 @@ function checkWarningsMain() {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
     let ignoreWarningCount = 0;
+    for (let a = 0; a < warnDatabase.new.length; a++) warnDatabase.new[a].ignored = false
     // Enferne neue Einträge die doppelt sind sortiert nach level und Höhe
     for (let a = 0; a < warnDatabase.new.length; a++) {
         let w = warnDatabase.new[a];
@@ -1473,11 +1474,14 @@ function checkWarningsMain() {
                 w2.favorit ||
                 a == b
             ) continue;
-            let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID) ? 2 : 0)
-            if (test != 0) {
-                w.useAreaGroup = true;
-                ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaID+ ' Ignoriere: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaID );
-                w2.ignored = true;
+            if ( w2.start >= w.start &&
+                w2.end <= w.end ) {
+                let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID) ? 2 : 0)
+                if (test != 0) {
+                    w.useAreaGroup = true;
+                    ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaID+ ' Ignoriere: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaID );
+                    w2.ignored = true;
+                }
             }
             if (
                 w2.start < w.start ||
@@ -1524,7 +1528,7 @@ function checkWarningsMain() {
                         warnDatabase.old.splice(b--, 1);
                         ticaLog(1, 'Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
                         if (i != -1) {
-                            warnDatabase.new.splice(i, 1);
+                            warnDatabase.new[i].ignored = true;
                             if (i <= a) --a;
                         }
                     }
@@ -2145,7 +2149,7 @@ function onChange(dp, mode) {
     if (addDatabaseData(dp.id, dp.state.val, mode, false)) {
         ticaLog(4, 'Datenbank wurde geändert - checkWarningsMain():' + autoSendWarnings + ' id:' + dp.id + ' Mode:' + mode);
         if (timer) clearTimeout(timer);
-        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+        if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
     }
 }
 /* *************************************************************************
@@ -2532,7 +2536,7 @@ async function getDataFromServer(first) {
         if (m & NINA) {
             if(addDatabaseData(baseChannelId + statesNINAintern.object.id , {info:[warnObj]}, NINA, first)) {
                 if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'NINA Warnung gefunden oder entfernt.');
             }
             tempObj[statesNINAintern.onset.id] = warnObj.onset !== undefined ? getDateObject(warnObj.onset).getTime() : Number("");
@@ -2563,7 +2567,7 @@ async function getDataFromServer(first) {
         if (MODE & DWD && DWD2 & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
                 if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'DWD2 Warnung gefunden oder entfernt.');
             }
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
@@ -2606,7 +2610,7 @@ async function getDataFromServer(first) {
         if (MODE & DWD & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD, first)) {
                 if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'DWD Warnung gefunden oder entfernt.');
             }
 
@@ -2644,7 +2648,7 @@ async function getDataFromServer(first) {
         if (MODE & ZAMG & m) {
             if (addDatabaseData(baseChannelId + statesZAMGintern[6].id, warnObj, m, first)){
                 if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'ZAMG Warnung gefunden oder entfernt.');
             }
             tempObj[statesZAMGintern[6].id] = warnObj;
@@ -2694,7 +2698,7 @@ async function getDataFromServer(first) {
         if (MODE & UWZ & m) {
             if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
                 if (timer) clearTimeout(timer);
-                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 20000);
+                if (autoSendWarnings) timer = setTimeout(checkWarningsMain, 25000);
                 ticaLog(1, 'UWZ Warnung gefunden oder entfernt.');
             }
             tempObj[statesUWZintern[6].id] = warnObj;
@@ -3002,9 +3006,10 @@ async function addWarncell(obj, i){
                 for (let a = 0; a < warncells[MODES[i].mode].length; a++) warncells[MODES[i].mode][a].favorit = false;
                 warncells[MODES[i].mode][index].favorit = true;
                 warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('(*)','')
+                warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].text.replace('(*)','')
             }
             let sfavorit = false;
-            for (let a = 0; a < warncells[MODES[i].mode].length; a++) if (warncells[MODES[i].mode][a].favorit) sfavorit = false;
+            for (let a = 0; a < warncells[MODES[i].mode].length; a++) if (warncells[MODES[i].mode][a].favorit) sfavorit = true;
             if (sfavorit) warncells[MODES[i].mode][0].favorit = true;
         }
     }
@@ -3218,7 +3223,7 @@ function addDatabaseData(id, value, mode, old) {
     change = old !== undefined && old ? false : change;
     setState(totalWarningCountState, warnDatabase.new.length, true);
     if (setAlertStateTimeout) clearTimeout(setAlertStateTimeout)
-    setAlertStateTimeout = setTimeout(setAlertState,7000);
+    setAlertStateTimeout = setTimeout(setAlertState,20000);
     return change;
 
     // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
