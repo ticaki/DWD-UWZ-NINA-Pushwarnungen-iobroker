@@ -1,4 +1,4 @@
-//Version 0.99.22 Beta 3
+//Version 0.99.23 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1645,7 +1645,7 @@ function checkWarningsMain(instant, hashForced) {
             collectMode |= mode;
             count++;
             if (!gefahr) gefahr = level >= attentionWarningLevel;
-            let isLong = (uHtmlMitBeschreibung && uHtmlMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen));
+            let isLong = (uHtmlMitBeschreibung && uHtmlMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen)) && !uTextHtmlMitOhneAlles;
             let begin = entry.start ? getFormatDate(entry.start) : '',
                 end = entry.end ? getFormatDate(entry.end) : '';
             let sTime = SPACE,
