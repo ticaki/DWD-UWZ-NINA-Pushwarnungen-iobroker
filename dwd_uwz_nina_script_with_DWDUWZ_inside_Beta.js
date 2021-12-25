@@ -1,4 +1,4 @@
-//Version 0.99.20 Beta 3
+//Version 0.99.21 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1623,7 +1623,7 @@ function checkWarningsMain(instant, hashForced) {
     for (let i = 0; i < warnDatabase.new.length; i++) {
         let entry = warnDatabase.new[i];
 
-        if ( hashForced !== undefined && entry.hash != hashForced) continue
+        if ( hashForced !== undefined && entry.hash != hashForced.hash) continue
 
         if (entry.repeatCounter > 1 && !onClickCheckRun) continue;
         let headline = entry.headline;
@@ -1642,11 +1642,10 @@ function checkWarningsMain(instant, hashForced) {
         if (hash) {
             let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
             let todoBitmask = uPushdienst;
-            let isLong = true;
             collectMode |= mode;
             count++;
             if (!gefahr) gefahr = level >= attentionWarningLevel;
-
+            let isLong = (uHtmlMitBeschreibung && uHtmlMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen));
             let begin = entry.start ? getFormatDate(entry.start) : '',
                 end = entry.end ? getFormatDate(entry.end) : '';
             let sTime = SPACE,
@@ -1702,7 +1701,7 @@ function checkWarningsMain(instant, hashForced) {
                 if (isNewMessage && getPushModeFlag(mode) & EMAIL){
                     emailSend = true;
                 }
-                sendMessage(b, picture + getTopic(mode, level), html, entry, (uHtmlMitBeschreibung && uHtmlMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen)));
+                sendMessage(b, picture + getTopic(mode, level), html, entry, {isLong:isLong, isAnswer: hashForced && hashForced.isAnswer});
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
             if (!isNewMessage) continue;
@@ -1733,7 +1732,7 @@ function checkWarningsMain(instant, hashForced) {
                 }
 
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry, (uTextMitBeschreibung && uTextMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen)));
+                sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry, {isLong:isLong, isAnswer: hashForced && hashForced.isAnswer})
                 ticaLog(4, 'text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1881,12 +1880,12 @@ function checkWarningsMain(instant, hashForced) {
 * Senden der Nachricht über die verschiedenen Möglichkeiten
 /* ************************************************************************* */
 //Versende die Warnungen über die Schienen
-function sendMessage(pushdienst, topic, msg, entry = null, msgFull = false) {
+function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
     if ((pushdienst & TELEGRAM) != 0) {
         ticaLog(4, 'send Msg with Telegram');
         let nMsg = {text:''};
         if (entry) {
-            if (!msgFull && uTelegramReplyMarkupInline !== undefined){ nMsg.reply_markup = {
+            if (msgFull && !msgFull.isLong && uTelegramReplyMarkupInline){ nMsg.reply_markup = {
                 inline_keyboard: [[{ text: 'mehr', callback_data: '#$Warnscript%&' + String(entry.hash)}]]};
             }
 
@@ -1895,6 +1894,14 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = false) {
                 else nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
             }
         }
+        if (uTelegramReplyMarkupInline && msgFull && msgFull.isAnswer) {
+            let options = {}
+            options.chat_id = getState(telegramInstanz + ".communicate.requestChatId").val
+            options.message_id = getState(telegramInstanz + ".communicate.requestMessageId").val
+            nMsg.editMessageText = {options}
+        }
+
+
         if (!uTelegramReplyMarkupInline) {
             if (nMsg.reply_markup === undefined) nMsg.reply_markup = {};
             nMsg.reply_markup.keyboard = uTelegramReplyMarkup.keyboard;
@@ -3758,13 +3765,11 @@ if ((uPushdienst & TELEGRAM) != 0) {
             ticaLog(0,'Debugmodus aus');
         } else if (msg.includes('#$Warnscript%&')) {
             msg = msg.substring(msg.indexOf('#$Warnscript%&')+ ('#$Warnscript%&').length, msg.length);
-            if ( uTelegramReplyMarkupInline ) {
-                sendTo(telegramInstanz, { user: user, answerCallbackQuery: { text: "ok", showAlert: false } });
-            }
             ticaLog(2, 'Telegramm-Detailanfrage erkannt, wird bearbeitet.')
-            if ( !msg.isNaN) {
-                let wDnew = warnDatabase.new;
-                if ( warnDatabase.new.findIndex((a) => a.hash == msg) == -1 ) warnDatabase.new = [];
+            if ( !msg.isNaN && warnDatabase.new.findIndex((a) => a.hash == msg) != -1) {
+                if ( uTelegramReplyMarkupInline ) {
+                    sendTo(telegramInstanz, { user: user, answerCallbackQuery: { text: "gefunden", showAlert: false } });
+                }
                 warnDatabase.old = [];
                 let oPd = uPushdienst;
                 uPushdienst &= TELEGRAM;
@@ -3776,7 +3781,7 @@ if ((uPushdienst & TELEGRAM) != 0) {
                 uTextMitAnweisungen = long;
                 uTextMitBeschreibung = long;
 
-                checkWarningsMain(true, msg);
+                checkWarningsMain(true, {hash:msg, isAnswer:true});
 
                 uTextMitAnweisungen = oldA;
                 uTextMitBeschreibung = oldB;
@@ -3784,7 +3789,10 @@ if ((uPushdienst & TELEGRAM) != 0) {
                 onClickCheckRunCmd = '';
                 forceSpeak = false;
                 uPushdienst = oPd;
-                if ( warnDatabase.new.length == 0 ) warnDatabase.new = wDnew;
+            } else {
+                if ( uTelegramReplyMarkupInline ) {
+                    sendTo(telegramInstanz, { user: user, answerCallbackQuery: { text: "Warnung wurde aufgehoben", showAlert: true } });
+                }
             }
         } else if (msg === uTelegramMessageLong || msg === 'DWDUZWNINA#!§$LONG' || msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
             warnDatabase.old = [];
