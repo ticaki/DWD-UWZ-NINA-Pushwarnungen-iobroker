@@ -1,4 +1,4 @@
-//Version 0.99.19 Beta 3
+//Version 0.99.20 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -192,6 +192,7 @@ var telegramChatId              = ['']; // Mehrfach Einträge möglich ['Gruppe1
 var uTelegramReplyMarkup        = null; // Falls ihr ein Telegrammmenü verwendet, könnt ihr hier einen Weg zurück definieren z.B.: {keyboard: [['Zurück']], resize_keyboard: true};
 var uTelegramAllowNotification  = true; // Erlaube Telegramnotification (Benachrichtigungston/Hinweise auf dem Empfangsgerät)
 var uTelegramUseStdUser         = false; // Verwende immer auch die im Adapter gespeicherten Benutzer.
+uTelegramReplyMarkupInline = true           // Bei Nachrichten die nicht mit volle Länge angefragt wurde, gibt es eine Schalfläche in der man die Langversion anfordern kann.
 
 /* Konfiguration Pushover */
 var uPushoverDeviceName     = ''; // ein bestimmtes Gerät z.B: ['droid4'];
@@ -265,6 +266,7 @@ var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfal
 var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
 var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 var uSpracheMitOhneAlles            = true; // super kurz
+uTextHtmlMitOhneAlles               = false
 
 // Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
 var uMaxCharToSpeak = 0; // 0 = aus - Zahl größer als 0 = maximal Zeichenanzahl (1000 sind rund 86 Sekunden bla bla)
@@ -328,6 +330,7 @@ var ninaCoordinates = [];
 if ( DEBUG_VARS) {
     ninaCoordinates = [{breiten:51.2277, laengen:6.7735, text:'dadrüben'}, {breiten:53.0511000, laengen:8.6309100, text:'Delmenhorst'}];
     zamgCoordinates = [{laengen:13.05501,breiten:47.80949},{breiten:46.6247200, laengen:14.3052800},{breiten:48.332741,laengen:14.62274}];
+    regionName.push(['UWZAT00810', 'sig']);
 }
 // MODE einstellen über Datenpunkte, das hier hat keine auswirkungen
 // nur für ersten Lauf nötig, ab dann überschreiben States diesen Wert
@@ -428,6 +431,12 @@ templist[ZAMG] = {};
 
 var uLogLevel;
 if (uLogLevel === undefined) uLogLevel = 1;
+
+var uTextHtmlMitOhneAlles
+if (uTextHtmlMitOhneAlles === undefined) uTextHtmlMitOhneAlles = false;
+
+var uTelegramReplyMarkupInline
+if (uTelegramReplyMarkupInline === undefined) uTelegramReplyMarkupInline = false;
 
 // Warning types
 var warningTypesString = [];
@@ -1144,22 +1153,28 @@ function subscribeStates() {// on() für alles unter config.auto
                 d = konstanten.findIndex(function(c) { return (c.name + '_long' === b[b.length - 1]); });
                 msgLength = 2;
                 if (d == -1) {
-                    return
+                    d = konstanten.findIndex(function(c) { return (c.name + '_veryshort' === b[b.length - 1]); });
+                    msgLength = 3;
+                    if (d == -1) {
+                        return
+                    }
                 }
             }
         }
         let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung,
             oldC = uSpracheMitAnweisungen, oldD = uSpracheMitBeschreibung,
-            oldE = uHtmlMitAnweisungen, oldF = uHtmlMitBeschreibung;;
+            oldE = uHtmlMitAnweisungen, oldF = uHtmlMitBeschreibung,
+            oldG = uSpracheMitOhneAlles, oldH = uTextHtmlMitOhneAlles
         if (msgLength != 0 ) {
-            uTextMitAnweisungen     = msgLength == 2;
-            uTextMitBeschreibung    = msgLength == 2;
-            uSpracheMitAnweisungen  = msgLength == 2;
-            uSpracheMitBeschreibung = msgLength == 2;
-            uHtmlMitAnweisungen     = msgLength == 2;
-            uHtmlMitBeschreibung    = msgLength == 2;
+            uTextMitAnweisungen         = msgLength == 2;
+            uTextMitBeschreibung        = msgLength == 2;
+            uSpracheMitAnweisungen      = msgLength == 2;
+            uSpracheMitBeschreibung     = msgLength == 2;
+            uHtmlMitAnweisungen         = msgLength == 2;
+            uHtmlMitBeschreibung        = msgLength == 2;
+            uTextHtmlMitOhneAlles       = msgLength == 3;
+            uSpracheMitOhneAlles        = msgLength == 3;
         }
-
         warnDatabase.old = [];
         let oPd = uPushdienst;
         uPushdienst &= konstanten[d].value;
@@ -1176,6 +1191,8 @@ function subscribeStates() {// on() für alles unter config.auto
         uSpracheMitBeschreibung = oldD;
         uHtmlMitAnweisungen     = oldE;
         uHtmlMitBeschreibung    = oldF;
+        uSpracheMitOhneAlles    = oldG
+        uTextHtmlMitOhneAlles   = oldH
 
         onClickCheckRun = false;
         onClickCheckRunCmd = '';
@@ -1447,7 +1464,7 @@ function convertStringToDate(s) {
 /* ************************************************************************* */
 
 // Hauptfunktion entscheiden was wohin gesendet wird
-function checkWarningsMain(instant) {
+function checkWarningsMain(instant, hashForced) {
     if (instant === undefined) {
         if (timer) clearTimeout(timer);
         timer = setTimeout(function() {checkWarningsMain(true)}, 20000)
@@ -1482,6 +1499,7 @@ function checkWarningsMain(instant) {
             if ( w2.start >= w.start &&
                 w2.end <= w.end ) {
                 let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID) ? 2 : 0)
+                ticaLog(4, w.areaGroup +' == ' + w2.areaGroup + ' && ' + w.areaID + ' != ' + w2.areaID + ' = test:' + test)
                 if (test != 0) {
                     w.useAreaGroup = true;
                     ticaLog(2, 'Nr 2: '+ (test == 1 ? 'gleicher Hash' : 'Favorit') + ' - Behalte Warnung mit Headline: ' + w.headline + ' Level: ' + w.level + ' Ort: ' + w.areaID+ ' Ignoriere: ' + w2.headline +' Level:' + w2.level + ' Ort: ' + w2.areaID );
@@ -1604,6 +1622,9 @@ function checkWarningsMain(instant) {
     /* Bereich für 'Neue Amtliche Wetterwarnung' */
     for (let i = 0; i < warnDatabase.new.length; i++) {
         let entry = warnDatabase.new[i];
+
+        if ( hashForced !== undefined && entry.hash != hashForced) continue
+
         if (entry.repeatCounter > 1 && !onClickCheckRun) continue;
         let headline = entry.headline;
         let description = entry.description;
@@ -1621,6 +1642,7 @@ function checkWarningsMain(instant) {
         if (hash) {
             let isNewMessage = getIndexOfHash(warnDatabase.old, hash) == -1;
             let todoBitmask = uPushdienst;
+            let isLong = true;
             collectMode |= mode;
             count++;
             if (!gefahr) gefahr = level >= attentionWarningLevel;
@@ -1635,37 +1657,42 @@ function checkWarningsMain(instant) {
             if (end) sTime += "bis " + end + " Uhr";
             // html
             if ((getPushModeFlag(mode) & CANHTML) != 0) {
+                let html = ''
                 let he = '',
                     de = '';
                 let prefix = isNewMessage && !onClickCheckRun ? 'Neu: ' : '';
-                if (entry.html !== undefined) {
-                    let html = entry.html;
-                    if (html.headline) he = prefix + html.headline;
-                    else he = prefix + headline;
-                    if (uHtmlMitBeschreibung) {
-                        if (html.description) de = html.description;
-                        else if (entry.htmldesc) de = entry.htmldesc;
-                        else de = description;
-                        if (meteo && uZAMGMitMeteoinformationen) de += meteo ? '<br><br>Wetterinformation:<br>' + meteo.replace("/n", '<br>') : '';
-                        if (uHtmlMitAnweisungen) {
-                            if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
-                            else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
-                        }
-                        if (entry.html.web) de += '<br><br>' + entry.html.web;
-                    }
+                if (uTextHtmlMitOhneAlles) {
+                    he = prefix + getShortVersion(entry);
                 } else {
-                    he = prefix + headline;
-                    if (uHtmlMitBeschreibung) {
-                        de = description;
-                        if (meteo && uZAMGMitMeteoinformationen) de += meteo ? '<br><br>Wetterinformation:<br>' + meteo.replace("/n", '<br>') : '';
-                        if (uHtmlMitAnweisungen && instruction && instruction.length > 2) {
-                            de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                    if (entry.html !== undefined) {
+                        let html = entry.html;
+                        if (html.headline) he = prefix + html.headline;
+                        else he = prefix + headline;
+                        if (uHtmlMitBeschreibung) {
+                            if (html.description) de = html.description;
+                            else if (entry.htmldesc) de = entry.htmldesc;
+                            else de = description;
+                            if (meteo && uZAMGMitMeteoinformationen) de += meteo ? '<br><br>Wetterinformation:<br>' + meteo.replace("/n", '<br>') : '';
+                            if (uHtmlMitAnweisungen) {
+                                if (html.instruction && html.instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + html.instruction;
+                                else if (instruction && instruction.length > 2) de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                            }
+                            if (entry.html.web) de += '<br><br>' + entry.html.web;
+                        }
+                    } else {
+                        he = prefix + headline;
+                        if (uHtmlMitBeschreibung) {
+                            de = description;
+                            if (meteo && uZAMGMitMeteoinformationen) de += meteo ? '<br><br>Wetterinformation:<br>' + meteo.replace("/n", '<br>') : '';
+                            if (uHtmlMitAnweisungen && instruction && instruction.length > 2) {
+                                de += '<br><br>Handlungsanweisungen:<br>' + instruction;
+                            }
                         }
                     }
+                    html = (bt ? sTime + '<br>' : '') + de;
+                    html = html.length > 0 ? html[0].toUpperCase() + html.substring(1) : html;
+                    he += getArtikelMode(mode) + area + ':';
                 }
-                let html = (bt ? sTime + '<br>' : '') + de;
-                html = html.length > 0 ? html[0].toUpperCase() + html.substring(1) : html;
-                he += getArtikelMode(mode) + area + ':';
                 if (entry.repeatCounter == 1 && !onClickCheckRun) he += ' wurde verlängert.';
                 emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, picture + he, html, color, false);
                 if (entry.repeatCounter == 1 && !onClickCheckRun) html = he;
@@ -1675,33 +1702,38 @@ function checkWarningsMain(instant) {
                 if (isNewMessage && getPushModeFlag(mode) & EMAIL){
                     emailSend = true;
                 }
-                sendMessage(b, picture + getTopic(mode, level), html, entry);
+                sendMessage(b, picture + getTopic(mode, level), html, entry, (uHtmlMitBeschreibung && uHtmlMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen)));
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
             if (!isNewMessage) continue;
             // Plain text
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
-                let pushMsg = headline + getArtikelMode(mode) + area;
-                if (entry.repeatCounter == 1 && !onClickCheckRun) {
-                    pushMsg += ' wurde verlängert.';
+                let pushMsg = '';
+                if (uTextHtmlMitOhneAlles) {
+                    pushMsg = getShortVersion(entry);
+                    if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, pushMsg, '', color, false);
                 } else {
-                    pushMsg += (bt ? NEWLINE + sTime : '');
-                    if (uTextMitBeschreibung) {
-                        pushMsg += NEWLINE + NEWLINE + description;
-                        if (meteo && uZAMGMitMeteoinformationen) pushMsg += meteo ? NEWLINE + NEWLINE + 'Wetterinformation: ' + meteo : '';
-                        if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
-                            pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                    pushMsg = headline + getArtikelMode(mode) + area;
+                    if (entry.repeatCounter == 1 && !onClickCheckRun) {
+                        pushMsg += ' wurde verlängert.';
+                    } else {
+                        pushMsg += (bt ? NEWLINE + sTime : '');
+                        if (uTextMitBeschreibung) {
+                            pushMsg += NEWLINE + NEWLINE + description;
+                            if (meteo && uZAMGMitMeteoinformationen) pushMsg += meteo ? NEWLINE + NEWLINE + 'Wetterinformation: ' + meteo : '';
+                            if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
+                                pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
+                            }
                         }
                     }
-
                     // Anzahl Meldungen erst am Ende zu email hinzufügen
                     if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
                     /* ab Level 4 zusätzlicher Hinweis */
+                    if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 }
 
-                if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry);
+                sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry, (uTextMitBeschreibung && uTextMitAnweisungen && (!(mode & ZAMG ) || uZAMGMitMeteoinformationen)));
                 ticaLog(4, 'text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1728,69 +1760,13 @@ function checkWarningsMain(instant) {
                             if (uSpracheMitBeschreibung) speakMsg += description;
                         } else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                     }
-                } else { // kurzform
-                    speakMsg = getTopic(mode, level)
-                    speakMsg +=' vor ' + entry.typename + ' - Stufe ';
-                    let color = '';
-                    switch (level) {
-                        case 0:
-                        color = 'grün';
-                        break;
-                        case 1:
-                        color = 'gelb';
-                        break;
-                        case 2:
-                        color = 'orange';
-                        break;
-                        case 3:
-                        color = 'rot';
-                        break;
-                        case 4:
-                        default:
-                        color = 'violet';
-                    }
-                    speakMsg += color;
-                    let e = new Date(entry.start);
-                    let d = e.getDate() - new Date().getDate();
-                    let s = e.getHours();
-                    let pre = '';
-                    if (s < 5 || s >= 22) pre = 'nacht ';
-                    else if (s < 10)  pre = 'früh ';
-                    else if (s < 12)  pre = 'vormittag ';
-                    else if (s < 14)  pre = 'mittag ';
-                    else if (s < 18)  pre = 'nachmittag ';
-                    else if (s < 22)  pre = 'abend ';
-                    let day = ''
-                    switch (d) {
-                        case 0:
-                        day = 'heute ';
-                        break;
-                        case 1:
-                        day = 'morgen ';
-                        break;
-                        case 2:
-                        day = 'übermorgen ';
-                        break;
-                        default:
-                        day = getFormatDateSpeak(begin) + " Uhr ";
-                    }
-                    speakMsg += ' - ab ' + day + pre + ' - ';
+                } else {
+                    speakMsg = getShortVersion(entry);
                 }
                 if (!entry.ignored && !isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
                 }
                 ticaLog(4, 'Sprache new:' + speakMsg + ' isWarnIgnored():' + isWarnIgnored(entry)) + 'entry.ignored: ' +entry.ignored;
-            }
-
-            function getTopic(mode, level, s) {
-                if (s == undefined) s = false;
-                let result = '';
-                if (mode !== NINA) {
-                    result = (level >= attentionWarningLevel) ? 'Wichtige Wetterwarnung: ' : s ? '' : 'Wetterwarnung';
-                } else {
-                    result = (level >= attentionWarningLevel) ? 'Gefahr Warnung: ' : s ? '' : 'Warnung';
-                }
-                return result;
             }
         }
     }
@@ -1835,8 +1811,68 @@ function checkWarningsMain(instant) {
     ticaLog(4, 'done');
     setState(totalWarningCountState, warnDatabase.new.length - ignoreWarningCount, true);
     warnDatabase.old = cloneObj(warnDatabase.new);
-}
 
+    function getTopic(mode, level, s) {
+        if (s == undefined) s = false;
+        let result = '';
+        if (mode !== NINA) {
+            result = (level >= attentionWarningLevel) ? 'Wichtige Wetterwarnung: ' : s ? '' : 'Wetterwarnung';
+        } else {
+            result = (level >= attentionWarningLevel) ? 'Gefahr Warnung: ' : s ? '' : 'Warnung';
+        }
+        return result;
+    }
+    function getShortVersion(entry) { // kurzform
+        let speakMsg = getTopic(entry.mode, entry.level)
+        speakMsg +=' vor ' + entry.typename + ', Stufe ';
+        let color = '';
+        switch (entry.level) {
+            case 0:
+            case 1:
+            color = 'grün';
+            break;
+            case 2:
+            color = 'gelb';
+            break;
+            case 3:
+            color = 'orange';
+            break;
+            case 4:
+            color = 'rot';
+            break;
+            case 5:
+            default:
+            color = 'violet';
+        }
+        speakMsg += color;
+        let e = new Date(entry.start);
+        let d = e.getDate() - new Date().getDate();
+        let s = e.getHours();
+        let pre = '';
+        if (s < 5 || s >= 22) pre = 'nacht ';
+        else if (s < 10)  pre = 'früh ';
+        else if (s < 12)  pre = 'vormittag ';
+        else if (s < 14)  pre = 'mittag ';
+        else if (s < 18)  pre = 'nachmittag ';
+        else if (s < 22)  pre = 'abend ';
+        let day = ''
+        switch (d) {
+            case 0:
+            day = 'heute ';
+            break;
+            case 1:
+            day = 'morgen ';
+            break;
+            case 2:
+            day = 'übermorgen ';
+            break;
+            default:
+            day = getFormatDateSpeak(entry.begin) + " Uhr ";
+        }
+        speakMsg += ', ab ' + day + pre
+        return speakMsg;
+    }
+}
 /* *************************************************************************
 * Hauptfunktion zur Auswahl der Warnungen zum Versenden und Aufbereiten der
 * Nachrichten ENDE
@@ -1845,14 +1881,24 @@ function checkWarningsMain(instant) {
 * Senden der Nachricht über die verschiedenen Möglichkeiten
 /* ************************************************************************* */
 //Versende die Warnungen über die Schienen
-function sendMessage(pushdienst, topic, msg, entry) {
-    if (entry === undefined) entry = null;
-
+function sendMessage(pushdienst, topic, msg, entry = null, msgFull = false) {
     if ((pushdienst & TELEGRAM) != 0) {
         ticaLog(4, 'send Msg with Telegram');
-        let nMsg = {};
-        if (entry && entry.web && entry.webname) nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
-        if (uTelegramReplyMarkup) nMsg.reply_markup = uTelegramReplyMarkup;
+        let nMsg = {text:''};
+        if (entry) {
+            if (!msgFull && uTelegramReplyMarkupInline !== undefined){ nMsg.reply_markup = {
+                inline_keyboard: [[{ text: 'mehr', callback_data: '#$Warnscript%&' + String(entry.hash)}]]};
+            }
+
+            if (entry.web && entry.webname) {
+                if (nMsg.reply_markup !== undefined) nMsg.reply_markup.inline_keyboard.push = [{ text: entry.webname, url: entry.web }]
+                else nMsg.reply_markup = { inline_keyboard: [[{ text: entry.webname, url: entry.web }]] };
+            }
+        }
+        if (!uTelegramReplyMarkupInline) {
+            if (nMsg.reply_markup === undefined) nMsg.reply_markup = {};
+            nMsg.reply_markup.keyboard = uTelegramReplyMarkup.keyboard;
+        }
         if (!uTelegramAllowNotification) nMsg.disable_notification = true;
         if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser) {
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
@@ -3011,7 +3057,7 @@ async function addWarncell(obj, i){
             }
             let sfavorit = false;
             for (let a = 0; a < warncells[MODES[i].mode].length; a++) if (warncells[MODES[i].mode][a].favorit) sfavorit = true;
-            if (sfavorit) warncells[MODES[i].mode][0].favorit = true;
+            if (!sfavorit) warncells[MODES[i].mode][0].favorit = true;
         }
     }
 
@@ -3495,7 +3541,8 @@ function getLevelColor(level, typ) {
                 '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
                 '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
             ];
-            if (level >= 0 && level <= 5) return color[level];
+            if (level >= 0 && level <= 4) return color[level];
+            if (level > 4) return '#ff00ff'
             break;
         case ZAMG:
             color = [
@@ -3506,6 +3553,7 @@ function getLevelColor(level, typ) {
                 '#ff0404'
             ]
             if (level >= 0 && level <= 4) return color[level];
+            if (level > 4) return '#ff00ff'
             break;
     }
     return '#00ff00';
@@ -3708,6 +3756,36 @@ if ((uPushdienst & TELEGRAM) != 0) {
         } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
             uLogLevel = switchFlags(uLogLevel, 4, false)
             ticaLog(0,'Debugmodus aus');
+        } else if (msg.includes('#$Warnscript%&')) {
+            msg = msg.substring(msg.indexOf('#$Warnscript%&')+ ('#$Warnscript%&').length, msg.length);
+            if ( uTelegramReplyMarkupInline ) {
+                sendTo(telegramInstanz, { user: user, answerCallbackQuery: { text: "ok", showAlert: false } });
+            }
+            ticaLog(2, 'Telegramm-Detailanfrage erkannt, wird bearbeitet.')
+            if ( !msg.isNaN) {
+                let wDnew = warnDatabase.new;
+                if ( warnDatabase.new.findIndex((a) => a.hash == msg) == -1 ) warnDatabase.new = [];
+                warnDatabase.old = [];
+                let oPd = uPushdienst;
+                uPushdienst &= TELEGRAM;
+                forceSpeak = forcedSpeak;
+                onClickCheckRun = true;
+                onClickCheckRunCmd = 'Detailnachricht über Telegram'
+                let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung;
+                let long = true;
+                uTextMitAnweisungen = long;
+                uTextMitBeschreibung = long;
+
+                checkWarningsMain(true, msg);
+
+                uTextMitAnweisungen = oldA;
+                uTextMitBeschreibung = oldB;
+                onClickCheckRun = false;
+                onClickCheckRunCmd = '';
+                forceSpeak = false;
+                uPushdienst = oPd;
+                if ( warnDatabase.new.length == 0 ) warnDatabase.new = wDnew;
+            }
         } else if (msg === uTelegramMessageLong || msg === 'DWDUZWNINA#!§$LONG' || msg === uTelegramMessageShort || msg.includes('Wetterwarnungen?') || msg == 'DWDUZWNINA#!§$TT') {
             warnDatabase.old = [];
             let oPd = uPushdienst;
