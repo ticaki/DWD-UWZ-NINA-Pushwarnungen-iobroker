@@ -1,4 +1,4 @@
-//Version 0.99.23 Beta 3
+//Version 0.99.24 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -401,7 +401,6 @@ var warnDatabase = { new: [], old: [] };
 var subDWDhandler = null;
 var subUWZhandler = null;
 var subNINAhandler = null;
-var timeoutFromCreateState = null;
 
 let nPushdienst = {auto:{}, man:{}}
 for (let a=0; a<MODES.length;a++) {
@@ -629,7 +628,8 @@ const configObj = {
     13: {id: 'basiskonfiguration.log.debug', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[13].id, !!(uLogLevel & 4), true)}, def: !!(uLogLevel & 4),on: function(obj) {uLogLevel = switchFlags(uLogLevel,4,obj.state.val); setState(obj.id,!!(uLogLevel & 4),true);}},
     14: {id: 'basiskonfiguration.log.ausgabe', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[14].id, !!(uLogLevel & 1), true)}, def: !!(uLogLevel & 1),on: function(obj) {uLogLevel = switchFlags(uLogLevel,1,obj.state.val); setState(obj.id,!!(uLogLevel & 1),true);}},
     15: {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[15].id, !sendNoMessgesOnInit, true)}, def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}},
-    length: 16,
+    16: {id: 'basiskonfiguration.auto-nachrichtenlänge.erzwinge_kurzform_text_html', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[6].id, uTextHtmlMitOhneAlles, true)}, def: uTextHtmlMitOhneAlles,on: function(obj) {uTextHtmlMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    length: 17,
     path: mainStatePath + 'config.'
 };
 
@@ -1885,8 +1885,10 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
         ticaLog(4, 'send Msg with Telegram');
         let nMsg = {text:''};
         if (entry) {
-            if (msgFull && !msgFull.isLong && uTelegramReplyMarkupInline){ nMsg.reply_markup = {
-                inline_keyboard: [[{ text: 'mehr', callback_data: '#$Warnscript%&' + String(entry.hash)}]]};
+            if (msgFull && !msgFull.isLong && uTelegramReplyMarkupInline){
+                nMsg.reply_markup = {
+                inline_keyboard: [[{ text: 'mehr', callback_data: '#$Warnscript%&' + String(entry.hash)}]]
+                };
             }
 
             if (entry.web && entry.webname) {
@@ -2814,12 +2816,12 @@ async function getDataFromServer(first) {
         }
         function _createHTMLtext(w, headline, text) {
             var html = '<div style="background: ' + w.color.toString(16) + '" border:"10px">';
-            html += '<h3>';
+            html += '<font color=#000000><h3>';
             html += headline;
             html += "</h3>";
             html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
             html += text !== undefined && text !== '' ? '<p>' + text + '</p>' : '';
-            html += "</div>";
+            html += "</font></div>";
             return html;
         }
 
@@ -3542,8 +3544,8 @@ function getLevelColor(level, typ) {
         case DWD2:
             color = [
                 '#00ff00', // 0 - Grün
-                '#009b00', // 1 - Dunkelgrün
-                '#d7d700', // 2 - Gelb Wetterwarnungen (Stufe 2) //vorher:#ffff00
+                '#00ff00', // 1 - Dunkelgrün
+                '#fffc04', // 2 - Gelb Wetterwarnungen (Stufe 2) //vorher:#ffff00
                 '#ffb400', // 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
                 '#ff0000', // 4 - Rot Unwetterwarnungen (Stufe 4) // im grunde höchste Stufe in diesem Skript.
                 '#ff00ff', // 5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
@@ -3670,7 +3672,9 @@ function replacePlaceholder(str, insertText, insertText2) {
 function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
     if (!mailMsg) mailMsg = html_prefix;
     if (headline) {
-        if (color) mailMsg += html_headline_color.replace('###color###', color).replace('###headline###', headline);
+        if (color) {
+            mailMsg += html_headline_color.replace('###color###', color).replace('###headline###', '<font color=#000000>'+headline+'</font>');
+        }
         else mailMsg += html_headline.replace('###headline###', headline);
     }
     if (msg) mailMsg += html_message.replace('###message###', msg);
