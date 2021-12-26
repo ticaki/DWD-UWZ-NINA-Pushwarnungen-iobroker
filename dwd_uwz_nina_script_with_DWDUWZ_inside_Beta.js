@@ -320,7 +320,7 @@ var uTelegramMessageLong  = 'Wwww';
 // ein hexdezimaler Wert als Zeichenkette.
 
 var html_prefix = '<table border="1" cellpadding="0" cellspacing="0" width="100%">';
-var html_headline_color = '<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"' + '###color###' + '\"><b>' + '###headline###' + '</b></td></tr>';
+var html_headline_color = '<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"' + '###color###' + '\"><b><font color=#000000>' + '###headline###' + '</font></b></td></tr>';
 var html_headline = '<tr><td style="padding: 5px 0 5px 0;"><b>' + '###headline###' + '</b></td></tr>';
 var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' + '</td></tr>';
 var html_end = '</table>';
@@ -3673,7 +3673,7 @@ function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
     if (!mailMsg) mailMsg = html_prefix;
     if (headline) {
         if (color) {
-            mailMsg += html_headline_color.replace('###color###', color).replace('###headline###', '<font color=#000000>'+headline+'</font>');
+            mailMsg += html_headline_color.replace('###color###', color).replace('###headline###', headline);
         }
         else mailMsg += html_headline.replace('###headline###', headline);
     }
