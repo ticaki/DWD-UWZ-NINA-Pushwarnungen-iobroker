@@ -1,4 +1,4 @@
-//Version 0.99.24 Beta 3
+//Version 0.99.25 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -171,6 +171,7 @@ if (extendedExists(aliveState)) {
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
 /* Textbeispiel anstatt Entenhausen: 'Stadt / Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
 /* var regionName = ['UWZDE13245', 'Entenhausen'] */
+//UWZ - Für Deutschland: UWZDE + PLZ (UWZDE12345)
 var regionName          = [['','']];
 
 // für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren: https://warnung.bund.de/assets/json/suche_channel.json
@@ -233,12 +234,10 @@ var forcedSpeak             = true;
 var windForceDetailsSpeak   = false;
 
 // Standalone Datenquelle
+// entnehme ZAHL aus CSV
 /* nur Gemeinde/Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
 var dwdWarncellId = ''; // Deaktivieren mit ''
 var dwdBundesland = ''; // 3 Buchstaben
-
-//UWZ - Landeskennung - Postleitzahl UWZDE12345
-var uwzWarncellId = ''; // Deaktivieren mit ''
 
 //Einstellungen für ZAMG
 var enableInternZamg = false;
@@ -894,6 +893,7 @@ async function init() { // erster fund von create custom
     }
     // erstelle Datenpunkte für DWD/UWZ standalone
     for (let c = 0; c < MODES.length; c++) {
+        if (onStopped) return;
         let warncellid = mainStatePath + 'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase() ;
         try {
             let app = [];
@@ -964,6 +964,7 @@ async function init() { // erster fund von create custom
             for (let i = 0; i < numOfWarnings; i++) {
                 let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesDWDintern.length; a++) {
+                    if (onStopped) return;
                     let dp = statesDWDintern[a];
                     let id = p + dp.id;
                     await createStateCustomAsync(id, dp.default,dp.options);
@@ -984,6 +985,7 @@ async function init() { // erster fund von create custom
             for (let i = 0; i < numOfWarnings; i++) {
                 let p = internalMowasPath + warncells[NINA][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a in statesNINAintern) {
+                    if (onStopped) return;
                     let dp = statesNINAintern[a];
                     let id = p + dp.id;
                     await createStateCustomAsync(id, dp.default,dp.options);
@@ -1044,6 +1046,7 @@ async function init() { // erster fund von create custom
         await setStateAsync(id, !!(autoSendWarnings), true);
 
         for (var a = 0; a < configObj.length; a++) {
+            if (onStopped) return;
             let p = mainStatePath + 'config.' + configObj[a].id
             if (!await existsStateAsync(p)) {
                 let n = configObj[a].name !== undefined ? configObj[a].name : configObj[a].id;
@@ -1224,7 +1227,12 @@ function setConfigKonstanten(id, val, auto) {
 }
 
 // setzte die Alert States auf die höchste aktuelle Warnstufe
-async function setAlertState() {
+async function setAlertState(go = false) {
+    if (setAlertStateTimeout) clearTimeout(setAlertStateTimeout)
+    if ( !go ) {
+        setAlertStateTimeout = setTimeout(function(){setAlertState(true)},15000);
+        return;
+    }
     var setAlertStateCount;
     if (setAlertStateCount === undefined) setAlertStateCount = 0;
     if (++setAlertStateCount > 1) { // lasse keine mehrfach Aufrufe zu
@@ -1248,7 +1256,7 @@ async function setAlertState() {
                 let AlertLevel = -1, AlertIndex = -1;
                 for (let c = 0; c < warnDatabase.new.length; c++) {
                     let entry = warnDatabase.new[c];
-                    if (entry.mode == mode[a].mode && entry.type == b && entry.level > AlertLevel && entry.area == area && entry.ignored) {
+                    if (entry.mode == mode[a].mode && entry.type == b && entry.level > AlertLevel && entry.area == area && !entry.ignored) {
                         AlertLevel = warnDatabase.new[c].level;
                         AlertIndex = c;
                     }
@@ -1289,6 +1297,7 @@ async function setAlertState() {
                         data[9] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0)
                         data[10] = (AlertIndex > -1 ? (warnDatabase.new[AlertIndex].ec_ii_type !== undefined ? warnDatabase.new[AlertIndex].ec_ii_type : -1) : -1)
                         for (let index=0; index < data.length; index++) {
+                            if (onStopped) return;
                             if (await extendedExistsAsync(stateAlertIdFull + stateAlert[index].name)) await setStateAsync(stateAlertIdFull + stateAlert[index].name, data[index], true)
                             else {
                                 try {
@@ -1313,6 +1322,7 @@ async function setAlertState() {
     }
     let tempDelIds = $('state(state.id='+sA+'*)')
     for (let i=0;i<tempDelIds.length;i++) {
+        if (onStopped) return;
         let t = tempExistIds.findIndex((a) => {
             if (tempDelIds[i].includes(a)) return true;
         })
@@ -1465,7 +1475,7 @@ function convertStringToDate(s) {
 
 // Hauptfunktion entscheiden was wohin gesendet wird
 function checkWarningsMain(instant, hashForced) {
-    if (instant === undefined) {
+    if (instant === undefined || !instant) {
         if (timer) clearTimeout(timer);
         timer = setTimeout(function() {checkWarningsMain(true)}, 20000)
         return;
@@ -1493,12 +1503,11 @@ function checkWarningsMain(instant, hashForced) {
                 w.type !== w2.type ||
                 w.wcID === w2.wcID ||
                 w.level < w2.level ||
-                w2.favorit ||
                 a == b
             ) continue;
             if ( w2.start >= w.start &&
-                w2.end <= w.end ) {
-                let test = w.hash == w2.hash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID) ? 2 : 0)
+                w2.end <= w.end && !w2.favorit) {
+                let test = w.messageHash == w2.messageHash ? 1 : ((w.areaGroup == w2.areaGroup && w.areaID != w2.areaID) ? 2 : 0)
                 ticaLog(4, w.areaGroup +' == ' + w2.areaGroup + ' && ' + w.areaID + ' != ' + w2.areaID + ' = test:' + test)
                 if (test != 0) {
                     w.useAreaGroup = true;
@@ -1509,7 +1518,8 @@ function checkWarningsMain(instant, hashForced) {
             if (
                 w2.start < w.start ||
                 w2.end > w.end ||
-                w.areaID != w2.areaID
+                w.areaID != w2.areaID ||
+                w2.favorit && w.favorit
             ) continue
             if (w.level > w2.level) {
                 ticaLog(1, 'Nr 3 Behalte Warnung wegen Überschneidung und höherem Level mit Headline: ' + w.headline + ' Level:' + w.level + ' Ignoriere: ' + w2.headline +' Level:' + w2.level  );
@@ -1778,7 +1788,11 @@ function checkWarningsMain(instant, hashForced) {
     }
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
     if (!emailHtmlWarn && warnDatabase.new.length == ignoreWarningCount && (warnDatabase.old.length > ignoreWarningCount || onClickCheckRun)) {
-        for (let a = 0; a < warnDatabase.old.length; a++) collectMode |= warnDatabase.old[a].mode;
+        let notAllDone = onClickCheckRun
+        for (let a = 0; a < warnDatabase.old.length; a++) {
+            collectMode |= warnDatabase.old[a].mode;
+            if (getIndexOfHash(warnDatabase.new, warnDatabase.old[a].hash, true)) notAllDone = true;
+        }
 
         let pushMsg = 'Alle Warnmeldungen' + getArtikelMode(collectMode) + 'wurden aufgehoben.' + getStringIgnoreCount(ignoreWarningCount);
 
@@ -2272,6 +2286,10 @@ async function InitDatabase(first) {
 }
 // Daten vom Server abfragen
 async function getDataFromServer(first) {
+    if (onStopped) {
+        if (standaloneInterval) clearSchedule(standaloneInterval);
+        return;
+    }
     if (first === undefined) first = false;
     if (enableInternDWD2 && warncells[DWD].length == 0) {
         enableInternDWD2 = false;
@@ -2324,6 +2342,7 @@ async function getDataFromServer(first) {
                 }
             }
             for (let id in countObj) {
+                if (onStopped) return;
                 try {
                     let nid = id + '.rawTotalWarnings'
                     if (!await existsStateAsync(nid)) {
@@ -2339,9 +2358,9 @@ async function getDataFromServer(first) {
 
     async function _getDataFromServer(url, m, first, area, wcIndex) {
         ticaLog(2, 'Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : 'NINA')))) + ' Area: ' + area);
-        if (onStopped) return;
         let results = [];
         for (let a=0; a<url.length; a++) {
+            if (onStopped) return;
             const result = await axios.get(url[a])
                 .then(results => {
                     ticaLog(4, "Status: " + results.status);
@@ -2532,7 +2551,8 @@ async function getDataFromServer(first) {
         for (let b=0;b<posarr.length;b++) {
             const x = posarr[b].breiten; const y = posarr[b].laengen;
             for (let a=0;a<polygonArr.length;a++) {
-               if ( await pointInPolygonwithDelay(polygonArr[a].split(' '), [x, y]) ) {
+                if (onStopped) return '';
+                if ( await pointInPolygonwithDelay(polygonArr[a].split(' '), [x, y]) ) {
                     return posarr[b].text
                 }
             }
@@ -2968,6 +2988,7 @@ async function addWarncell(obj, i){
             for (let i = 0; i < numOfWarnings; i++) {
                 let p = folder + wc + internalWarningEnd + (i == 0 ? '' : i) + '.';
                 for (let a = 0; a < statesZAMGintern.length; a++) {
+                    if (onStopped) return;
                     let dp = statesZAMGintern[a];
                     let id = p + dp.id;
                     if (!await existsStateAsync(id)) {
@@ -3193,12 +3214,11 @@ function addDatabaseData(id, value, mode, old) {
                 let m = mode == DWD2 ? DWD : mode;
                 warn.areaGroup         = value.warncellObj === undefined   ? ''    : 'für die Region ' + value.warncellObj.area;
                 warn.area              = value.warncellObj === undefined   ? ''    :  value.warncellObj.area;
-                warn.areaID = '';
-                warn.hash = JSON.stringify(warn).hashCode();
                 warn.areaID = "für " + getRegionName(id, m)
-
                 warn.favorit           = value.warncellObj === undefined || value.warncellObj.favorit === undefined  ? false    : value.warncellObj.favorit
                 warn.wcID              = value.warncellObj === undefined || value.warncellObj.id === undefined  ? ''    : value.warncellObj.id
+                warn.hash = JSON.stringify(warn).hashCode();
+
                 warn.id = id;
                 warnDatabase.new.push(warn);
                 if (old) warnDatabase.old.push(warn);
@@ -3278,8 +3298,7 @@ function addDatabaseData(id, value, mode, old) {
     }
     change = old !== undefined && old ? false : change;
     setState(totalWarningCountState, warnDatabase.new.length, true);
-    if (setAlertStateTimeout) clearTimeout(setAlertStateTimeout)
-    setAlertStateTimeout = setTimeout(setAlertState,20000);
+    setAlertState()
     return change;
 
     // vergleich regionName und die Obj.id und gib den benutzerfreundlichen Namen zurück.
@@ -3307,9 +3326,9 @@ function isWarnIgnored(warn) {
     return false;
 }
 
-function getIndexOfHash(db, hash) {
+function getIndexOfHash(db, hash, notIgnored) {
     return db.findIndex(function(j) {
-        return j.hash === hash;
+        return j.hash === hash && (notIgnored === undefined || !j.ignored) ;
     });
 }
 
@@ -3326,16 +3345,17 @@ function getDatabaseData(warn, mode){
             || warn.level < minlevel
         ) {ticaLog(2, 'Übergebenene Warnung DWD verworfen');return null;}
         result['mode'] = DWD;
-        result['description']   = warn.description === undefined 	? '' 	: warn.description;
         result['headline']      = warn.headline === undefined 		? '' 	: warn.headline;
         result['start']         = warn.start === undefined 			? null 	: warn.start || null;
         result['end']           = warn.end === undefined 			? null 	: warn.end || null;
-        result['instruction']   = warn.instruction === undefined 	? '' 	: warn.instruction;
         result['type']          = warn.type === undefined 			? -1 	: warn.type;
         result['level']         = warn.level === undefined 			? 0 	: warn.level-1;
         result['areaID'] 		= warn.regionName === undefined 	? '' 	: warn.regionName;
         result['altitudeStart'] = warn.altitudeStart === undefined 	? 0 	: warn.altitudeStart;
         result['altitudeEnd'] 	= warn.altitudeEnd === undefined 	? 3000 	: warn.altitudeEnd;
+        result.messageHash      = JSON.stringify(result).hashCode();
+        result['description']   = warn.description === undefined 	? '' 	: warn.description;
+        result['instruction']   = warn.instruction === undefined 	? '' 	: warn.instruction;
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
@@ -3389,11 +3409,8 @@ function getDatabaseData(warn, mode){
             return null;
         }
         result['mode'] = DWD;
-        result['description']   = warn.DESCRIPTION === undefined 	? '' 	: warn.DESCRIPTION;
-        result['headline']      = warn.HEADLINE === undefined 		? '' 	: warn.HEADLINE;
         result['start']         = warn.ONSET === undefined 			? null 	: getDateObject(warn.ONSET).getTime() || null;
         result['end']           = warn.EXPIRES === undefined 		? null 	: getDateObject(warn.EXPIRES).getTime() || null;
-        result['instruction']   = warn.INSTRUCTION === undefined 	? '' 	: warn.INSTRUCTION;
         result['ec_ii_type']    = warn.EC_II === undefined 			? -1 	: Number(warn.EC_II);
         result['picture']       = '';
         if (result.ec_ii_type != -1) {
@@ -3412,7 +3429,11 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         //result['picture']       = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
+        result.messageHash      = JSON.stringify(result).hashCode();
         result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
+        result['description']   = warn.DESCRIPTION === undefined 	? '' 	: warn.DESCRIPTION;
+        result['headline']      = warn.HEADLINE === undefined 		? '' 	: warn.HEADLINE;
+        result['instruction']   = warn.INSTRUCTION === undefined 	? '' 	: warn.INSTRUCTION;
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
@@ -3427,15 +3448,16 @@ function getDatabaseData(warn, mode){
             return null;
             }
         result['mode'] = UWZ;
-        result['description'] 	= warn.payload.translationsLongText.DE === undefined 	? '' 	: warn.payload.translationsLongText.DE;
         result['start'] 		= warn.dtgStart === undefined 							? null 	: warn.dtgStart * 1000 || null;
         result['end'] 			= warn.dtgEnd === undefined 							? null 	: warn.dtgEnd * 1000 || null;
-        result['instruction'] 	= warn.instruction === undefined 						? '' 	: warn.instruction;
         result['type'] 			= warn.type === undefined 								? -1 	: warn.type;
         result['level'] 		= warn.payload.levelName === undefined 					? 0 	: getUWZLevel(warn.payload.levelName);
         result['headline'] 		= warn.type === undefined 								? '' 	: 'Warnung vor '+warningTypesString[UWZ][result.type][0];
         result['areaID'] 		= warn.areaID === undefined 							? '' 	: warn.areaID;
         result['web'] 			= '';
+        result.messageHash      = JSON.stringify(result).hashCode();
+        result['description'] 	= warn.payload.translationsLongText.DE === undefined 	? '' 	: warn.payload.translationsLongText.DE;
+        result['instruction'] 	= warn.instruction === undefined 						? '' 	: warn.instruction;
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
         result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
@@ -3455,6 +3477,7 @@ function getDatabaseData(warn, mode){
         result['instruction'] 			= warn.instruction === undefined 		      ? '' 	: removeHtml(warn.instruction);
         result['typename'] 				= warn.event === undefined 				      ? '' 	: removeHtml(warn.event);
         result['type'] 					= result.typename.hashCode();
+        result.messageHash      = JSON.stringify(result).hashCode();
         //result['urgency'] 			= warn.urgency === undefined 			      ? '' 	: warn.urgency;
         result['severity'] 				= warn.severity === undefined 			      ? '' 	: warn.severity;
         //result['certainty']		 	= warn.certainty === undefined 			      ? ''	: warn.certainty;
@@ -3591,7 +3614,12 @@ function removeHtml(a) {
 // Folglich werden Entwarnung raus geschickt. Jetzt warten wir 10 * 10 = 100 Minuten entwarnen erst dann.
 // Abgelaufene Meldungen werden aufgeräumt.
 function activateSchedule() {
-    schedule('30 */10 * * * *', function() {
+    if (removeSchedule) clearSchedule(removeSchedule);
+    var removeSchedule = schedule('30 */10 * * * *', function() {
+        if (onStopped) {
+            if (removeSchedule) clearSchedule(removeSchedule);
+            return;
+        }
         let c = false;
         for (let a = 0; a < warnDatabase.new.length; a++) {
             let w = warnDatabase.new[a];
@@ -3604,14 +3632,14 @@ function activateSchedule() {
             } else {
                 w.pending = 0;
             }
-            if (w.end && new Date(w.end + intervalMinutes * 61000) < new Date()) {
+            if (w.end && new Date(w.end + intervalMinutes * 65000) < new Date()) {
                 ticaLog(1, 'Remove expired warning with id: ' + warnDatabase.new[a].id + ', headline: ' + warnDatabase.new[a].headline + ' expire:' + new Date(w.end));
                 warnDatabase.new.splice(a--, 1);
                 c = true;
             }
         }
         if (c && autoSendWarnings) {
-            checkWarningsMain()
+            checkWarningsMain(false)
         }
     });
 }
