@@ -1,4 +1,4 @@
-//Version 0.99.25 Beta 3
+//Version 0.99.26 Beta 3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -528,7 +528,9 @@ const statesDWDintern = [
     { id:"ceiling", default: 3000, options: {name: "End Höhenlage der Warnung",type: "number",read: true,write: false}},
     { id:"color", default:'', options: {name: "Farbe",type: "string",read: true,write: false,}},
     { id:"HTMLShort", default: "", options: {name: "Warning text html",type: "string",read: true,write: false}},
-    { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}}
+    { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}},
+    { id:"HTMLVeryLong", default: "", options: {name: "Warning text very long html",type: "string",read: true,write: false,}},
+    { id:"instruction", default: "", options: {name: "Warning instruction text html",type: "string",read: true,write: false,}}
 ];
 
 const statesNINAintern = {
@@ -569,7 +571,8 @@ const statesUWZintern = [
     { id:"HTMLShort", default: "", options: {name: "Warning text",type: "string",read: true,write: false}},
     { id:"HTMLLong", default: "", options: {name: "Warning text",type: "string",read: true,write: false,}},
     { id:"type", default: 0, options: {name: "Warning type",type: "number",role: "weather.type",read: true,write: false, states: wtsObj,}},
-    { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}}
+    { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}},
+    { id:"HTMLVeryLong", default: "", options: {name: "Warning text very long html",type: "string",read: true,write: false,}}
 ];
 
 const statesZAMGintern = [
@@ -587,7 +590,8 @@ const statesZAMGintern = [
     { id:"HTMLShort", default: "", options: {name: "Warning text html",type: "string",read: true,write: false}},
     { id:"HTMLLong", default: "", options: {name: "Warning text html",type: "string",read: true,write: false,}},
     { id:"color", default:"", options: {name: "Link to chart",type: "string",read: true,write: false,}},
-    { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}}
+    { id:"headline", default:'', options: {name: "headline",type: "string",read: true,write: false,}},
+    { id:"HTMLVeryLong", default: "", options: {name: "Warning text very long html",type: "string",read: true,write: false,}}
 ];
 
 statesIntern[DWD].states = statesDWDintern
@@ -1616,10 +1620,12 @@ function checkWarningsMain(instant, hashForced) {
             // PUSH
             // Insgesamt x... anhängen
             pushMsg += getStringWarnCount(null, warnDatabase.new.length);
+            if ( uTextHtmlMitOhneAlles && mode != NINA ) pushMsg = getShortVersion(entry, true);
             sendMessage(getPushModeFlag(mode) & PUSH, picture + (mode == NINA ? 'Entwarnung' : 'Wetterentwarnung') + SPACE + (i + 1), pushMsg);
             ticaLog(4, 'text old:' + pushMsg);
             // SPEAK
             pushMsg = headline + (!uSpracheMitOhneAlles ?  getArtikelMode(mode, true) + area + (end ? ' gültig bis ' + getFormatDateSpeak(end) + ' Uhr' : ''): '') + ' wurde aufgehoben' + '  .  ';
+            if ( uSpracheMitOhneAlles && mode != NINA ) pushMsg = getShortVersion(entry, true) + ', ';
             if (forceSpeak || compareTime(START, ENDE, 'between')) {
                 sendMessage(getPushModeFlag(mode) & SPEAK, '', pushMsg, entry);
             }
@@ -1770,7 +1776,7 @@ function checkWarningsMain(instant, hashForced) {
                         } else speakMsg += ' Weiterführende Informationen sind vorhanden.';
                     }
                 } else {
-                    speakMsg = getShortVersion(entry);
+                    speakMsg = getShortVersion(entry) + ', ';
                 }
                 if (!entry.ignored && !isWarnIgnored(entry) && (forceSpeak || compareTime(START, ENDE, 'between')) && (getPushModeFlag(mode) & SPEAK) != 0) {
                     sendMessage(getPushModeFlag(mode) & SPEAK, '', speakMsg, entry);
@@ -1835,9 +1841,17 @@ function checkWarningsMain(instant, hashForced) {
         }
         return result;
     }
-    function getShortVersion(entry) { // kurzform
-        let speakMsg = getTopic(entry.mode, entry.level)
-        speakMsg +=' vor ' + entry.typename + ', Stufe ';
+    function getShortVersion(entry, removed) { // kurzform
+        let speakMsg =''
+        if (removed) speakMsg = entry.typename + 'warnung aufgehoben'
+        else {
+            speakMsg = getTopic(entry.mode, entry.level)
+            speakMsg +=' vor ' + entry.typename;
+        }
+        speakMsg +=', ' + (entry.useAreaGroup ? entry.areaID : entry.areaGroup)
+        if (removed) return speakMsg;
+
+        speakMsg +=', Stufe ';
         let color = '';
         switch (entry.level) {
             case 0:
@@ -1871,18 +1885,25 @@ function checkWarningsMain(instant, hashForced) {
         let day = ''
         switch (d) {
             case 0:
-            day = 'heute ';
+            day = ', ab heute ';
             break;
             case 1:
-            day = 'morgen ';
+            day = ', ab morgen ';
             break;
             case 2:
-            day = 'übermorgen ';
+            day = ', ab übermorgen ';
+            break;
+            case 3:
+            case 4:
+            case 5:
+            day = ', in ' + d + ' Tagen ';
+            pre = '';
             break;
             default:
-            day = getFormatDateSpeak(entry.begin) + " Uhr ";
+            day = getFormatDateSpeak(getFormatDate(entry.begin)) + " Uhr ";
+            pre = '';
         }
-        speakMsg += ', ab ' + day + pre
+        speakMsg += '' + day + pre
         return speakMsg;
     }
 }
@@ -2020,9 +2041,11 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
         ticaLog(4, 'send Msg _sendTo dienst:' + dienst);
         if (deviceList[dienst].count == undefined) {
             sendTo(a, b);
+            ticaLog(2,'Dienst: ' + a + ' Nachricht: ' + b)
         } else {
             setTimeout(function(dienst, a, b) {
                 sendTo(a, b);
+                ticaLog(2,'Dienst: ' + a + ' Nachricht: ' + b)
                 deviceList[dienst].count--;
             }, (deviceList[dienst].count++ * deviceList[dienst].delay + 20), dienst, a, b);
         }
@@ -2056,12 +2079,14 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                     } else if (entry.dienst == SAYIT) {
                         for (let a = 0; a < idSayIt.length; a++) {
                             setState(idSayIt[a], sayItVolumen[a] + ";" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
+                            ticaLog(2,'Dienst: ' + idSayIt[a] + ' Nachricht: ' + sayItVolumen[a] + ";" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
                     } else if (entry.dienst == ALEXA) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
                             if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
+                             ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
                     }
                     ticaLog(4, 'Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
@@ -2669,9 +2694,11 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
             tempObj[statesDWDintern[14].id] = warnObj.ALTITUDE === undefined ? 0 : Math.round(warnObj.ALTITUDE * 0.3048);
             tempObj[statesDWDintern[15].id] = warnObj.CEILING === undefined ? 3000 : Math.round(warnObj.CEILING * 0.3048);
+            tempObj[statesDWDintern[20].id] = warnObj.INSTRUCTION === undefined || warnObj.INSTRUCTION === null ? '' : warnObj.INSTRUCTION
             tempObj[statesDWDintern[16].id] = tempObj.level !== -1 ? getLevelColor(tempObj.level) : '';
             tempObj[statesDWDintern[17].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, '') : '';
-            tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, tempObj.description) : '';
+            tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, [tempObj.description]) : '';
+            tempObj[statesDWDintern[19].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, [tempObj.description, tempObj.instruction]) : '';
             let a
             try {
                 for (a = 0; a < statesDWDintern.length; a++) {
@@ -2712,9 +2739,11 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
             tempObj[statesDWDintern[14].id] = warnObj.altitudeStart === undefined || warnObj.altitudeStart == null ? 0 : warnObj.altitudeStart;
             tempObj[statesDWDintern[15].id] = warnObj.altitudeEnd === undefined || warnObj.altitudeEnd == null? 3000 : warnObj.altitudeEnd;
+            tempObj[statesDWDintern[20].id] = warnObj.instruction === undefined || warnObj.instruction == null? '' : warnObj.instruction;
             tempObj[statesDWDintern[16].id] = tempObj.level !== -1 ? getLevelColor(tempObj.level) : '';
             tempObj[statesDWDintern[17].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, '') : '';
-            tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, tempObj.description) : '';
+            tempObj[statesDWDintern[18].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, [tempObj.description]) : '';
+            tempObj[statesDWDintern[19].id] = tempObj.headline ? _createHTMLtext(tempObj, tempObj.headline, [tempObj.description, tempObj.instruction]) : '';
             for (let a = 0; a < statesDWDintern.length; a++) {
                 let dp = statesDWDintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
@@ -2759,12 +2788,13 @@ async function getDataFromServer(first) {
             if (tempObj.level) tempObj.level += 1
             tempObj[statesZAMGintern[13].id] = getLevelColor(tempObj.level, ZAMG);
             tempObj[statesZAMGintern[14].id] = tempObj.type === -1  ? '' 	: 'Warnung vor ' + warningTypesString[ZAMG][tempObj.type][0];
-            tempObj[statesZAMGintern[11].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj,tempObj.headline,'');
-            let text = '</br>' + (tempObj.text + '</br>' + tempObj.auswirkungen).replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
-            text += '</br>' + tempObj.empfehlungen.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
-            text += '</br>' + tempObj.meteotext.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>');
+            tempObj[statesZAMGintern[11].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj,tempObj.headline,null);
+            let text = [tempObj.auswirkungen !== '' ? '</br>' + (tempObj.text + '</br>' + tempObj.auswirkungen).replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>') : ''];
             tempObj[statesZAMGintern[12].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, tempObj.headline, text);
-             for (let a = 0; a < statesZAMGintern.length; a++) {
+            text.push (tempObj.empfehlungen !== '' ? '</br>' + tempObj.empfehlungen.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>') : '')
+            text.push (tempObj.meteotext !== '' ?'</br>' + tempObj.meteotext.replace(/\\n\*/g, '*').replace(/\*/g, '<br>*').replace(/\\n/g, '<br>'):'');
+            tempObj[statesZAMGintern[15].id] = plainWarnObj.length == 0 ? '' : _createHTMLtext(tempObj, tempObj.headline, text);
+            for (let a = 0; a < statesZAMGintern.length; a++) {
                 let dp = statesZAMGintern[a];
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
             }
@@ -2791,8 +2821,9 @@ async function getDataFromServer(first) {
                 else headline += "Warnung vor ";
                 headline += warningTypesString[UWZ][tempObj.type];
                 tempObj[statesUWZintern[11].id] = headline;
-                tempObj[statesUWZintern[8].id] = _createHTMLtext(tempObj, headline, warnObj.payload.translationsShortText.DE);
-                tempObj[statesUWZintern[9].id] = _createHTMLtext(tempObj, headline, warnObj.payload.translationsLongText.DE);
+                tempObj[statesUWZintern[8].id] = _createHTMLtext(tempObj, headline, [warnObj.payload.translationsShortText.DE]);
+                tempObj[statesUWZintern[9].id] = _createHTMLtext(tempObj, headline, [warnObj.payload.translationsLongText.DE]);
+                tempObj[statesUWZintern[12].id] = _createHTMLtext(tempObj, headline, [warnObj.payload.translationsLongText.DE]);
             } else {
                 tempObj[statesUWZintern[2].id] = '';
                 tempObj[statesUWZintern[3].id] = '';
@@ -2802,6 +2833,7 @@ async function getDataFromServer(first) {
                 tempObj[statesUWZintern[8].id] = '';
                 tempObj[statesUWZintern[9].id] = '';
                 tempObj[statesUWZintern[11].id] = '';
+                tempObj[statesUWZintern[12].id] = '';
             }
             for (let a = 0; a < statesUWZintern.length; a++) {
                 let dp = statesUWZintern[a];
@@ -2840,7 +2872,13 @@ async function getDataFromServer(first) {
             html += headline;
             html += "</h3>";
             html += "<p>Zeitraum von " + formatDate(new Date(w.begin), "WW, DD. OO YYYY hh:mm") + " Uhr bis " + formatDate(new Date(w.end), "WW, DD. OO YYYY hh:mm") + " Uhr </p>";
-            html += text !== undefined && text !== '' ? '<p>' + text + '</p>' : '';
+            if (text !== undefined && Array.isArray(text)) {
+                for (let a = 0; a<text.length;a++) {
+                    if (text[a] !== undefined && text[a] !== '' ){
+                        html += '<p>' + text + '</p>';
+                    }
+                }
+            }
             html += "</font></div>";
             return html;
         }
