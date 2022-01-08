@@ -1,4 +1,4 @@
-//Version 0.99.26 Beta 3
+//Version 0.99.26 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -21,14 +21,14 @@
 /*
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
-- DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter V0.0.22
+- DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter ab V0.0.22
+- Eigener Datenabruf für DWD Kreiswarnungen (wie Adapter), DWD Gemeindeegene, UWZ, Nina (ausgenommen Hochwasser)
 - Wetterwarnung
 - Wetterentwarnung
 
 Funktionen:
 - Filter die Warnungen nach doppelt, Gefahr(level) und Höhe
 - Umschalten über iobroker zwischen DWD/UWZ/NINA
-- Autorestart bei Datenpunkterstellung
 - Automatischer Versand und/oder manueller Nachrichtenversand
 - Zeitschaltuhr für Sprachausgabe
 - Datenpunkte mit der Startzeit, Endzeit, Type, Schlagzeile, Beschreibung, Farbe für Level(bgcolor) und höchstem Warnlevel dieses Typs
@@ -37,7 +37,6 @@ Funktionen:
 - Konfigurationsprüfung soweit möglich
 - Automodus und einzelne Pushdienste über iobroker schaltbar, sowohl für Automodus als auch Manuell
 - Optimierte Sprachausgabe
-- Fingerweg vom .alive state :)
 
 Kleinkram:
 - Sprachausgabe: Sturmdetails werden ausgefiltert oder korrekt ausgesprochen (konfigurierbar)
@@ -50,19 +49,17 @@ Kleinkram:
 - Namesbezeichner für Nina verfügbar, diese werden benötigt, falls in der Warnung Ort genannt wird, das auszugeben und damit die Bedeutung der Warnung hervorzuheben.
 
 Farben-Bedeutung:
-0 - Grün
+0 - Grün // sollte es nicht geben
 1 - Dunkelgrün
 2 - Gelb Wetterwarnungen (Stufe 2)
 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
 4 - Rot Unwetterwarnungen (Stufe 4) // im Grunde höchste Stufe in diesem Skript.
-5 - Violett Warnungen vor extremem Unwetter (nur DWD/ Weltuntergang nach aktueller Erfahrung)
+5 - Violett Warnungen vor extremem Unwetter (sollte es nicht geben)
 
 
 
 Dank an:
-- Mic für die createUserStates() Funktionen
-- CruziX der diese eingebaut hat.
-- crunchip, sigi234, Latzi fürs Testen und Ideen
+- crunchip, sigi234, Latzi, CruziX fürs Testen und Ideen
 - die ursprünglichen Authoren s.o.
 
 /* ************************************************************************
@@ -78,7 +75,7 @@ Dank an:
 
 
 
-var mainStatePath = 'javascript.0.wetterwarnung_test.';
+var mainStatePath = '0_userdata.0.wetterwarnung.';
 
 
 
@@ -168,16 +165,39 @@ if (extendedExists(aliveState)) {
 /*                          weitere Konfiguration                            */
 /* ************************************************************************* */
 
+/* ************************************************************************* */
+/*                                Datenabruf intern                          */
+/* ************************************************************************* */
+
 /* für UWZ Regionnamen eingeben "Warnung der Unwetterzentrale für XXXX" */
-/* Textbeispiel anstatt Entenhausen: 'Stadt / Dorfname' 'Berlin' 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
+/* Durch das auffüllen wird der Datenabruf der UWZ aktiviert*/
+/* Textbeispiel anstatt Entenhausen: 'Stadt / Dorfname' 'Berlin' oder 'den Regionsbezeichnung' 'den Schwarzwald' ''*/
+/* UWZ - Für Deutschland: UWZDE + PLZ (UWZDE12345) */
 /* var regionName = ['UWZDE13245', 'Entenhausen'] */
-//UWZ - Für Deutschland: UWZDE + PLZ (UWZDE12345)
 var regionName          = [['','']];
+
+// Standalone Datenquelle
+// entnehme ZAHL aus CSV
+/* nur Gemeinde/Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
+var dwdWarncellId = ''; // Deaktivieren mit '' einzel: '2334535354' mehrere: ['23423424','23423423']
+var dwdBundesland = ''; // 3 Buchstaben (keine Funktion)
+
+// Koordinaten [{lat:13.05501,lon:47.80949}, {lat=13.05501,lon=47.80949}, ...].
+var zamgCoordinates = []; // [] ist deaktiviert
+var uZAMGMitMeteoinformationen = true; // gibt die Wetterinformationen mit der Beschreibung aus: z.B Eine Kaltfront und ein Italientief sorgen im Warnzeitraum...
+
+/* ************************************************************************* */
+/*         Datenabruf über Adapter oder externes Skript                      */
+/* ************************************************************************* */
 
 // für Nina wird die Gemeinde und der Landkreis benötigt. Am besten von hier kopieren: https://warnung.bund.de/assets/json/suche_channel.json
 // ohne die kryptischen Zeichen. Das ersetzt nicht den NINA-Adapter
 var uGemeinde = ''; // hier steht zum Beispiel, Hamburg, Unterdorf
 var uLandkreis = ''; // hier Kreis Bitburg, Landkreis Fürth
+
+/* ************************************************************************* */
+/*                                Sonstige                                   */
+/* ************************************************************************* */
 
 /* Einstellungen zur Emailbenachrichtigung*/
 var senderEmailID       = [""]; // mit Sender Emailadresse füllen. email Adapter muß installiert sein. 1 Eintrag erlaubt [] oder ["email1"]
@@ -217,9 +237,6 @@ var attentionWarningLevel         =    3 // Warnung gleich oder oberhalb dieses 
 var minhoehe                      =    0 // Warnung für eine Höhe unterhalb dieses Wertes nicht senden
 var maxhoehe                      =    5000 // Warnung für eine Höhe oberhalb dieses Wertes nicht senden
 
-//Formatierungsstring für Datum / Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
-const formatierungString =  "TT.MM.YY SS:mm";
-
 // Sprachausgabe Zeiten
 // Für durchgehende Sprachausgabe die Einstellung der Zeiten auf '' setzen. z.B. var startTimeSpeak = '';
 var startTimeSpeak =        '6:45';// Zeiten mo - fr ab der Sprachausgaben ok sind. Nicht unter 6 Uhr gehen oder den Schedule ändern
@@ -233,24 +250,17 @@ var forcedSpeak             = true;
 // keine Ansage über m/s Knoten und Windstärke. Die Angabe mit Kilometer pro Stunde wird angesagt
 var windForceDetailsSpeak   = false;
 
-// Standalone Datenquelle
-// entnehme ZAHL aus CSV
-/* nur Gemeinde/Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
-var dwdWarncellId = ''; // Deaktivieren mit ''
-var dwdBundesland = ''; // 3 Buchstaben
-
-//Einstellungen für ZAMG
-var enableInternZamg = false;
-// Koordinaten [{lat:13.05501,lon:47.80949}, {lat=13.05501,lon=47.80949}, ...].
-var zamgCoordinates = [];
-var uZAMGMitMeteoinformationen = true; // gibt die Wetterinformationen mit der Beschreibung aus: z.B Eine Kaltfront und ein Italientief sorgen im Warnzeitraum...
-
-var scriptOverrides = false; // Die Einstellung im Skript überschreiben bei jedem Start die Einstellungen in den Objekten (punkte unter Basiskonfiguration außer warnzelle.
-
 uLogLevel = 1 // 0:OFF, 1:INFO, 2:ADVANCE, 4:DEBUG
 /* ************************************************************************* */
 /*                       Nur Anpassen wenn nötig                             */
 /* ************************************************************************* */
+
+//Formatierungsstring für Datum / Zeit Alternative "TT.MM.YYYY SS:mm" KEINE Anpassung nötig
+const formatierungString =  "TT.MM.YY SS:mm";
+
+var scriptOverrides = false; // Die Einstellung im Skript überschreiben bei jedem Start die Einstellungen in den Objekten (punkte unter Basiskonfiguration außer warnzelle.
+
+
 // Die Geschwindigkeit gibt an wie lange das Skript wartet bevor es eine neue Nachricht an die Sprachausgabe sendet.
 konstanten[3].delay /*SayIt*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 konstanten[4].delay /*Home24*/      = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
@@ -264,8 +274,8 @@ var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für 
 var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 var uSpracheMitBeschreibung         = true; // gilt für alle Sprachnachrichten
 var uSpracheMitAnweisungen          = true; // uSpracheMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
-var uSpracheMitOhneAlles            = true; // super kurz
-uTextHtmlMitOhneAlles               = false
+var uSpracheMitOhneAlles            = true; // super kurz überschreibt die anderen Einstellungen
+uTextHtmlMitOhneAlles               = false // super kurz für Text und Html
 
 // Obergrenze an Zeichen die über Sprachausgabe ausgegeben werden, bei überschreitung wird nur die Schlagzeile ausgegebenen
 var uMaxCharToSpeak = 0; // 0 = aus - Zahl größer als 0 = maximal Zeichenanzahl (1000 sind rund 86 Sekunden bla bla)
@@ -368,6 +378,7 @@ var enableInternDWD = false;
 var enableInternDWD2 = false;
 const internDWDUrl='https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json';
 const internDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.2.0&CQL_FILTER=WARNCELLID%20IN%20(%27'+ placeHolder +'%27)&request=GetFeature&typeName=dwd%3AWarnungen_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
+const interngetNameDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.2.0&CQL_FILTER=WARNCELLID%20IN%20(%27'+ placeHolder +'%27)&request=GetFeature&typeName=dwd%3AWarngebiete_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
 var internalDWDPath = mainStatePath + 'data.dwd.';
 var internalWarningEnd = '.warning';
 var standaloneInterval = null;
@@ -431,7 +442,8 @@ var uLogLevel;
 if (uLogLevel === undefined) uLogLevel = 1;
 
 var uTextHtmlMitOhneAlles
-if (uTextHtmlMitOhneAlles === undefined) uTextHtmlMitOhneAlles = false;
+
+if (uTextHtmlMitOhneAlles === undefined)  uTextHtmlMitOhneAlles = false;
 
 var uTelegramReplyMarkupInline
 if (uTelegramReplyMarkupInline === undefined) uTelegramReplyMarkupInline = false;
@@ -1495,6 +1507,7 @@ function checkWarningsMain(instant, hashForced) {
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
     let ignoreWarningCount = 0;
+    let ignoreWarningCountOld = 0;
     for (let a = 0; a < warnDatabase.new.length; a++) warnDatabase.new[a].ignored = false
     // Enferne neue Einträge die doppelt sind sortiert nach level und Höhe
     for (let a = 0; a < warnDatabase.new.length; a++) {
@@ -1540,6 +1553,7 @@ function checkWarningsMain(instant, hashForced) {
     if (!onClickCheckRun) {
         for (let a = 0; a < warnDatabase.new.length; a++) {
             let w = warnDatabase.new[a];
+            if (w.mode === NINA) continue
             if (getIndexOfHash(warnDatabase.old, w.hash) != -1) continue; // nur neue Einträge betrachten
             for (let b = 0; b < warnDatabase.old.length; b++) {
                 let w2 = warnDatabase.old[b];
@@ -1565,8 +1579,9 @@ function checkWarningsMain(instant, hashForced) {
                         warnDatabase.old.splice(b--, 1);
                         ticaLog(1, 'Nr 5 Entferne Warnung zwecks Verlängerung mit Headline:' + w2.headline);
                         if (i != -1) {
-                            warnDatabase.new[i].ignored = true;
+                            warnDatabase.new.splice(a--, 1);
                             if (i <= a) --a;
+                            break;
                         }
                     }
                 }
@@ -1577,6 +1592,12 @@ function checkWarningsMain(instant, hashForced) {
         let w = warnDatabase.new[a];
         if (isWarnIgnored(w) || w.ignored) {
             ignoreWarningCount++
+        }
+    }
+    for (let a = 0; a < warnDatabase.old.length; a++) {
+        let w = warnDatabase.old[a];
+        if (isWarnIgnored(w) || w.ignored) {
+            ignoreWarningCountOld++
         }
     }
 
@@ -1793,11 +1814,11 @@ function checkWarningsMain(instant, hashForced) {
         sendMessage(getPushModeFlag(collectMode) & ALLMSG, (gefahr ? "Wichtige Warnungen" : "Warnungen") + getArtikelMode(collectMode) + "(iobroker)", emailHtmlWarn);
     }
     /* Bereich für 'Alle Wetterwarnungen wurden aufgehoben' */
-    if (!emailHtmlWarn && warnDatabase.new.length == ignoreWarningCount && (warnDatabase.old.length > ignoreWarningCount || onClickCheckRun)) {
-        let notAllDone = onClickCheckRun
+    if (!emailHtmlWarn && warnDatabase.new.length == ignoreWarningCount && (warnDatabase.old.length > ignoreWarningCountOld || onClickCheckRun)) {
+        //let notAllDone = onClickCheckRun
         for (let a = 0; a < warnDatabase.old.length; a++) {
             collectMode |= warnDatabase.old[a].mode;
-            if (getIndexOfHash(warnDatabase.new, warnDatabase.old[a].hash, true)) notAllDone = true;
+            //if (getIndexOfHash(warnDatabase.new, warnDatabase.old[a].hash, true)) notAllDone = true;
         }
 
         let pushMsg = 'Alle Warnmeldungen' + getArtikelMode(collectMode) + 'wurden aufgehoben.' + getStringIgnoreCount(ignoreWarningCount);
@@ -1884,6 +1905,12 @@ function checkWarningsMain(instant, hashForced) {
         else if (s < 22)  pre = 'abend ';
         let day = ''
         switch (d) {
+            case -2:
+            day = ', seit vorgestern ';
+            break;
+            case -1:
+            day = ', seit gestern ';
+            break;
             case 0:
             day = ', ab heute ';
             break;
@@ -1900,7 +1927,7 @@ function checkWarningsMain(instant, hashForced) {
             pre = '';
             break;
             default:
-            day = getFormatDateSpeak(getFormatDate(entry.begin)) + " Uhr ";
+            day = getFormatDateSpeak(getFormatDate(entry.start)) + " Uhr ";
             pre = '';
         }
         speakMsg += '' + day + pre
@@ -1922,7 +1949,11 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
         if (entry) {
             if (msgFull && !msgFull.isLong && uTelegramReplyMarkupInline){
                 nMsg.reply_markup = {
-                inline_keyboard: [[{ text: 'mehr', callback_data: '#$Warnscript%&' + String(entry.hash)}]]
+                inline_keyboard: [[{ text: 'mehr', callback_data: '#$WarnscriptLong%&' + String(entry.hash)}]]
+                };
+            } else if (msgFull && msgFull.isLong && uTelegramReplyMarkupInline){
+                nMsg.reply_markup = {
+                inline_keyboard: [[{ text: 'weniger', callback_data: '#$WarnscriptShort%&' + String(entry.hash)}]]
                 };
             }
 
@@ -1936,6 +1967,7 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
             options.chat_id = getState(telegramInstanz + ".communicate.requestChatId").val
             options.message_id = getState(telegramInstanz + ".communicate.requestMessageId").val
             nMsg.editMessageText = {options}
+            if (nMsg.reply_markup !== undefined) options.reply_markup = nMsg.reply_markup
         }
 
 
@@ -2074,7 +2106,7 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                         for (let a = 0; a < idMediaplayer.length; a++) {
                             var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst);
                             ticaLog(4, 'Url2 :' + Url2);
-                            request(Url2);
+                            axios.get(Url2)
                         }
                     } else if (entry.dienst == SAYIT) {
                         for (let a = 0; a < idSayIt.length; a++) {
@@ -2207,7 +2239,7 @@ function dataSubscribe() {
         subUWZhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeUWZ);
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
-    if (MODE & NINA && warncells[NINA].length == 0) {
+    if (MODE & NINA && warncells[NINA].length == 0 && !warncells[NINA].length) {
         ticaLog(1, 'Nutze Datenabruf für NINA über States in ' + ninaPath);
         let r = getRegEx(ninaPath, '^');
         r += '.*.rawJson$';
@@ -2278,7 +2310,7 @@ async function InitDatabase(first) {
     if (MODE & UWZ && !enableInternUWZ) {
         _helper($("state[state.id=" + uwzPath + ".*.object]"), UWZ, first);
     }
-    if (MODE & NINA) {
+    if (MODE & NINA && warncells[NINA].length == 0) {
         _helper($("state[state.id=" + ninaPath + ".*.rawJson]"), NINA, first);
     }
     warnDatabase.new = warnDatabase.new.filter(function(j) {
@@ -2638,7 +2670,7 @@ async function getDataFromServer(first) {
         let tempObj = {};
         if (m & NINA) {
             if(addDatabaseData(baseChannelId + statesNINAintern.object.id , {info:[warnObj]}, NINA, first)) {
-                ticaLog(1, 'NINA Warnung gefunden oder entfernt.');
+                ticaLog(1, 'NINA Warnung gefunden oder entfernt.' + 'RID: ' + randomID);
                 checkWarningsMain()
             }
             tempObj[statesNINAintern.onset.id] = warnObj.onset !== undefined ? getDateObject(warnObj.onset).getTime() : Number("");
@@ -2668,7 +2700,7 @@ async function getDataFromServer(first) {
         }
         if (MODE & DWD && DWD2 & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id , warnObj, DWD2, first)) {
-                ticaLog(1, 'DWD2 Warnung gefunden oder entfernt.');
+                ticaLog(1, 'DWD2 Warnung gefunden oder entfernt.' + 'RID: ' + randomID);
                 checkWarningsMain()
             }
             const maps = ['gewitter', 'sturm', 'regen', 'schnee', 'nebel', 'frost', 'glatteis', 'tauwetter', 'hitze', 'uv'];
@@ -2712,7 +2744,7 @@ async function getDataFromServer(first) {
         }
         if (MODE & DWD & m) {
             if(addDatabaseData(baseChannelId + statesDWDintern[6].id, warnObj, DWD, first)) {
-                ticaLog(1, 'DWD Warnung gefunden oder entfernt.');
+                ticaLog(1, 'DWD Warnung gefunden oder entfernt.' + 'RID: ' + randomID);
                 checkWarningsMain()
             }
 
@@ -2751,7 +2783,7 @@ async function getDataFromServer(first) {
         }
         if (MODE & ZAMG & m) {
             if (addDatabaseData(baseChannelId + statesZAMGintern[6].id, warnObj, m, first)){
-                ticaLog(1, 'ZAMG Warnung gefunden oder entfernt.');
+                ticaLog(1, 'ZAMG Warnung gefunden oder entfernt.' + 'RID: ' + randomID);
                 checkWarningsMain()
             }
             tempObj[statesZAMGintern[6].id] = warnObj;
@@ -2801,7 +2833,7 @@ async function getDataFromServer(first) {
         }
         if (MODE & UWZ & m) {
             if (addDatabaseData(baseChannelId + statesUWZintern[6].id, warnObj, m, first)){
-                ticaLog(1, 'UWZ Warnung gefunden oder entfernt.');
+                ticaLog(1, 'UWZ Warnung gefunden oder entfernt.' + 'RID: ' + randomID);
                 checkWarningsMain()
             }
             tempObj[statesUWZintern[6].id] = warnObj;
@@ -3181,8 +3213,10 @@ async function getZamgName(lat, long) {
 async function testValueDWD2 (value) {
     ticaLog(2, 'Rufe Daten vom Server ab - DWD2 WarncellID');
     if (onStopped) return false;
-    if (templist[DWD].list === undefined) {
-        templist[DWD].list =  await axios.get('https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3')
+    if (value === undefined) value = warncells[DWD];
+    else value = [{id:value, single: true}];
+    for (let a = 0; a < value.length;a++) {
+        const result = await axios.get(replacePlaceholder(interngetNameDWD2Url,value[a].id ))
             .then(results => {
                 ticaLog(4, "Status: " + results.status);
                 if (!results) ticaLog(0,'!results');
@@ -3207,32 +3241,25 @@ async function testValueDWD2 (value) {
                     ticaLog(1, error.response.headers);
                 }
                 return undefined;
-            })
-    }
-    let data = templist[DWD].list
-    if (data === undefined) return false;
-    if (value === undefined) value = warncells[DWD];
-    else value = [{id:value, single: true}];
-    for (let a = 0; a < value.length;a++) {
-        let i = -1;
-        if ((i = data.indexOf(value[a].id)) != -1) {
-            let b =  data.indexOf(';',i);
-            let e = data.indexOf(';',++b);
-            let city = data.substr(b, e - b)
+        })
+        if (result && result.features
+            && result.features.length
+            && result.features[0]
+            && result.features[0].properties
+            && result.features[0].properties.KURZNAME)
+        {
+            let city = result.features[0].properties.KURZNAME
             if (value[a].single === undefined) {
                 warncells[DWD][a].text = city
                 ticaLog(1, 'DWD Warncell-Id: ' + warncells[DWD][a].id + ' gefunden: '+ warncells[DWD][a].text );
             }
             else  return city;
-        } else {
+
+        } else if (value[a].single !== undefined) {
             ticaLog(0,'Warnzelle '+ value[a].id +' für DWD nicht gefunden.','warn');
             return false;
         }
     }
-    if (templist[DWD].timeout) clearTimeout(templist[DWD].timeout);
-    templist[DWD].timeout = setTimeout(function(){
-        delete templist[DWD].list;
-    }, 30000);
 }
 
 // für Objekt zur Database hinzu
@@ -3300,9 +3327,10 @@ function addDatabaseData(id, value, mode, old) {
         if (tempArr.length > 0) {
             for (let a = 0; a < tempArr.length; a++) {
                 for (let b = 0; b < warnDatabase.new.length; b++) {
+                    if (warnDatabase.new[b].mode !== NINA) continue
                     if (tempArr[a].hash == warnDatabase.new[b].hash) {
                         if (warnDatabase.new[b].id != tempArr[a].id) {
-                            ticaLog(1,"Update database Nina warning old id<>new id. headline: " +warn.headline );
+                            ticaLog(2,"Update database Nina warning old id<>new id. headline: " +warn.headline );
                         }
                         warnDatabase.new[b].id = tempArr[a].id;
                         tempArr.splice(a--, 1);
@@ -3311,11 +3339,20 @@ function addDatabaseData(id, value, mode, old) {
                         tempArr[a].id == warnDatabase.new[b].id &&
                         tempArr[a].grouphash != warnDatabase.new[b].grouphash
                     ) {
-                        ticaLog(4,
-                            "warnDatabase.new set id to null - duplicate id and wrong grouphash: " +
-                            warnDatabase.new[b].headline
-                        );
-                        warnDatabase.new[b].id = null;
+                        if (tempArr[a].messageHash == warnDatabase.new[b].messageHash) {
+                            ticaLog(2,"Update database same warning, same id, different dates: " +warn.headline );
+                            let i = getIndexOfHash(warnDatabase.old, warnDatabase.new[b].hash);
+                            if (i != -1) warnDatabase.old[i] = tempArr[a];
+                            warnDatabase.new[b] = tempArr[a];
+                            tempArr.splice(a--, 1);
+                            break;
+                        } else {
+                            ticaLog(1,
+                                "warnDatabase.new set id to null - duplicate id and wrong grouphash: " +
+                                warnDatabase.new[b].headline
+                            );
+                            warnDatabase.new[b].id = null;
+                        }
                     }
                 }
             }
@@ -3510,18 +3547,18 @@ function getDatabaseData(warn, mode){
         result['web'] 					= warn.web === undefined || !warn.web || !isValidUrl(warn.web)        ? '' 	: warn.web.replace(/(\<a href\=\")|(\"\>.+\<\/a\>)/ig,'');
         result['webname'] 				= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? ''	: warn.web.replace(/(\<a href\=\".+\"\>)|(\<\/a\>)/ig,'');
         result['description'] 			= warn.description === undefined              ? '' 	: removeHtml(warn.description);
-        result['start'] 				= warn.onset === undefined 		              ? null 	: getDateObject(warn.onset).getTime() || null;
-        result['end'] 					= warn.expires === undefined 			      ? null	: getDateObject(warn.expires).getTime() || null;
         result['instruction'] 			= warn.instruction === undefined 		      ? '' 	: removeHtml(warn.instruction);
+        result['headline'] 				= warn.headline === undefined 			      ? ''	: removeHtml(warn.headline);
         result['typename'] 				= warn.event === undefined 				      ? '' 	: removeHtml(warn.event);
         result['type'] 					= result.typename.hashCode();
-        result.messageHash      = JSON.stringify(result).hashCode();
-        //result['urgency'] 			= warn.urgency === undefined 			      ? '' 	: warn.urgency;
         result['severity'] 				= warn.severity === undefined 			      ? '' 	: warn.severity;
         //result['certainty']		 	= warn.certainty === undefined 			      ? ''	: warn.certainty;
-        result['headline'] 				= warn.headline === undefined 			      ? ''	: removeHtml(warn.headline);
         result['areaID'] 				= warn.area === undefined 				      ? ''	: getNinaArea(warn.area);
         result['level'] 				= warn.severity === undefined 			      ? 0	: getCapLevel(warn.severity, result.typename);
+        result.messageHash      = JSON.stringify(result).hashCode();
+        result['start'] 				= warn.onset === undefined 		              ? null 	: getDateObject(warn.onset).getTime() || null;
+        result['end'] 					= warn.expires === undefined 			      ? null	: getDateObject(warn.expires).getTime() || null;
+        //result['urgency'] 			= warn.urgency === undefined 			      ? '' 	: warn.urgency;
         result['html'] 					= {};
         result['html']['web'] 			= warn.web === undefined || !warn.web || !isValidUrl(warn.web)	      ? '' 	: warn.web;
         result['html']['instruction'] 	= warn.instruction === undefined 		      ? '' 	: warn.instruction;
@@ -3833,8 +3870,10 @@ if ((uPushdienst & TELEGRAM) != 0) {
         } else if (msg.includes('Wwdoff') || msg == 'DWDUZWNINA#!§$debugaus') {
             uLogLevel = switchFlags(uLogLevel, 4, false)
             ticaLog(0,'Debugmodus aus');
-        } else if (msg.includes('#$Warnscript%&')) {
-            msg = msg.substring(msg.indexOf('#$Warnscript%&')+ ('#$Warnscript%&').length, msg.length);
+        } else if (msg.includes('#$WarnscriptLong%&') || msg.includes('#$WarnscriptShort%&')) {
+            let long = !!(msg.includes('#$WarnscriptLong%&'))
+            let token = long ? '#$WarnscriptLong%&' : '#$WarnscriptShort%&'
+            msg = msg.substring(msg.indexOf(token)+ (token).length, msg.length);
             ticaLog(2, 'Telegramm-Detailanfrage erkannt, wird bearbeitet.')
             if ( !msg.isNaN && warnDatabase.new.findIndex((a) => a.hash == msg) != -1) {
                 if ( uTelegramReplyMarkupInline ) {
@@ -3845,12 +3884,11 @@ if ((uPushdienst & TELEGRAM) != 0) {
                 uPushdienst &= TELEGRAM;
                 forceSpeak = forcedSpeak;
                 onClickCheckRun = true;
-                onClickCheckRunCmd = 'Detailnachricht über Telegram'
+                onClickCheckRunCmd = long ? 'Detailnachricht über Telegram' : 'Kurznachricht über Telegramm'
                 let oldA = uTextMitAnweisungen, oldB = uTextMitBeschreibung, oldC = uTextHtmlMitOhneAlles;
-                let long = true;
                 uTextMitAnweisungen = long;
                 uTextMitBeschreibung = long;
-                uTextHtmlMitOhneAlles = false;
+                uTextHtmlMitOhneAlles = !long;
 
                 checkWarningsMain(true, {hash:msg, isAnswer:true});
 
@@ -3966,7 +4004,7 @@ function checkConfigVariable(v) {
     try {
         if (eval(v)) {let t = ''};
     } catch (e) {
-        let m = 'Variable in der Konfiguration fehlt: "' + v +'" bitte auf Github nachlagen und die Konfigzeile in dein lokales Skript kopieren.';
+        let m = 'Variable in der Konfiguration fehlt: "' + v +'" bitte auf Github nachschlagen und die Konfigzeile in dein lokales Skript kopieren.';
         ticaLog(0,m, 'warn');
         stopScript();
     }
