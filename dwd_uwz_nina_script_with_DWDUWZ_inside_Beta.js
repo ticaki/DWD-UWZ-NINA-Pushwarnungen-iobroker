@@ -1,4 +1,4 @@
-//Version 0.99.26 Beta 4
+//Version 0.99.27 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -1348,7 +1348,7 @@ async function setAlertState(go = false) {
             ticaLog(0, 'Fehler setAlertState(): id' + tempDelIds[i], 'error')
         }
     }
-    ticaLog(1, 'Alert States wurden gesetzt');
+    ticaLog(4, 'Alert States wurden gesetzt');
     if (--setAlertStateCount > 1) { // rufe sich selbst auf, wenn während der Verarbeitung ein weiterer Aufruf stattfand
         setAlertState();
     }
@@ -2239,7 +2239,7 @@ function dataSubscribe() {
         subUWZhandler = subscribe({ id: new RegExp(r), change: 'ne' }, onChangeUWZ);
     }
     if (subNINAhandler) unsubscribe(subNINAhandler);
-    if (MODE & NINA && warncells[NINA].length == 0 && !warncells[NINA].length) {
+    if (MODE & NINA && warncells[NINA].length == 0) {
         ticaLog(1, 'Nutze Datenabruf für NINA über States in ' + ninaPath);
         let r = getRegEx(ninaPath, '^');
         r += '.*.rawJson$';
@@ -3209,8 +3209,12 @@ async function getZamgName(lat, long) {
     if (data.properties === undefined) return false;
     return data.properties.location.properties.name;
 }
-
 async function testValueDWD2 (value) {
+    const result = await _testValueDWD2(value);
+    templist[DWD].list = undefined;
+    return result
+}
+async function _testValueDWD2 (value) {
     ticaLog(2, 'Rufe Daten vom Server ab - DWD2 WarncellID');
     if (onStopped) return false;
     if (value === undefined) value = warncells[DWD];
@@ -3242,11 +3246,11 @@ async function testValueDWD2 (value) {
                 }
                 return undefined;
         })
-        if (result && result.features
+        if ((result && result.features
             && result.features.length
             && result.features[0]
             && result.features[0].properties
-            && result.features[0].properties.KURZNAME)
+            && result.features[0].properties.KURZNAME))
         {
             let city = result.features[0].properties.KURZNAME
             if (value[a].single === undefined) {
@@ -3255,9 +3259,52 @@ async function testValueDWD2 (value) {
             }
             else  return city;
 
-        } else if (value[a].single !== undefined) {
-            ticaLog(0,'Warnzelle '+ value[a].id +' für DWD nicht gefunden.','warn');
-            return false;
+        } else {
+            if (templist[DWD].list === undefined) {
+                templist[DWD].list = await axios.get('https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3')
+                .then(results => {
+                    ticaLog(4, "Status: " + results.status);
+                    if (!results) ticaLog(0,'!results');
+                    if (results === undefined) ticaLog(0,'results === undefined')
+                    if (results.status == 200) {
+                        return results.data
+                    } else {
+                        ticaLog(1,'testValueDWD2() 1. Status: ' + results.status);
+                        return undefined;
+                    }
+                })
+                .catch(error => {
+                    if (error == undefined) {
+                        ticaLog(1, 'testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                    } else if (error.response == undefined) {
+                        ticaLog(1, 'testValueDWD2() 3. ' + error);
+                    } else if (error.response.status == 404) {
+                        ticaLog(1, 'testValueDWD2() 4. ' + error.message);
+                    } else {
+                        ticaLog(1, 'testValueDWD2() 5. ' + error.response.data);
+                        ticaLog(1, error.response.status);
+                        ticaLog(1, error.response.headers);
+                    }
+                    return undefined;
+                })
+            }
+            if (templist[DWD].list === undefined) return false;
+            let i = -1;
+            let data = templist[DWD].list
+            if ((i = data.indexOf(value[a].id)) != -1) {
+                let b =  data.indexOf(';',i);
+                let e = data.indexOf(';',++b);
+                let city = data.substr(b, e - b)
+                if (value[a].single === undefined) {
+                    warncells[DWD][a].text = city
+                    ticaLog(1, 'DWD Warncell-Id: ' + warncells[DWD][a].id + ' gefunden: '+ warncells[DWD][a].text );
+                }
+                else  return city;
+            }
+            else if (value[a].single !== undefined) {
+                ticaLog(0,'Warnzelle '+ value[a].id +' für DWD nicht gefunden.','warn');
+                return false;
+            }
         }
     }
 }
