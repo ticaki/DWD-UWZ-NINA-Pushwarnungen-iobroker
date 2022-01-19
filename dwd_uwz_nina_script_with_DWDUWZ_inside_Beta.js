@@ -1,4 +1,4 @@
-//Version 0.99.27 Beta 4
+//Version 0.99.28 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -687,7 +687,7 @@ for (let a = 0; a < konstanten.length; a++) {
     if (!Array.isArray(regionName[0])) {
         regionName = [regionName];
     }
-    if (regionName.length > 0) {
+    if (regionName.length > 0 && (regionName[0][0] != "" && regionName[0][1] !== "")) {
         enableInternUWZ = true;
         if (Array.isArray(regionName)){
             for(let a = 0; a < regionName.length; a++) warncells[UWZ].push({id:regionName[a][0],text:regionName[a][1], area:''})
