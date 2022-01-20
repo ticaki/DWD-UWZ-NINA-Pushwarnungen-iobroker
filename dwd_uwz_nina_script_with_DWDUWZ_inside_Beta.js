@@ -1,4 +1,4 @@
-//Version 0.99.28 Beta 4
+//Version 0.99.29 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -650,7 +650,7 @@ const configObj = {
 
 // hash erzeugen
 String.prototype.hashCode = function() {
-    var hash = 0, i, chr;
+    let hash = 0, i, chr;
     if (this.length === 0) return hash;
     for (i = 0; i < this.length; i++) {
         chr   = this.charCodeAt(i);
@@ -683,17 +683,7 @@ for (let a = 0; a < konstanten.length; a++) {
         } else warncells[DWD].push({id:dwdWarncellId, text:''});
     }
 
-    //testValueTypeLog(uwzWarncellId, 'uwzWarncellId', 'string');
-    if (!Array.isArray(regionName[0])) {
-        regionName = [regionName];
-    }
-    if (regionName.length > 0 && (regionName[0][0] != "" && regionName[0][1] !== "")) {
-        enableInternUWZ = true;
-        if (Array.isArray(regionName)){
-            for(let a = 0; a < regionName.length; a++) warncells[UWZ].push({id:regionName[a][0],text:regionName[a][1], area:''})
-        }
-    }
-    if (zamgCoordinates) {
+   if (zamgCoordinates) {
         if (Array.isArray(zamgCoordinates)){
             for(let a = 0; a < zamgCoordinates.length; a++) {
                 zamgCoordinates[a].text = '';
@@ -734,15 +724,21 @@ for (let a = 0; a < konstanten.length; a++) {
     //testValueDWD2();
 
 
+    if (!Array.isArray(regionName[0])) {
+        regionName = [regionName];
+    }
     let b = 0;
-    for (var a = 0; a < regionName.length; a++) {
+    for (let a = 0; a < regionName.length; a++) {
         b++;
         if (Array.isArray(regionName) && regionName[a].length != 0) {
             if (regionName[a].length != 2) {
                 ticaLog(0,'Konfiguration enthält Fehler. var regionName - Eintrag: ' + (b) + ' hat keine 2 Werte [\'UWZxxxxxxx\',\'name\']', 'error');
                 stopScript(scriptName);
             } else {
-                if (!regionName[a][0] && !regionName[a][1]) regionName.splice(a--, 1)
+                if (!regionName[a][0] || !regionName[a][1]) {
+                    regionName.splice(a--, 1)
+                    ticaLog(0,' var regionName:  Eintrag ' + b + ' ist teilweise oder ganz leer, wird entfernt')
+                }
                 else {
                     testValueTypeLog(regionName[a][0], 'regionName Wert: ' + (b) + '.01', 'string', true);
                     testValueTypeLog(regionName[a][1], 'regionName Wert: ' + (b) + '.02', 'string');
@@ -750,6 +746,12 @@ for (let a = 0; a < konstanten.length; a++) {
             }
         } else {
             regionName.splice(a--, 1)
+        }
+    }
+    if (regionName.length > 0 ) {
+        enableInternUWZ = true;
+        if (Array.isArray(regionName)){
+            for(let a = 0; a < regionName.length; a++) warncells[UWZ].push({id:regionName[a][0],text:regionName[a][1], area:''})
         }
     }
 
@@ -864,7 +866,7 @@ async function changeMode(modeFromState) {
         await InitDatabase(sendNoMessgesOnInit);
         dataSubscribe();
         if (!firstRun) { // überspringe das beim Starten des Scripts
-            for (var a = 0; a < konstanten.length; a++) {
+            for (let a = 0; a < konstanten.length; a++) {
                 for (let x = 0; x < MODES.length; x++) {
                     let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
                     let update = !!((switchFlags(MODE, oldMode, false) & MODES[x].mode));
@@ -950,12 +952,12 @@ async function init() { // erster fund von create custom
         }
         let mode = MODES[c].mode;
         if (warncells[mode].length > 0) {
-            for (var a = 0; a < warncells[mode].length; a++) {
+            for (let a = 0; a < warncells[mode].length; a++) {
                 await addWarncell(warncells[mode][a].id, c);
             }
         }
         let st = $('state(state.id='+mainStatePath +'config.basiskonfiguration.warnzelle.' + MODES[c].text.toLowerCase()+'.*)');
-        for (var a = 0; a < st.length; a++) {
+        for (let a = 0; a < st.length; a++) {
             let val = getEndfromID(st[a]);
             if (val == 'add#' || val == 'refresh#' || val == 'addName#' || val == 'addId#' || val == 'addLat#' || val == 'addLong#') continue;
             let wIndex = warncells[mode].findIndex(w => val == w.id);
@@ -1061,7 +1063,7 @@ async function init() { // erster fund von create custom
         autoSendWarnings = getState(id).val;
         await setStateAsync(id, !!(autoSendWarnings), true);
 
-        for (var a = 0; a < configObj.length; a++) {
+        for (let a = 0; a < configObj.length; a++) {
             if (onStopped) return;
             let p = mainStatePath + 'config.' + configObj[a].id
             if (!await existsStateAsync(p)) {
@@ -1078,7 +1080,7 @@ async function init() { // erster fund von create custom
             on(p, configObj[a].on);
         }
         // Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
-        for (var a = 0; a < konstanten.length; a++) {
+        for (let a = 0; a < konstanten.length; a++) {
             if ((uPushdienst & konstanten[a].value) != 0) {
                 if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name)) {
                     await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name, { read: true, write: true, desc: "Gebe Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
@@ -1137,7 +1139,7 @@ function subscribeStates() {// on() für alles unter config.auto
             ticaLog(4, 'Auto trigger: ' + obj.id + ' Value:' + obj.state.val);
             autoSendWarnings = !!obj.state.val;
             setState(obj.id, autoSendWarnings, true);
-            for (var a = 0; a < konstanten.length; a++) {
+            for (let a = 0; a < konstanten.length; a++) {
                 for (let x = 0; x < MODES.length; x++) {
                     let oid = mainStatePath + 'config.auto.' + MODES[x].text.toLowerCase() + '.' + konstanten[a].name;
                     if (extendedExists(oid)) {
@@ -1355,7 +1357,7 @@ async function setAlertState(go = false) {
 }
 
 function timeIsBetween(fTime,start,ende) {//Dateobjekt,hh:mm,hh:mm
-    var eTime = new Date(), sTime = new Date();
+    let eTime = new Date(), sTime = new Date();
     if (typeof start == 'object') {
         sTime = new Date(start);
     } else {
@@ -1475,9 +1477,9 @@ function setWeekend() {
 // Hilsfunktion
 function convertStringToDate(s) {
     if (typeof s !== 'string' ) return null;
-    var e = s.split(':');
+    let e = s.split(':');
     if (!Array.isArray(e) || e.length != 2) return null;
-    var d = new Date();
+    let d = new Date();
     d.setHours(Number(e[0]), Number(e[1]), 0);
     return d;
 }
@@ -1604,7 +1606,7 @@ function checkWarningsMain(instant, hashForced) {
     warnDatabase.new.sort(function(a, b) {
         return a.level == b.level ? a.start - b.start : b.level - a.level;
     })
-    var collectMode = 0;
+    let collectMode = 0;
     let emailHtmlWarn = '';
     let emailHtmlClear = '';
     let emailSend = onClickCheckRun;
@@ -2104,7 +2106,7 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                     }
                     if (entry.dienst == HOMETWO) {
                         for (let a = 0; a < idMediaplayer.length; a++) {
-                            var Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst);
+                            let Url2 = "http://" + idMediaplayer[a] + "/track = 4fachgong.mp3|tts=" + entry.msg + _getMsgCountString(_speakToArray, entry.dienst);
                             ticaLog(4, 'Url2 :' + Url2);
                             axios.get(Url2)
                         }
@@ -2578,11 +2580,11 @@ async function getDataFromServer(first) {
         }
         let count = 0;
         if (NINA & m) {
-            for (var w = 0; w < warncells[NINA].length; w++) {
+            for (let w = 0; w < warncells[NINA].length; w++) {
                 count = 0;
                 area = warncells[NINA][w].text
                 if (newOBJ[0][area] !== undefined) count = newOBJ[0][area].length;
-                for (var i = 0; i < numOfWarnings; i++) {
+                for (let i = 0; i < numOfWarnings; i++) {
                     if (i < count) {
                         newOBJ[0][area][i].warncellObj = warncells[NINA][wcIndex];
                         await  writeResultEntry(newOBJ[0][area][i], i, m, first, warncells[NINA][w].id);
@@ -2593,7 +2595,7 @@ async function getDataFromServer(first) {
         }
         else {
             count = newOBJ.length;
-            for (var i = 0; i < numOfWarnings; i++) {
+            for (let i = 0; i < numOfWarnings; i++) {
                 if (i < count) {
                     let mode = m !== DWD2 ? m : DWD;
                     newOBJ[i].warncellObj = warncells[mode][wcIndex];
@@ -2655,7 +2657,7 @@ async function getDataFromServer(first) {
 
 
     async function writeResultEntry(warnObj, _i, m, first, area, wcIndex) {
-        var baseChannelId = ''
+        let baseChannelId = ''
         if (DWD & m || DWD2 & m) baseChannelId = internalDWDPath + area + internalWarningEnd;
         else if (UWZ & m) baseChannelId = internalUWZPath + area + internalWarningEnd;
         else if (ZAMG & m) baseChannelId = internalZamgPath + area + internalWarningEnd;
@@ -2872,9 +2874,9 @@ async function getDataFromServer(first) {
                 if (extendedExists(baseChannelId + dp.id)) setState(baseChannelId + dp.id, tempObj[dp.id], true);
             }
             function _getUWZLevel(warnName) {
-                var result = -1; // -1 is an error!
-                var alert = warnName.split("_");
-                var colors = ["green", "darkgreen", "yellow", "orange", "red", "violet"];
+                let result = -1; // -1 is an error!
+                let alert = warnName.split("_");
+                let colors = ["green", "darkgreen", "yellow", "orange", "red", "violet"];
 
                 if (alert[0] == "notice") {
                     result = 1;
@@ -2887,9 +2889,9 @@ async function getDataFromServer(first) {
             }
 
             function _getUWZUrgency(warnName) {
-                var result = 0;
+                let result = 0;
 
-                var alert = warnName.split("_");
+                let alert = warnName.split("_");
                 if (alert[1] == "forewarn") {
                     result = 1;
                 } else {
@@ -2899,7 +2901,7 @@ async function getDataFromServer(first) {
             }
         }
         function _createHTMLtext(w, headline, text) {
-            var html = '<div style="background: ' + w.color.toString(16) + '" border:"10px">';
+            let html = '<div style="background: ' + w.color.toString(16) + '" border:"10px">';
             html += '<font color=#000000><h3>';
             html += headline;
             html += "</h3>";
@@ -2917,9 +2919,9 @@ async function getDataFromServer(first) {
 
     }
     function getAreaFromURI(uri) {
-        var searchstr = "&areaID=";
-        var n = uri.search(searchstr);
-        var result = uri.slice(n + searchstr.length, uri.length);
+        let searchstr = "&areaID=";
+        let n = uri.search(searchstr);
+        let result = uri.slice(n + searchstr.length, uri.length);
         return result;
     }
 }
@@ -2927,6 +2929,7 @@ async function addWarncell(obj, i){
     let wc = '';
     let id = '';
     let restart = false;
+    let wcname = ''
     if ((typeof(obj) === 'object')) {
         if (obj.state.ack) return;
         let e = obj.id.split('.');
@@ -2944,7 +2947,7 @@ async function addWarncell(obj, i){
     let breiten = 0, laengen = 0;
     switch (MODES[i].mode) {
         case DWD:
-        var wcname = await testValueDWD2(wc);
+        wcname = await testValueDWD2(wc);
         if (!wcname) {
             if(id) setState(id,'Fehler', true);
             return;
@@ -3311,7 +3314,7 @@ async function _testValueDWD2 (value) {
 
 // für Objekt zur Database hinzu
 function addDatabaseData(id, value, mode, old) {
-    var warn = null;
+    let warn = null;
     let change = false;
     // value muß ein Object sein, value: String/Object, abfrage auf Null/undefiniert ist nur zur Sicherheit.
     if (!value || value === undefined ) value = {};
@@ -3665,9 +3668,9 @@ function getDatabaseData(warn, mode){
     }
 
     function getUWZLevel(warnName) {
-        var result = -1; // -1 is an error!
-        var alert = warnName.split("_");
-        var colors = {
+        let result = -1; // -1 is an error!
+        let alert = warnName.split("_");
+        let colors = {
             color: ["green", "darkgreen", "yellow", "orange", "red", "violet"],
             level: [0, 0, 1, 2, 3, 4] // um 1 level reduziert, sond nicht mit DWD vergleichbar nach Erfahrungen
         };
@@ -3680,7 +3683,7 @@ function getDatabaseData(warn, mode){
 
     // Gibt Farben für die level zurück
 function getLevelColor(level, typ) {
-    var color = [];
+    let color = [];
     if (typ === undefined) typ = UWZ;
     switch (typ) {
         case NINA:
@@ -3834,7 +3837,7 @@ function buildHtmlEmail(mailMsg, headline, msg, color, last = false) {
 /* Entfernt "°C" und anders aus Sprachmeldung und ersetzt es durch "Grad" */
 /* noch nicht für UWZ angepasst */
 function replaceTokenForSpeak(beschreibung) {
-    var rueckgabe = beschreibung;
+    let rueckgabe = beschreibung;
     try {
         rueckgabe = rueckgabe.replace(/\°C/g, "Grad");
         rueckgabe = rueckgabe.replace(/km\/h/g, "Kilometer pro Stunde");
@@ -3899,8 +3902,8 @@ function getFormatDateSpeak(a) {
 /* ************************************************************************* */
 if ((uPushdienst & TELEGRAM) != 0) {
     on({ id: telegramInstanz + '.communicate.request', change: "any"}, function(obj) {
-        var msg = obj.state.val;
-        var user = msg.substring(1, msg.indexOf(']'));
+        let msg = obj.state.val;
+        let user = msg.substring(1, msg.indexOf(']'));
         ticaLog(4, 'Telegramnachricht erhalten. Nutzer: ' + user + ' Nachricht: ' + msg);
         msg = msg.substring(msg.indexOf(']') + 1, msg.length);
         if ((uLogLevel&4) && msg.includes('Wwdmail')) {
@@ -4015,7 +4018,7 @@ async function extendedExistsAsync(id) {
 // Klone das Objekt
 function cloneObj(j) {
     if (Array.isArray(j)) {
-        var arr = [j.length];
+        let arr = [j.length];
         for (let a=0;a<j.length;a++) arr[a]=j[a];
         return arr;
     }
@@ -4077,7 +4080,7 @@ function getPreEndfromID(id) {
 }
 
 function isValidUrl(str) {
-   var pattern = new RegExp('^((ft|htt)ps?:\\/\\/)?'+ // protocol
+   let pattern = new RegExp('^((ft|htt)ps?:\\/\\/)?'+ // protocol
   '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name and extension
   '((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
   '(\\:\\d+)?'+ // port
