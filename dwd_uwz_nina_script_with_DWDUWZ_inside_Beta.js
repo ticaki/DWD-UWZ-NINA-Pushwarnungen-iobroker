@@ -1,4 +1,4 @@
-//Version 0.99.31 Beta 4
+//Version 0.99.32 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -321,6 +321,7 @@ var DEBUGINGORESTART = false // die Datenbank wird beim Start nicht befüllt Tes
 var uTelegramMessageShort = 'Ww?';
 var uTelegramMessageLong  = 'Wwww';
 
+
 // Aus diesen Elementen wird die html warnung zusammengesetzt.
 // Prefix wird als ersten eingefügt, dann mehrfach html_headline und html_message, wenn verfügbar. Zum Schluß kommt html_end
 // html_headline_color wird verwendet wenn eine Farbe angegeben ist und bildet hier die Hintergrundfarbe.
@@ -333,7 +334,6 @@ var html_headline_color = '<tr><td style="padding: 5px 0 5px 0;" bgcolor=\"' + '
 var html_headline = '<tr><td style="padding: 5px 0 5px 0;"><b>' + '###headline###' + '</b></td></tr>';
 var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' + '</td></tr>';
 var html_end = '</table>';
-
 
 var ninaCoordinates = [];
 if ( DEBUG_VARS) {
@@ -2393,7 +2393,7 @@ async function getDataFromServer(first) {
     }
     if (warncells[NINA].length) {
         //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
-        await _getDataFromServer(internMowasUrl, NINA, first, '', a);
+        await _getDataFromServer(internMowasUrl, NINA, first, '', 0);
     }
     setTimeout( async function () {
         let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
@@ -2602,7 +2602,7 @@ async function getDataFromServer(first) {
                 if (newOBJ[0][area] !== undefined) count = newOBJ[0][area].length;
                 for (let i = 0; i < numOfWarnings; i++) {
                     if (i < count) {
-                        newOBJ[0][area][i].warncellObj = warncells[NINA][wcIndex];
+                        newOBJ[0][area][i].warncellObj = warncells[NINA][w].id;
                         await  writeResultEntry(newOBJ[0][area][i], i, m, first, warncells[NINA][w].id);
                     }
                     else await writeResultEntry({}, i, m, first, warncells[NINA][w].id);
