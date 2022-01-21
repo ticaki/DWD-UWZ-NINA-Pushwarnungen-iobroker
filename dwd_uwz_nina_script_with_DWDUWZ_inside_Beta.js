@@ -1,4 +1,4 @@
-//Version 0.99.30 Beta 4
+//Version 0.99.31 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -423,7 +423,7 @@ var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enth
 var _speakToInterval = null;
 var deviceList = 		{};
 var onChangeTimeoutObj = {};
-var onStopped = false;
+var onStopped = true;
 var setAlertStateTimeout = null;
 var ninaIdentifier = {};
 var warncells = {};
@@ -899,6 +899,7 @@ async function changeMode(modeFromState) {
 }
 
 async function init() { // erster fund von create custom
+    onStopped = false
     try {
 
         // State der Pushnachrichten über pushover / telegram spiegelt
@@ -1977,11 +1978,12 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
             let options = {}
             edit = true
             let tempMsg = getState(telegramInstanz + '.communicate.request').val
-            options.user = tempMsg.substring(1, tempMsg.indexOf(']'));
+            nMsg.user = tempMsg.substring(1, tempMsg.indexOf(']'));
             options.chat_id = getState(telegramInstanz + ".communicate.requestChatId").val
             options.message_id = getState(telegramInstanz + ".communicate.requestMessageId").val
             if (nMsg.reply_markup !== undefined) options.reply_markup = nMsg.reply_markup
             nMsg.editMessageText = {options}
+            log('editMessageText: Text:' + msg + ' hash:' + (entry ? entry.hash : 'null') )
         }
 
 
@@ -2132,7 +2134,7 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
                             if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
-                             ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
+                            ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
                     }
                     ticaLog(4, 'Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
@@ -2461,6 +2463,7 @@ async function getDataFromServer(first) {
                     }
                     return null;
                 })
+            if (onStopped) return;
             if((DWD|DWD2) & m) ticaLog(4, "AREA: " + area);
             if(UWZ & m) ticaLog(4, "AREA: " + getAreaFromURI(url[a]));
             if((DWD|DWD2|ZAMG) & m) await processData(area, result, m, first, wcIndex);
@@ -2473,6 +2476,7 @@ async function getDataFromServer(first) {
                 stopScript();
             }
         }
+        if (onStopped) return;
         if(NINA & m) {
             await processData(area, results, m, first, wcIndex);
         }
@@ -4134,4 +4138,5 @@ async function createStateCustomAsync(id, def, options) {
 *           ENDE
 /* ************************************************************************* */
 
-init();
+setTimeout(init, 10000);
+ticaLog(0,'Warte 10 Sekunden das bei einem eventuellen Restart alles beendet wurde!')
