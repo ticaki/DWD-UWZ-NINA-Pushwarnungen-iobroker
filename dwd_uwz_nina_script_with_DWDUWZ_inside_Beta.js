@@ -1,4 +1,4 @@
-//Version 0.99.29 Beta 4
+//Version 0.99.30 Beta 4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Das gilt solange die Version nicht im nächsten Abschnitt genannt wird, dann muß man auch die Konfiguration neumachen oder im Forum nach den Änderungen schauen.
@@ -674,12 +674,20 @@ for (let a = 0; a < konstanten.length; a++) {
 
 
 {
-    //testValueTypeLog(dwdWarncellId, 'dwdWarncellId', 'string');
     if (dwdWarncellId) {
         enableInternDWD = true;
         enableInternDWD2 = true;
         if (Array.isArray(dwdWarncellId)){
-            for(let a = 0; a < dwdWarncellId.length; a++) warncells[DWD].push({id:dwdWarncellId[a],text:'', area:''})
+            let b = 0;
+            for(let a = 0; a < dwdWarncellId.length; a++) {
+                b++
+                if (!dwdWarncellId[a]) {
+                    dwdWarncellId.splice(a--, 1)
+                    ticaLog(0,' var dwdWarncellId:  Eintrag ' + b + ' ist leer, wird entfernt')
+                } else {
+                    warncells[DWD].push({id:dwdWarncellId[a],text:'', area:''})
+                }
+            }
         } else warncells[DWD].push({id:dwdWarncellId, text:''});
     }
 
@@ -1947,6 +1955,7 @@ function checkWarningsMain(instant, hashForced) {
 function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
     if ((pushdienst & TELEGRAM) != 0) {
         ticaLog(4, 'send Msg with Telegram');
+        let edit = false;
         let nMsg = {text:''};
         if (entry) {
             if (msgFull && !msgFull.isLong && uTelegramReplyMarkupInline){
@@ -1966,10 +1975,13 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
         }
         if (uTelegramReplyMarkupInline && msgFull && msgFull.isAnswer) {
             let options = {}
+            edit = true
+            let tempMsg = getState(telegramInstanz + '.communicate.request').val
+            options.user = tempMsg.substring(1, tempMsg.indexOf(']'));
             options.chat_id = getState(telegramInstanz + ".communicate.requestChatId").val
             options.message_id = getState(telegramInstanz + ".communicate.requestMessageId").val
-            nMsg.editMessageText = {options}
             if (nMsg.reply_markup !== undefined) options.reply_markup = nMsg.reply_markup
+            nMsg.editMessageText = {options}
         }
 
 
@@ -1978,13 +1990,13 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
             nMsg.reply_markup.keyboard = uTelegramReplyMarkup.keyboard;
         }
         if (!uTelegramAllowNotification) nMsg.disable_notification = true;
-        if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser) {
+        if (!(telegramUser.length > 0 || telegramChatId.length > 0) || uTelegramUseStdUser || edit) {
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg, function(msg, opt) {
                 opt.text = msg;
                 _sendTo(TELEGRAM, telegramInstanz, opt);
             });
         }
-        if (telegramUser.length > 0) {
+        if (telegramUser.length > 0 && !edit) {
             let nMsg2 = cloneObj(nMsg);
             nMsg2.user = telegramUser.join(',');
             _sendSplitMessage(TELEGRAM, msg.slice(), nMsg2, function(msg, opt) {
@@ -1992,7 +2004,7 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                 _sendTo(TELEGRAM, telegramInstanz, opt);
             });
         }
-        if (telegramChatId.length > 0) {
+        if (telegramChatId.length > 0 && !edit) {
             let c = 0;
             telegramChatId.forEach(function(chatid) {
                 let nMsg2 = cloneObj(nMsg);
