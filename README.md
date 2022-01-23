@@ -91,6 +91,7 @@ ninaCoordinates = [] //   ninaCoordinates = [{breiten:51.2277, laengen:6.7735, t
 
 ### Konfigurationsparameter NACH dem ersten Start
 - DWD/UWZ/NINA muß gesetzt werden, ist alles deaktiviert.
+- Anschließend die Einstellungen unter 0_userdata.0.wetterwarnung.config.auto und  0_userdata.0.wetterwarnung.config.manuell kontrollieren. Mit diesen könnt ihr einstellen das z.B DWD über Alexa und Email ausgegeben wird, Nina hingegen nur über Email
 - Nach dem ersten Start werden Datenpunkte erstellt, die in Zukunft zur Konfiguration genutzt werden und die Werte im Skript überschreiben. Diese findet ihr unter config
 
 
