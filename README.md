@@ -3,36 +3,14 @@
 ## Support
 Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/217)
 
-## Änderungen
-Änderungen ab V0.96  
-- 0.96.1 eMail wird falsch dargestellt (behoben)  
-- 0.96.2 Logausgabe wird alle 5 Minuten erstellt (behoben)  
-- 0.96.3 Aufgehoben Meldung für einzelne Mitteilung wurde verschickt, wenn keine weitere nicht ignorierte Warnung vorhanden war. (Behoben) Allgemein gehaltene Entwarnung wird gesendet.
-- 0.96.3 Scriptfehler bei ausfiltert von Datensätzen (DWD UWZ)  Betrifft minlevel und Höhenangaben.
-- 0.97.0 Symbole zu Nachrichten hinzugefügt. Datenzweig .alert angepasst muß bei Update gelöscht werden.
-- 0.97.1 Fehler in Warnungsverlängerung behoben.
-- 0.97.2 Konfigurationsoption "const uFilterDuplicate" entfernt, kann ab 123456 kopiert werden.
-- 0.97.2 Aufgehobene Warnungen per Sprachausgabe hielten sich nicht an die Zeitschaltuhr.
-- 0.97.2.1 Doppeltes Symbole in aufgehobenen Einzelentwarnungen (Textnachricht) behoben.
-- 0.97.3 var konstanten angepasst. Bei Update bin übernehmen, sonst normales kopieren
-- s.o. Telegram & Pushover & Alexa & SayIt maximale Zeichenzahl hinzugefügt. Längere Nachrichten werden aufgeteilt.
-- s.o. Urls werden überprüft und verworfen, wenn sie nicht ins Muster passen.
-- 0.97.6.1 ups vergessen zu aktualiseren jetzt alles bis hier hin
-- s.o. Beschreibung und Handlungsanweisungen lassen sich ausschalten für Sprache und Textnachrichten
-- s.o. Telegram: Ww? hält sich an Textbegrenzungen. Wwww sendet Nachrichten in voller länge
-- s.o. Option um Sprachausgaben pro Zeichen zu begrenzen. Überschreitet die volle Nachricht dieses Limit wird Beschreiung und Anweisung weg gelassen.
-- s.o. Fehler: Zähler in Sprachausgabe gefixt
-- s.o. Sprachausgabefunktion umgebaut
-- 0.97.7.1 Konfigurationsoptionen hinzugefügt um Standard, lange und kurze Warnungen manuell zu versenden
-- 0.97.7.2 Email wurde nach manuellem Auslösen der neuen Versandformen nicht korrekt zurückgesetzt
 
 ## Scriptbeschreibung
-Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
-Für DWD und UWZ gibt es Datenpunkte um bei bestimmten Gefahren selbst gesteuerte Aktionen auszuführen. Letzteres nutze ich z.B. um bei Sturm/Regen und offenen Fenstern auf diese hinzuweisen.
+Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetterzentrale, der Zentralanstalt für Meteorologie und Geodynamik(Österreich) oder von Nina (Notfallinformationssystem der BRD) als Text oder Sprachausgabe über verschiedene Wege ausgeben. Dieses geschieht entweder automatisch nach dem Eintreffen oder nach Betätigen eines Schalters.
+Für DWD, Zamg und UWZ gibt es Datenpunkte um bei bestimmten Gefahren selbst gesteuerte Aktionen auszuführen. Letzteres nutze ich z.B. um bei Sturm/Regen und offenen Fenstern auf diese hinzuweisen.
 
 Unterstützt:
 - Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
-- DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter V0.0.22
+- DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter V0.0.22 sowie Standalone Datenabruf für DWD, NINA, UWZ und Zamg
 - Wetterwarnung
 - Wetterentwarnung
 
@@ -81,12 +59,39 @@ Bedeutung der Farben:
 - die Restlichen schalten für einen bestimmten Modus eine bestimmte Art an oder aus.
 4. Punkte unter manuell schalten für das manuelle Auslösen in einem bestimmten Modus die Möglichkeit an oder aus. (z.B. UWZ über alexa aber NINA nicht).
 
-### Vorbereitung bei der Verwendung von NINA
+### Vorbereitung bei der Verwendung von NINA bei Verwendung des externen Adapters
 - mindestens v0.0.22
 - in der Adapterkonfiguration diesen Punkt aktivieren: **Json der Warnung in den State rawJson speichern (erhöhter Speicherbedarf)**
 
+### Konfiguration bei Verwendung des Skript internen Datenabrufs für DWD, ZAMG, UWZ, NINA (keine anderen Adapter nötig)
+- für UWZ konfiguriert regionName. [['UWZ + DE + PLZ','Mein Ort']]
+```javascript
+var regionName          = [['','']];// var regionName = ['UWZDE13245', 'Entenhausen']
+```
+
+-die Warncelle ist die Zahl in der linken Spalte: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3
+```javascript
+// Standalone Datenquelle
+// entnehme ZAHL aus CSV
+/* nur Gemeinde/Landkreis/Großstädte werden verwendet: https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_warncellids_csv.csv?__blob=publicationFile&v=3 */
+var dwdWarncellId = ''; // Deaktivieren mit '' einzel: '2334535354' mehrere: ['23423424','23423423']
+```
+- Bei Zamg einfach die Koordinaten eingeben (müssen in Österreich liegen)
+```javascript
+// Koordinaten [{laengen:13.05501,breiten:47.80949}];.
+var zamgCoordinates = []; // [] ist deaktiviert
+var uZAMGMitMeteoinformationen = true; // gibt die Wetterinformationen mit der Beschreibung aus: z.B Eine Kaltfront und ein Italientief sorgen im Warnzeitraum...
+```
+- Für Nina ebenfalls die Koordinaten eingeben (müssen in Deutschland liegen)
+```javascript
+// für Nina gebt die Koordinaten für euren Ort ein.
+ninaCoordinates = [] //   ninaCoordinates = [{breiten:51.2277, laengen:6.7735, text:'dadrüben'}, {breiten:53.0511000, laengen:8.6309100, text:'Delmenhorst'}];
+
+```
+
 ### Konfigurationsparameter NACH dem ersten Start
 - DWD/UWZ/NINA muß gesetzt werden, ist alles deaktiviert.
+- Nach dem ersten Start werden Datenpunkte erstellt, die in Zukunft zur Konfiguration genutzt werden und die Werte im Skript überschreiben. Diese findet ihr unter config
 
 
 ## Konfigurationsparameter Script
@@ -118,9 +123,9 @@ z.B.
 uPushdienst+= TELEGRAM;
 ```
 ### Konfigurationsparameter Allgemein
-- Stellt uLogAusgabe auf false wenn alles so läuft wie ihr euch das vorstellt.
+- Stellt uLogAusgabe auf 0 wenn alles so läuft wie ihr euch das vorstellt.
 ```javascript
-var uLogAusgabe=        true; // auf false gibt es überhaupt keine Ausgabe beim normalen Betrieb.
+var uLogAusgabe=        2; // auf 0 gibt es überhaupt keine Ausgabe beim normalen Betrieb.
 ```
 - Mit Hilfe dieser Variablen bestimmt ihr ob Email, Textnachrichten oder Sprachnachrichten voreingestellt ohne Beschreibung (false) und/oder Anweisungen (false) versand werden.
 ```javascript
@@ -130,7 +135,12 @@ var uHtmlMitBeschreibung            = true; // gilt für Email
 var uHtmlMitAnweisungen             = true; // uHtmlMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
 var uTextMitBeschreibung            = true; // gilt nicht für Email, aber für alle anderen Textnachrichten
 var uTextMitAnweisungen             = true; // uTextMitBeschreibung muß evenfalls true sein um Anweisungen zu erhalten
+
+uTextHtmlMitOhneAlles               = false // diese beiden Optionen überschreiben alle oben getroffenen Einstellungen
+var uSpracheMitOhneAlles            = true;
 ```
+- MitOhneAlles folgendes Muster: Warnung vor *Typ*, für *Region*, Stufe: *Farbe*, *Tag* *Tageszeit*
+- Beispiel: Warnung vor Sturm für Köln, Stufe: gelb, heute abend
 
 ### Sprachausgabe weitere Einstellungen
 - Wenn die Sprachausgabe manuell ausgelöst wird, kann die Sprachausgabewarteschlage gelöscht (true) oder die abgerufenen Nachrichten angehangen werden (false).

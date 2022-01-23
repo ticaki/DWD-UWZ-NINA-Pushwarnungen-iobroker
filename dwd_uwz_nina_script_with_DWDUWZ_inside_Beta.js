@@ -1898,6 +1898,7 @@ function checkWarningsMain(instant, hashForced) {
             break;
             case 4:
             color = 'rot';
+            speakMsg = 'Achtung! Achtung! Lebensgefahr! ' + speakMsg
             break;
             case 5:
             default:
