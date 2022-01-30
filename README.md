@@ -51,6 +51,21 @@ Bedeutung der Farben:
 - 4 - Rot Unwetterwarnungen (Stufe 4).
 - 5 - Violett Warnungen vor extremem Unwetter (DWD -> Weltuntergang nach aktueller Erfahrung und Nina -> höchste Stufe
 
+## Vorbemerkung zur Konfigurationen
+Das Skript und die Dokumentation wurden zu erst nur für externe Adapter geschrieben, daher beziehen sich vieles auf die Zusammenarbeit mit diesen. Wenn ihr den integrierten Datenabruf verwenden wollt, findet ihr unter Objekten im Unterverzeichnis
+```
+0_userdata.0.wetterwarnung1.config.basiskonfiguration.warnzelle
+```
+Die Warnzellen die verwendet werden. Ihr könnt dort Warnzellen hinzufügen und entfernen. Im Unterschied zu allen anderen Datenpunkten die sich über die Objekte verändern lassen, überschreiben die Änderungen dort jedoch nicht die Einstellungen im Skript. Wenn das Skript gestartet wird, werden alle im Skript definierten Warnzellen dort eingetragen, anschließend werden alle dort eingetragenen Warnzellen vom Skript eingelesen und verwendet. Folglich könnt ihr keine Warnzellen löschen die im Skript definiert sind. Folgenden Variablen werden für die Definition von Warnzellen verwendet.
+
+```
+var dwdWarncellId = ''; // DWD
+var regionName          = [['','']]; // UWZ
+var zamgCoordinates = []; // ZAMG
+ninaCoordinates = [] //   NINA
+
+```
+
 ## Konfiguration in ioBroker/Objekte unter mainStatePath.config
 1. DWD/UWZ/NINA auf true stellen um den jeweiligen Modus zu aktiveren.
 2. Mode ist aus Kompatibilitätsgründen drin und kann als Zeichenkette UWZ usw enthalten.
