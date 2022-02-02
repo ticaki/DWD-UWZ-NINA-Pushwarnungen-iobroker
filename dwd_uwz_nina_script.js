@@ -1,4 +1,4 @@
-//Version 1.00
+//Version 1.01
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -339,7 +339,8 @@ var html_headline = '<tr><td style="padding: 5px 0 5px 0;"><b>' + '###headline##
 var html_message = '<tr><td style="padding: 5px 0 20px 0;">' + '###message###' + '</td></tr>';
 var html_end = '</table>';
 
-var ninaCoordinates = [];
+var ninaCoordinates;
+if (ninaCoordinates === undefined) ninaCoordinates = []
 if ( DEBUG_VARS) {
     ninaCoordinates = [{breiten:51.2277, laengen:6.7735, text:'dadrüben'}, {breiten:53.0511000, laengen:8.6309100, text:'Delmenhorst'}];
     zamgCoordinates = [{laengen:13.05501,breiten:47.80949},{breiten:46.6247200, laengen:14.3052800},{breiten:48.332741,laengen:14.62274}];
@@ -1881,9 +1882,8 @@ function checkWarningsMain(instant, hashForced) {
             speakMsg +=' vor ' + entry.typename;
         }
         speakMsg +=', ' + (entry.useAreaGroup ? entry.areaID : entry.areaGroup)
-        if (removed) return speakMsg;
-
-        speakMsg +=', Stufe ';
+        if (removed) speakMsg +='('
+        else speakMsg +=', Stufe ';
         let color = '';
         switch (entry.level) {
             case 0:
@@ -1905,6 +1905,7 @@ function checkWarningsMain(instant, hashForced) {
             color = 'violet';
         }
         speakMsg += color;
+        if (removed) return speakMsg + ')';
         let e = new Date(entry.start);
         let d = e.getDate() - new Date().getDate();
         let s = e.getHours();
@@ -1986,8 +1987,6 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
             nMsg.editMessageText = {options}
             log('editMessageText: Text:' + msg + ' hash:' + (entry ? entry.hash : 'null') )
         }
-
-
         if (!uTelegramReplyMarkupInline) {
             if (nMsg.reply_markup === undefined) nMsg.reply_markup = {};
             nMsg.reply_markup.keyboard = uTelegramReplyMarkup.keyboard;
@@ -2102,11 +2101,12 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
     // nur einmal pro Mitteilung aufrufen
     // Element 0 im Array muß immer vorhanden sein.
     function _speakTo(dienst, msg) {
-        if (_speakToInterval) clearInterval(_speakToInterval);
+
         _speakToArray = _addItem(_speakToArray, msg, dienst);
-        _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
+         if (_speakToInterval) return;
 
         _speakToInterval = setInterval(function() {
+             _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
             if (_speakToArray.length > 1) {
                 let entry = _speakToArray[1];
                 if (entry.startTimeSpeak <= new Date()) {
@@ -2133,15 +2133,13 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                     } else if (entry.dienst == ALEXA) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
-                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);//
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
                             ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
                     }
                     ticaLog(4, 'Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
                     _speakToArray.shift();
-                    _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
-
                 }
             } else clearInterval(_speakToInterval);
         }, 1000);

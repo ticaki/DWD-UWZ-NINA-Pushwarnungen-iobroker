@@ -63,7 +63,6 @@ var dwdWarncellId = ''; // DWD
 var regionName          = [['','']]; // UWZ
 var zamgCoordinates = []; // ZAMG
 ninaCoordinates = [] //   NINA
-
 ```
 
 ## Konfiguration in ioBroker/Objekte unter mainStatePath.config
