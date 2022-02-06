@@ -3175,8 +3175,8 @@ async function addWarncell(obj, i){
             ) {
                 for (let a = 0; a < warncells[MODES[i].mode].length; a++) warncells[MODES[i].mode][a].favorit = false;
                 warncells[MODES[i].mode][index].favorit = true;
-                warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('(#)','')
-                warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].text.replace('(#)','')
+                warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].area.replace('#','')
+                warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].text.replace('#','')
             }
             let sfavorit = false;
             for (let a = 0; a < warncells[MODES[i].mode].length; a++) if (warncells[MODES[i].mode][a].favorit) sfavorit = true;
