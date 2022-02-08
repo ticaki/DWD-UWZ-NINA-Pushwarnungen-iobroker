@@ -1,4 +1,4 @@
-//Version 1.02
+//Version 1.0.03
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -957,8 +957,8 @@ async function init() { // erster fund von create custom
             }
             await createStateCustomAsync(warncellid + '.refresh#',false ,{name: "Starte das Skript neu",type: "boolean", role: "button", read: true,write: true},);
             setTimeout( function(warncellid) {
-                on({id: warncellid + '.refresh#', change:'any'}, function(obj) {setState(obj.id, obj.state.val, true); startScript();});
-            }, 15000);
+                on({id: warncellid + '.refresh#', change:'any', ack:false}, function(obj) {startScript();});
+            }, 20000, warncellid);
         } catch(error) {
             ticaLog(0,'Fehler in CreateStates #2');
             ticaLog(0,error);
@@ -1220,7 +1220,7 @@ function subscribeStates() {// on() für alles unter config.auto
         onClickCheckRun = true;
         onClickCheckRunCmd = obj.id;
         if ((uPushdienst & SPEAK) != 0 && uManuellClickClearSpeakMessageList) _speakToArray = [{ speakEndtime: new Date() }];
-
+        ticaLog(1, 'Sendwarnings manuell uPushdienst: '  +uPushdienst)
         checkWarningsMain(true);
 
         uTextMitAnweisungen     = oldA;
@@ -1850,7 +1850,7 @@ function checkWarningsMain(instant, hashForced) {
         if (forceSpeak || compareTime(START, ENDE, 'between')) { // Ansage über Sayit nur im definierten Zeitbereich
             sendMessage(getPushModeFlag(collectMode) & SPEAK, '', pushMsg);
         }
-        ticaLog(4, 'all all:' + pushMsg + ' PUSH' + (getPushModeFlag(collectMode) & PUSH).toString(2) + ' ALLMSG:' + (getPushModeFlag(collectMode) & ALLMSG).toString(2));
+        ticaLog(4, 'all all:' + pushMsg + ' PUSH' + (getPushModeFlag(collectMode) & PUSH).toString(3) + ' ALLMSG:' + (getPushModeFlag(collectMode) & ALLMSG).toString(3));
 
         let topic = ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung');
         sendMessage(getPushModeFlag(collectMode) & PUSH, topic, pushMsg, );
@@ -2107,13 +2107,12 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
     }
     // nur einmal pro Mitteilung aufrufen
     // Element 0 im Array muß immer vorhanden sein.
-    function _speakTo(dienst, msg) {
-
+function _speakTo(dienst, msg) {
+        if (_speakToInterval) clearInterval(_speakToInterval);
         _speakToArray = _addItem(_speakToArray, msg, dienst);
-         if (_speakToInterval) return;
+        _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
 
         _speakToInterval = setInterval(function() {
-             _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
             if (_speakToArray.length > 1) {
                 let entry = _speakToArray[1];
                 if (entry.startTimeSpeak <= new Date()) {
@@ -2140,13 +2139,15 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
                     } else if (entry.dienst == ALEXA) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
-                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);//
+                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
-                            ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
+                             ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
                     }
                     ticaLog(4, 'Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
                     _speakToArray.shift();
+                    _speakToArray = _speakToArray.sort(function(a, b) { return a.startTimeSpeak - b.startTimeSpeak; });
+
                 }
             } else clearInterval(_speakToInterval);
         }, 1000);
