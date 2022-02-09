@@ -991,7 +991,6 @@ async function init() { // erster fund von create custom
         });
     }
 
-    try {
         for (let w = 0; w < warncells[DWD].length; w++) {
             for (let i = 0; i < numOfWarnings; i++) {
                 let p = internalDWDPath + warncells[DWD][w].id + internalWarningEnd + (i == 0 ? '' : i) + '.';
@@ -999,7 +998,12 @@ async function init() { // erster fund von create custom
                     if (onStopped) return;
                     let dp = statesDWDintern[a];
                     let id = p + dp.id;
-                    await createStateCustomAsync(id, dp.default,dp.options);
+                    try {
+                        await createStateCustomAsync(id, dp.default,dp.options);
+                    }
+                    catch (e) {
+                        ticaLog(0,'error in .data.dwd create ' + e, 'error');
+                    }
                 }
             }
         }
@@ -1009,7 +1013,12 @@ async function init() { // erster fund von create custom
                 for (let a = 0; a < statesUWZintern.length; a++) {
                     let dp = statesUWZintern[a];
                     let id = p + dp.id;
-                    await createStateCustomAsync(id, dp.default,dp.options);
+                    try {
+                        await createStateCustomAsync(id, dp.default,dp.options);
+                    }
+                    catch (e) {
+                        ticaLog(0,'error in .data.uwz create ' + e, 'error');
+                    }
                 }
             }
         }
@@ -1020,14 +1029,16 @@ async function init() { // erster fund von create custom
                     if (onStopped) return;
                     let dp = statesNINAintern[a];
                     let id = p + dp.id;
-                    await createStateCustomAsync(id, dp.default,dp.options);
+                    try {
+                        await createStateCustomAsync(id, dp.default,dp.options);
+                    }
+                    catch (e) {
+                        ticaLog(0,'error in .data.nina create ' + e, 'error');
+                    }
                 }
             }
         }
-    }
-    catch (e) {
-        ticaLog(0,'error in .data create ' + e, 'error');
-    }
+
     try {
         // MODE änderung über Datenpunkte string
         await createStateCustomAsync(configModeState, '', { read: true, write: true, desc: "Modusauswahl DWD, UWZ, Nina oder Zamg", type: "string"});
