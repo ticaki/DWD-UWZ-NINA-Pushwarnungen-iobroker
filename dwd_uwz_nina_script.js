@@ -1,4 +1,4 @@
-//Version 1.0.03
+//Version 1.0.04
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -325,7 +325,6 @@ var DEBUGINGORESTART = false // die Datenbank wird beim Start nicht befüllt Tes
 var uTelegramMessageShort = 'Ww?';
 var uTelegramMessageLong  = 'Wwww';
 
-
 // Aus diesen Elementen wird die html warnung zusammengesetzt.
 // Prefix wird als ersten eingefügt, dann mehrfach html_headline und html_message, wenn verfügbar. Zum Schluß kommt html_end
 // html_headline_color wird verwendet wenn eine Farbe angegeben ist und bildet hier die Hintergrundfarbe.
@@ -427,6 +426,7 @@ var _speakToArray = [{ speakEndtime: new Date() }]; // muß immer 1 Element enth
 var _speakToInterval = null;
 var deviceList = 		{};
 var onChangeTimeoutObj = {};
+var removeSchedule = null
 var onStopped = true;
 var setAlertStateTimeout = null;
 var ninaIdentifier = {};
@@ -1531,8 +1531,8 @@ function checkWarningsMain(instant, hashForced) {
     setWeekend();
     let DebugMail = '';
     if (DEBUGSENDEMAIL) {
-        for (a = 0; a < warnDatabase.new.length; a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new' + a, JSON.stringify(warnDatabase.new[a]));
-        for (a = 0; a < warnDatabase.old.length; a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old' + a, JSON.stringify(warnDatabase.old[a]));
+        for (let a = 0; a < warnDatabase.new.length; a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new' + a, JSON.stringify(warnDatabase.new[a]));
+        for (let a = 0; a < warnDatabase.old.length; a++) DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old' + a, JSON.stringify(warnDatabase.old[a]));
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.new.length', warnDatabase.new.length.toString(), null);
         DebugMail = buildHtmlEmail(DebugMail, 'warnDatabase.old.length', warnDatabase.old.length.toString(), null);
     }
@@ -1768,7 +1768,7 @@ function checkWarningsMain(instant, hashForced) {
                 if (isNewMessage && getPushModeFlag(mode) & EMAIL){
                     emailSend = true;
                 }
-                sendMessage(b, picture + getTopic(mode, level), html, entry, {isLong:isLong, isAnswer: hashForced && hashForced.isAnswer});
+                sendMessage(b, picture + getTopic(mode, level, false, entry.urgency), html, entry, {isLong:isLong, isAnswer: hashForced && hashForced.isAnswer});
                 todoBitmask &= ~b & ~EMAIL & ~STATE_HTML;
             }
             if (!isNewMessage) continue;
@@ -1799,7 +1799,7 @@ function checkWarningsMain(instant, hashForced) {
                 }
 
                 let b = getPushModeFlag(mode) & CANPLAIN & todoBitmask & PUSH;
-                sendMessage(b, picture + getTopic(mode, level) + SPACE + count, picture + pushMsg, entry, {isLong:isLong, isAnswer: hashForced && hashForced.isAnswer})
+                sendMessage(b, picture + getTopic(mode, level, false, entry.urgency) + SPACE + count, picture + pushMsg, entry, {isLong:isLong, isAnswer: hashForced && hashForced.isAnswer})
                 ticaLog(4, 'text new:' + pushMsg);
                 todoBitmask &= ~b;
             }
@@ -1808,7 +1808,7 @@ function checkWarningsMain(instant, hashForced) {
                 let speakMsg = '';
                 if ( !uSpracheMitOhneAlles || mode == NINA ) {
                     sTime = SPACE;
-                    speakMsg = getTopic(mode, level, true) + headline + getArtikelMode(mode, true) + area;
+                    speakMsg = getTopic(mode, level, true, entry.urgency) + headline + getArtikelMode(mode, true) + area;
                     if (entry.repeatCounter == 1 && !onClickCheckRun) {
                         speakMsg += ' wurde verlängert.';
                     } else {
@@ -1882,21 +1882,19 @@ function checkWarningsMain(instant, hashForced) {
     setState(totalWarningCountState, warnDatabase.new.length - ignoreWarningCount, true);
     warnDatabase.old = cloneObj(warnDatabase.new);
 
-    function getTopic(mode, level, s) {
+    function getTopic(mode, level, s, urg) {
         if (s == undefined) s = false;
+        let topic = mode === NINA ? 'Warnung' : 'Wetterwarnung';
+        if (urg !== undefined && urg == 1) topic = mode === NINA ? 'Vorwarnung' : 'Wettervorwarnung'
         let result = '';
-        if (mode !== NINA) {
-            result = (level >= attentionWarningLevel) ? 'Wichtige Wetterwarnung: ' : s ? '' : 'Wetterwarnung';
-        } else {
-            result = (level >= attentionWarningLevel) ? 'Gefahr Warnung: ' : s ? '' : 'Warnung';
-        }
+        result = (level >= attentionWarningLevel) ? 'Wichtige '+topic : s ? '' : topic;
         return result;
     }
     function getShortVersion(entry, removed) { // kurzform
         let speakMsg =''
         if (removed) speakMsg = entry.typename + 'warnung aufgehoben'
         else {
-            speakMsg = getTopic(entry.mode, entry.level)
+            speakMsg = getTopic(entry.mode, entry.level, false, entry.urgency)
             speakMsg +=' vor ' + entry.typename;
         }
         speakMsg +=', ' + (entry.useAreaGroup ? entry.areaID : entry.areaGroup)
@@ -2470,7 +2468,7 @@ async function getDataFromServer(first) {
                     if (error == undefined) {
                         ticaLog(1, 'getDataFromServer() 2. Fehler im Datenabruf ohne Errorlog')
                     } else if (error.response == undefined) {
-                        ticaLog(1, 'getDataFromServer() 3. ' + error);
+                        ticaLog(1, 'getDataFromServer() 3. ' + error + ' Maybe internet is down!', 'warn');
                     } else if (error.response.status == 404) {
                         ticaLog(1, 'getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
                     } else {
@@ -2573,7 +2571,7 @@ async function getDataFromServer(first) {
                 let tempOBJ = Object(thedata);
                 for (let a=0; a< tempOBJ.length; a++) {
                     let obj = tempOBJ[a];
-                    if (obj.info === undefined) continue;
+                    if (!obj || obj.info === undefined) continue;
                     for (let b=0; b<obj.info.length; b++) {
                         let info = obj.info[b];
                         if (info.area === undefined) continue;
@@ -3223,13 +3221,13 @@ async function getZamgName(lat, long) {
             })
             .catch(error => {
                 if (error == undefined) {
-                    ticaLog(1, 'testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                    ticaLog(1, 'getZamgName() 2. Fehler im Datenabruf ohne Errorlog')
                 } else if (error.response == undefined) {
-                    ticaLog(1, 'testValueDWD2() 3. ' + error);
+                    ticaLog(1, 'getZamgName() 3. ' + error + ' Maybe internet is down!', 'warn');
                 } else if (error.response.status == 404) {
-                    ticaLog(1, 'testValueDWD2() 4. ' + error.message);
+                    ticaLog(1, 'getZamgName() 4. ' + error.message);
                 } else {
-                    ticaLog(1, 'testValueDWD2() 5. ' + error.response.data);
+                    ticaLog(1, 'getZamgName() 5. ' + error.response.data);
                     ticaLog(1, error.response.status);
                     ticaLog(1, error.response.headers);
                 }
@@ -3266,7 +3264,7 @@ async function _testValueDWD2 (value) {
                 if (error == undefined) {
                     ticaLog(1, 'testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
                 } else if (error.response == undefined) {
-                    ticaLog(1, 'testValueDWD2() 3. ' + error);
+                    ticaLog(1, 'testValueDWD2() 3. ' + error + ' Maybe internet is down!', 'warn');
                 } else if (error.response.status == 404) {
                     ticaLog(1, 'testValueDWD2() 4. ' + error.message);
                 } else {
@@ -3305,13 +3303,13 @@ async function _testValueDWD2 (value) {
                 })
                 .catch(error => {
                     if (error == undefined) {
-                        ticaLog(1, 'testValueDWD2() 2. Fehler im Datenabruf ohne Errorlog')
+                        ticaLog(1, 'testValueDWD2() 6. Fehler im Datenabruf ohne Errorlog')
                     } else if (error.response == undefined) {
-                        ticaLog(1, 'testValueDWD2() 3. ' + error);
+                        ticaLog(1, 'testValueDWD2() 7. ' + error + ' Maybe internet is down!', 'warn');
                     } else if (error.response.status == 404) {
-                        ticaLog(1, 'testValueDWD2() 4. ' + error.message);
+                        ticaLog(1, 'testValueDWD2() 8. ' + error.message);
                     } else {
-                        ticaLog(1, 'testValueDWD2() 5. ' + error.response.data);
+                        ticaLog(1, 'testValueDWD2() 9. ' + error.response.data);
                         ticaLog(1, error.response.status);
                         ticaLog(1, error.response.headers);
                     }
@@ -3538,6 +3536,7 @@ function getDatabaseData(warn, mode){
         result['web'] 			= '';
         result['webname'] 		= '';
         result['picture']        = result.type === -1                ? ''    : warningTypesString[ZAMG][result.type][1];
+        result['urgency'] 			= 2;
         if (warningTypesString[ZAMG][result.type][0] == 'unbekannt') {
             ticaLog(0,'Bitte folgende Zeile im Forum posten. Danke', warn);
             ticaLog(0,'Unbekannter Typ: ' + result.type + ' Schlagzeile: ' + result.headline, warn);
@@ -3586,6 +3585,7 @@ function getDatabaseData(warn, mode){
         result['description']   = warn.DESCRIPTION === undefined 	? '' 	: warn.DESCRIPTION;
         result['headline']      = warn.HEADLINE === undefined 		? '' 	: warn.HEADLINE;
         result['instruction']   = warn.INSTRUCTION === undefined 	? '' 	: warn.INSTRUCTION;
+        result['urgency'] 		= warn.URGENCY === undefined || warn.URGENCY == 'Immediate' ? 2 : 1;
     } else if (mode === UWZ) {
         if (
             warn.payload === undefined
@@ -3613,6 +3613,7 @@ function getDatabaseData(warn, mode){
         result['webname'] 		= '';
         result['picture']        = result.type === -1                                    ? ''    : warningTypesString[UWZ][result.type][1];
         result['typename']       = result.type === -1                ? ''    : warningTypesString[result.mode][result.type][0];
+        result['urgency'] 			= 2;
         if ( result.level < minlevel ) {ticaLog(2, 'Level zu niedrig - Übergebenene Warnung UWZ verworfen');return null;}
     } else if (mode === NINA) {
         // level 2, 3, 4
@@ -3642,6 +3643,7 @@ function getDatabaseData(warn, mode){
         result['html']['headline'] 		= warn.headline === undefined 			      ? '' 	: warn.headline;
         result['html']['description'] 	= warn.description === undefined 		      ? '' 	: warn.description;
         result['picture']                = '';
+        result['urgency'] 			= 2;
         if ( result.level < minlevel ) { ticaLog(2, 'Übergebenene Warnung NINA verworfen. Level' + result.level + ' kleiner als minlevel ' + minlevel);return null;}
     }
     result['color']             = getLevelColor(result.level, mode);
@@ -3767,7 +3769,7 @@ function removeHtml(a) {
 // Abgelaufene Meldungen werden aufgeräumt.
 function activateSchedule() {
     if (removeSchedule) clearSchedule(removeSchedule);
-    var removeSchedule = schedule('30 */10 * * * *', function() {
+    removeSchedule = schedule('30 */10 * * * *', function() {
         if (onStopped) {
             if (removeSchedule) clearSchedule(removeSchedule);
             return;
@@ -4017,7 +4019,9 @@ onStop(function (callback) {
     onStopped = true;
     ticaLog(1, 'Skripts gestoppt: ID:' + randomID);
     if (standaloneInterval) clearInterval(standaloneInterval);
-    callback();
+    if (removeSchedule) clearSchedule(removeSchedule);
+
+    setTimeout(callback, 2000);
 })
 /* *************************************************************************
 * Restartfunktion
@@ -4054,7 +4058,7 @@ function ticaLog(loglevel, msg, channel){
         loglevel = 1
     }
     if (loglevel <= uLogLevel || loglevel == 0) {
-        if (channel=== undefined) channel = 'info';
+        if (channel === undefined) channel = 'info';
         let pre = '';
         switch (loglevel) {
             case 0:
@@ -4069,7 +4073,7 @@ function ticaLog(loglevel, msg, channel){
             pre = 'debug: '
             break
         }
-        log(pre + msg,channel);
+        log(pre + msg, channel);
     }
 }
 
@@ -4145,5 +4149,5 @@ async function createStateCustomAsync(id, def, options) {
 *           ENDE
 /* ************************************************************************* */
 
-setTimeout(init, 10000);
-ticaLog(0,'Warte 10 Sekunden das bei einem eventuellen Restart alles beendet wurde!')
+setTimeout(init, 15000);
+ticaLog(0,'Warte 15 Sekunden das bei einem eventuellen Restart alles beendet wurde!')
