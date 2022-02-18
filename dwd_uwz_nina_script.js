@@ -1,4 +1,4 @@
-//Version 1.0.04
+//Version 1.0.05
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -429,6 +429,7 @@ var onChangeTimeoutObj = {};
 var removeSchedule = null
 var onStopped = true;
 var setAlertStateTimeout = null;
+var setAlertStateCount = 0;
 var ninaIdentifier = {};
 var warncells = {};
 warncells[DWD] = [];
@@ -1279,8 +1280,6 @@ async function setAlertState(go = false) {
         setAlertStateTimeout = setTimeout(function(){setAlertState(true)},15000);
         return;
     }
-    var setAlertStateCount;
-    if (setAlertStateCount === undefined) setAlertStateCount = 0;
     if (++setAlertStateCount > 1) { // lasse keine mehrfach Aufrufe zu
         setAlertStateCount = 2;
         return;
@@ -1379,9 +1378,10 @@ async function setAlertState(go = false) {
         }
     }
     ticaLog(4, 'Alert States wurden gesetzt');
-    if (--setAlertStateCount > 1) { // rufe sich selbst auf, wenn während der Verarbeitung ein weiterer Aufruf stattfand
+    if (setAlertStateCount > 1) { // rufe sich selbst auf, wenn während der Verarbeitung ein weiterer Aufruf stattfand
+        setAlertStateCount = 0
         setAlertState();
-    }
+    } else setAlertStateCount = 0
 }
 
 function timeIsBetween(fTime,start,ende) {//Dateobjekt,hh:mm,hh:mm
@@ -2403,6 +2403,7 @@ async function getDataFromServer(first) {
     for (let a = 0; a < warncells[UWZ].length; a++) {
         if (enableInternUWZ)  await _getDataFromServer([internUWZUrl + warncells[UWZ][a].id], UWZ, first, warncells[UWZ][a].id, a);
     }
+
     for (let a = 0; a < warncells[ZAMG].length; a++) {
         let url = replacePlaceholder(internZamgUrl,warncells[ZAMG][a].laengen,warncells[ZAMG][a].breiten);
         await _getDataFromServer([url], ZAMG, first, warncells[ZAMG][a].text, a);
@@ -2411,39 +2412,8 @@ async function getDataFromServer(first) {
         //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
         await _getDataFromServer(internMowasUrl, NINA, first, '', 0);
     }
-    setTimeout( async function () {
-        let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
-        if (warnObjs.length>0) {
-            let countObj = {};
-            let mpath =  mainStatePath + 'data';
-            for (let a = 0; a < warnObjs.length;a++){
-                let id = warnObjs[a];
-                let has = false;
-                const theData = await getStateAsync(id);
-                if (theData && theData.val) {
-                    has = Object.entries(theData.val).length > 0;
-                }
-                let x = 0;
-                id = id.substr(0,id.lastIndexOf('.'));
-                while (mpath !== id && x++ <4) {
-                    id = id.substr(0,id.lastIndexOf('.'));
-                    countObj[id] = (countObj[id] === undefined ? 0 : countObj[id]) + (has ? 1 : 0);
-                }
-            }
-            for (let id in countObj) {
-                if (onStopped) return;
-                try {
-                    let nid = id + '.rawTotalWarnings'
-                    if (!extendedExists(nid)) {
-                        await createStateAsync(nid,{ read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
-                    }
-                    setState(nid, countObj[id], true);
-                } catch(e) {
-                    ticaLog(0,'Fehler in getDataFromServer()', 'error');
-                }
-            }
-        }
-    }, 2000);
+
+    writeRawWarningCount()
 
     async function _getDataFromServer(url, m, first, area, wcIndex) {
         ticaLog(2, 'Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : ' NINA')))) + ' Area: ' + area);
@@ -2794,12 +2764,9 @@ async function getDataFromServer(first) {
             tempObj[statesDWDintern[8].id] = warnObj.event || '';
             tempObj[statesDWDintern[9].id] = warnObj.type === undefined || warnObj.type === null ? -1 : parseInt(warnObj.type, 10);
             tempObj[statesDWDintern[10].id] = warnObj.EC_II === undefined || warnObj.EC_II === null ? -1 : parseInt(warnObj.EC_II, 10);
-            /*if (warnObj.type !== undefined && warnObj.type !== null) {
-                let land = enableInternDWD && (DWD & m) ? dwdBundesland : '';
-                tempObj[statesDWDintern[5].id] = 'https://www.dwd.de/DWD/warnungen/warnapp_gemeinden/json/warnungen_gemeinde_map_' + land + '_' + maps[warnObj.type] + '.png';
-            } else */{
-                tempObj[statesDWDintern[5].id] = '';
-            }
+
+            tempObj[statesDWDintern[5].id] = '';
+
             tempObj[statesDWDintern[11].id] = warnObj.URGENCY === undefined ? '' : warnObj.URGENCY;
             tempObj[statesDWDintern[12].id] = warnObj.RESPONSETYPE === undefined ? '' : warnObj.RESPONSETYPE;
             tempObj[statesDWDintern[13].id] = warnObj.CERTAINTY === undefined ? '' : warnObj.CERTAINTY;
@@ -2957,6 +2924,41 @@ async function getDataFromServer(first) {
         return result;
     }
 }
+
+async function writeRawWarningCount () {
+    let warnObjs = $('state(state.id=' + mainStatePath + 'data.*.object)');
+    if (warnObjs.length>0) {
+        let countObj = {};
+        let mpath =  mainStatePath + 'data';
+        for (let a = 0; a < warnObjs.length;a++){
+            let id = warnObjs[a];
+            let has = false;
+            const theData = await getStateAsync(id);
+            if (theData && theData.val) {
+                has = Object.entries(theData.val).length > 0;
+            }
+            let x = 0;
+            id = id.substr(0,id.lastIndexOf('.'));
+            while (mpath !== id && x++ <4) {
+                id = id.substr(0,id.lastIndexOf('.'));
+                countObj[id] = (countObj[id] === undefined ? 0 : countObj[id]) + (has ? 1 : 0);
+            }
+        }
+        for (let id in countObj) {
+            if (onStopped) return;
+            try {
+                let nid = id + '.rawTotalWarnings'
+                if (!extendedExists(nid)) {
+                    await createStateAsync(nid,{ read:true, write:false, type:'number', name:'Gesamtwarnungsanzahl der Unterebenen'});
+                }
+                setState(nid, countObj[id], true);
+            } catch(e) {
+                ticaLog(0,'Fehler in getDataFromServer()', 'error');
+            }
+        }
+    }
+}
+
 async function addWarncell(obj, i){
     let wc = '';
     let id = '';
