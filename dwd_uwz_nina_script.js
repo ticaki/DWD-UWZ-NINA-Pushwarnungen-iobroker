@@ -1,4 +1,4 @@
-//Version 1.0.05
+//Version 1.0.06
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -432,6 +432,7 @@ var setAlertStateTimeout = null;
 var setAlertStateCount = 0;
 var ninaIdentifier = {};
 var warncells = {};
+var blockGetDataFromServer = 0;
 warncells[DWD] = [];
 warncells[UWZ] = [];
 warncells[ZAMG] = [];
@@ -1284,13 +1285,12 @@ async function setAlertState(go = false) {
         setAlertStateCount = 2;
         return;
     }
-
     let mode = [MODES[0], MODES[1], MODES[3]];
     let sA = mainStatePath + 'alert.';
     let tempExistIds = [];
     for (let a = 0; a < mode.length; a++) {
-        if (!(MODE & mode[a].mode)) continue;
 
+        if (!(MODE & mode[a].mode)) continue;
         let stateAlertid = sA + mode[a].text.toLowerCase() + '.';
         for (let wcIndex = 0; wcIndex < warncells[mode[a].mode].length; wcIndex++) {
             let area = warncells[mode[a].mode][wcIndex].area;
@@ -2322,7 +2322,7 @@ function onChange(dp, mode) {
 /* ************************************************************************* */
 // Erstes befüllen der Database
 async function InitDatabase(first) {
-    ticaLog(4, 'InitDatabase() first: ' + first);
+    ticaLog(1, 'InitDatabase() - first run: ' + first);
     if (firstRun) {
         setState(totalWarningCountState, 0, true);
         warnDatabase = { new: [], old: [] };
@@ -2379,6 +2379,8 @@ async function getDataFromServer(first) {
         if (standaloneInterval) clearSchedule(standaloneInterval);
         return;
     }
+    if (blockGetDataFromServer > 6) blockGetDataFromServer = 0;
+    if (blockGetDataFromServer++ > 0) return;
     if (first === undefined) first = false;
     if (enableInternDWD2 && warncells[DWD].length == 0) {
         enableInternDWD2 = false;
@@ -2412,8 +2414,8 @@ async function getDataFromServer(first) {
         //internMowasUrl, warncells[NINA][a].laengen,warncells[NINA][a].breiten);
         await _getDataFromServer(internMowasUrl, NINA, first, '', 0);
     }
-
-    writeRawWarningCount()
+    await writeRawWarningCount()
+    blockGetDataFromServer = 0;
 
     async function _getDataFromServer(url, m, first, area, wcIndex) {
         ticaLog(2, 'Rufe Daten vom Server ab -' + (m & DWD ? ' DWD' : (UWZ & m ? ' UWZ' : (DWD2 & m ? ' DWD2' : (ZAMG & m ? ' ZAMG' : ' NINA')))) + ' Area: ' + area);
@@ -2624,8 +2626,9 @@ async function getDataFromServer(first) {
     function pointInPolygonwithDelay(polygon, point) {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
+            //log('Polygon auswertung Nina' + ++xyz)
             resolve(pointInPolygon (polygon, point));
-        }, 50);
+        }, 10);
     });
     }
     function pointInPolygon (polygon, point) {
