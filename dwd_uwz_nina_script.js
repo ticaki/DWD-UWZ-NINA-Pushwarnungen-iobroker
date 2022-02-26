@@ -1,4 +1,4 @@
-//Version 1.0.06
+//Version 1.0.07
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -405,6 +405,12 @@ var START = new Date();
 var ENDE = new Date();
 var idAlexa = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.announcement';
 var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.speak-volume';
+var idAlexaState = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.currentState'
+var idAlexaPause = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPause'
+var idAlexaPlay  = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPlay'
+var idAlexaTimeout = null;
+var idAlexaLastState = []
+
 var autoSendWarnings = true;
 var forceSpeak = false;
 var timer = null;
@@ -633,23 +639,23 @@ const stateAlert = // Änderungen auch in setAlertState() anpassen
 ];
 
 const configObj = {
-    0: {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[0].id, uHtmlMitBeschreibung, true)}, def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    1: {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[1].id, uHtmlMitAnweisungen, true)}, def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    2: {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[2].id, uTextMitBeschreibung, true)}, def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    3: {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[3].id, uTextMitAnweisungen, true)}, def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    4: {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[4].id, uHtmlMitAnweisungen, true)}, def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    5: {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[5].id, uSpracheMitBeschreibung, true)}, def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    6: {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[6].id, uSpracheMitOhneAlles, true)}, def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    7: {id: 'basiskonfiguration.auto-nachrichtenlänge.zamg.wetterinformationen', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[7].id, uZAMGMitMeteoinformationen, true)}, def: uZAMGMitMeteoinformationen,on: function(obj) {uZAMGMitMeteoinformationen = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    8: {id: 'basiskonfiguration.filter.level_minimum', typ:'number', setObj: async function (){setState(configObj.path + configObj[8].id, minlevel, true)}, def: minlevel,on: function(obj) {minlevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    9: {id: 'basiskonfiguration.filter.level_hervorheben', typ:'number', setObj: async function (){setState(configObj.path + configObj[9].id, attentionWarningLevel, true)}, def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    10: {id: 'basiskonfiguration.filter.mindest_höhe', typ:'number', setObj: async function (){setState(configObj.path + configObj[10].id, minhoehe, true)}, def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    11: {id: 'basiskonfiguration.filter.maximale_höhe', typ:'number', setObj: async function (){setState(configObj.path + configObj[11].id, maxhoehe, true)}, def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
-    12: {id: 'basiskonfiguration.log.erweitert', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[12].id, !!(uLogLevel & 2), true)}, def: !!(uLogLevel & 2),on: function(obj) {uLogLevel = switchFlags(uLogLevel,2,obj.state.val); setState(obj.id,!!(uLogLevel & 2),true);}},
-    13: {id: 'basiskonfiguration.log.debug', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[13].id, !!(uLogLevel & 4), true)}, def: !!(uLogLevel & 4),on: function(obj) {uLogLevel = switchFlags(uLogLevel,4,obj.state.val); setState(obj.id,!!(uLogLevel & 4),true);}},
-    14: {id: 'basiskonfiguration.log.ausgabe', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[14].id, !!(uLogLevel & 1), true)}, def: !!(uLogLevel & 1),on: function(obj) {uLogLevel = switchFlags(uLogLevel,1,obj.state.val); setState(obj.id,!!(uLogLevel & 1),true);}},
-    15: {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[15].id, !sendNoMessgesOnInit, true)}, def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}},
-    16: {id: 'basiskonfiguration.auto-nachrichtenlänge.erzwinge_kurzform_text_html', typ:'boolean', setObj: async function (){setState(configObj.path + configObj[6].id, uTextHtmlMitOhneAlles, true)}, def: uTextHtmlMitOhneAlles,on: function(obj) {uTextHtmlMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    0: {id: 'basiskonfiguration.auto-nachrichtenlänge.html.beschreibung', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[0].id, uHtmlMitBeschreibung, true)}, def: uHtmlMitBeschreibung, on: function(obj) {uHtmlMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    1: {id: 'basiskonfiguration.auto-nachrichtenlänge.html.anweisungen', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[1].id, uHtmlMitAnweisungen, true)}, def: uHtmlMitAnweisungen,on: function(obj) {uHtmlMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    2: {id: 'basiskonfiguration.auto-nachrichtenlänge.text.beschreibung', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[2].id, uTextMitBeschreibung, true)}, def: uTextMitBeschreibung,on: function(obj) {uTextMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    3: {id: 'basiskonfiguration.auto-nachrichtenlänge.text.anweisungen', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[3].id, uTextMitAnweisungen, true)}, def: uTextMitAnweisungen,on: function(obj) {uTextMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    4: {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.beschreibung', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[4].id, uHtmlMitAnweisungen, true)}, def: uSpracheMitBeschreibung,on: function(obj) {uSpracheMitBeschreibung = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    5: {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.anweisungen', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[5].id, uSpracheMitBeschreibung, true)}, def: uSpracheMitAnweisungen,on: function(obj) {uSpracheMitAnweisungen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    6: {id: 'basiskonfiguration.auto-nachrichtenlänge.sprache.erzwinge_kurzform', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[6].id, uSpracheMitOhneAlles, true)}, def: uSpracheMitOhneAlles,on: function(obj) {uSpracheMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    7: {id: 'basiskonfiguration.auto-nachrichtenlänge.zamg.wetterinformationen', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[7].id, uZAMGMitMeteoinformationen, true)}, def: uZAMGMitMeteoinformationen,on: function(obj) {uZAMGMitMeteoinformationen = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    8: {id: 'basiskonfiguration.filter.level_minimum', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[8].id, minlevel, true)}, def: minlevel,on: function(obj) {minlevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    9: {id: 'basiskonfiguration.filter.level_hervorheben', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[9].id, attentionWarningLevel, true)}, def: attentionWarningLevel,on: function(obj) {attentionWarningLevel = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    10: {id: 'basiskonfiguration.filter.mindest_höhe', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[10].id, minhoehe, true)}, def: minhoehe,on: function(obj) {minhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    11: {id: 'basiskonfiguration.filter.maximale_höhe', typ:'number', setObj: async function (){setStateAsync(configObj.path + configObj[11].id, maxhoehe, true)}, def: maxhoehe,on: function(obj) {maxhoehe = obj.state.val; setState(obj.id,obj.state.val,true);}},
+    12: {id: 'basiskonfiguration.log.erweitert', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[12].id, !!(uLogLevel & 2), true)}, def: !!(uLogLevel & 2),on: function(obj) {uLogLevel = switchFlags(uLogLevel,2,obj.state.val); setState(obj.id,!!(uLogLevel & 2),true);}},
+    13: {id: 'basiskonfiguration.log.debug', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[13].id, !!(uLogLevel & 4), true)}, def: !!(uLogLevel & 4),on: function(obj) {uLogLevel = switchFlags(uLogLevel,4,obj.state.val); setState(obj.id,!!(uLogLevel & 4),true);}},
+    14: {id: 'basiskonfiguration.log.ausgabe', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[14].id, !!(uLogLevel & 1), true)}, def: !!(uLogLevel & 1),on: function(obj) {uLogLevel = switchFlags(uLogLevel,1,obj.state.val); setState(obj.id,!!(uLogLevel & 1),true);}},
+    15: {id: 'basiskonfiguration.senden_bei_start', name:'Sende Nachrichten beim Script start', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[15].id, !sendNoMessgesOnInit, true)}, def: !sendNoMessgesOnInit,on: function(obj) {sendNoMessgesOnInit = !obj.state.val; setState(obj.id,obj.state.val,true);}},
+    16: {id: 'basiskonfiguration.auto-nachrichtenlänge.erzwinge_kurzform_text_html', typ:'boolean', setObj: async function (){setStateAsync(configObj.path + configObj[6].id, uTextHtmlMitOhneAlles, true)}, def: uTextHtmlMitOhneAlles,on: function(obj) {uTextHtmlMitOhneAlles = obj.state.val; setState(obj.id,obj.state.val,true);}},
     length: 17,
     path: mainStatePath + 'config.'
 };
@@ -908,13 +914,13 @@ async function init() { // erster fund von create custom
     try {
 
         // State der Pushnachrichten über pushover / telegram spiegelt
-        if (!extendedExists(mirrorMessageState)) {
+        if (!await existsStateAsync(mirrorMessageState)) {
             createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
         }
-        if (!extendedExists(mirrorMessageStateHtml)) {
+        if (!await existsStateAsync(mirrorMessageStateHtml)) {
             await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
         }
-        if (!extendedExists(totalWarningCountState)) {
+        if (!await existsStateAsync(totalWarningCountState)) {
             await createStateAsync(totalWarningCountState,  { read: true, write: false, desc: "Anzahl der aktiven Warnung nach Filter", type: "number", def:0});
         }
     }
@@ -1067,7 +1073,7 @@ async function init() { // erster fund von create custom
         for (let a = 0; a < MODES.length; a++) {
             let tok = MODES[a].text.toLowerCase();
             let id = mainStatePath + 'config.' + tok;
-            if (!extendedExists(id)) {
+            if (!await existsStateAsync(id)) {
                 let mi = !!(MODE & MODES[a].mode);
                 await createStateCustomAsync(id, mi, { read: true, write: true, desc: "Aktivere " + tok.toUpperCase() + '.', type: "boolean" });
             }
@@ -1088,18 +1094,18 @@ async function init() { // erster fund von create custom
         await createStateCustomAsync(id, true, { read: true, write: true, desc: "Aktivere automatischen Push bei eintreffen der Warnungen.", type: "boolean" });
 
         autoSendWarnings = getState(id).val;
-        setState(id, !!(autoSendWarnings), true);
+        await setStateAsync(id, !!(autoSendWarnings), true);
 
         for (let a = 0; a < configObj.length; a++) {
             if (onStopped) return;
             let p = mainStatePath + 'config.' + configObj[a].id
-            if (!extendedExists(p)) {
+            if (!await existsStateAsync(p)) {
                 let n = configObj[a].name !== undefined ? configObj[a].name : configObj[a].id;
                 let def = configObj[a].def;
                 await createStateAsync(p, {read:true, write:true, def: def, type:configObj[a].typ, name:n});
             }
             if (scriptOverrides) {
-                configObj[a].setObj();
+                await configObj[a].setObj();
             } else {
                 const v = await getStateAsync(p);
                 configObj[a].on({id:p, state:{val:v.val}});
@@ -1109,16 +1115,16 @@ async function init() { // erster fund von create custom
         // Nachrichtenversand per Click States/ config. und auto . erzeugen und subscript
         for (let a = 0; a < konstanten.length; a++) {
             if ((uPushdienst & konstanten[a].value) != 0) {
-                if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name)) {
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name)) {
                     await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name, { read: true, write: true, desc: "Gebe Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
                 }
-                if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_short')) {
                     await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_short', { read: true, write: true, desc: "Gebe Kurzwarnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
                 }
-                if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_long')) {
                     await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_long', { read: true, write: true, desc: "Gebe lange Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
                 }
-                if (!extendedExists(mainStatePath + 'commands.' + konstanten[a].name + '_veryshort')) {
+                if (!await existsStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_veryshort')) {
                     await createStateAsync(mainStatePath + 'commands.' + konstanten[a].name + '_veryshort', { read: true, write: true, desc: "Gebe sehr kurze Warnungen auf dieser Schiene aus", type: "boolean", role: "button", def: false });
                 }
                 for (let x = 0; x < MODES.length; x++) {
@@ -1308,8 +1314,8 @@ async function setAlertState(go = false) {
                 }
 
                 tempExistIds.push(stateAlertIdFull);
-                if (!extendedExists(stateAlertIdFull + stateAlert[0].name) || getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
-                    (AlertIndex > -1 && (!extendedExists(stateAlertIdFull + stateAlert[9].name) || getState(stateAlertIdFull + stateAlert[9].name).val != warnDatabase.new[AlertIndex].hash))) {
+                if (!await existsStateAsync(stateAlertIdFull + stateAlert[0].name) || getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
+                    (AlertIndex > -1 && (!await existsStateAsync(stateAlertIdFull + stateAlert[9].name) || getState(stateAlertIdFull + stateAlert[9].name).val != warnDatabase.new[AlertIndex].hash))) {
                     let cwarn = false;
                     if (AlertIndex > -1) {
                         let start = warnDatabase.new[AlertIndex].start ? new Date(warnDatabase.new[AlertIndex].start) : new Date(new Date().setHours(new Date().getHours() - 2));
@@ -1343,7 +1349,7 @@ async function setAlertState(go = false) {
                         data[10] = (AlertIndex > -1 ? (warnDatabase.new[AlertIndex].ec_ii_type !== undefined ? warnDatabase.new[AlertIndex].ec_ii_type : -1) : -1)
                         for (let index=0; index < data.length; index++) {
                             if (onStopped) return;
-                            if ( extendedExists(stateAlertIdFull + stateAlert[index].name)) setState(stateAlertIdFull + stateAlert[index].name, data[index], true)
+                            if (await extendedExistsAsync(stateAlertIdFull + stateAlert[index].name)) await setStateAsync(stateAlertIdFull + stateAlert[index].name, data[index], true)
                             else {
                                 try {
                                     await createStateCustomAsync(stateAlertIdFull + stateAlert[index].name, data[index], stateAlert[index].type);
@@ -1372,7 +1378,7 @@ async function setAlertState(go = false) {
             if (tempDelIds[i].includes(a)) return true;
         })
         try {
-            if (t == -1 && extendedExists(tempDelIds[i])) await deleteStateAsync(tempDelIds[i]);
+            if (t == -1 && await existsStateAsync(tempDelIds[i])) await deleteStateAsync(tempDelIds[i]);
         } catch (e) {
             ticaLog(0, 'Fehler setAlertState(): id' + tempDelIds[i], 'error')
         }
@@ -2126,7 +2132,7 @@ function _speakTo(dienst, msg) {
                 let entry = _speakToArray[1];
                 if (entry.startTimeSpeak <= new Date()) {
                     if (entry.part > 1) entry.msg = 'Teil ' + entry.part + ':  ' + entry.msg;
-                    let nTime = new Date(new Date().getTime() + (deviceList[entry.dienst].delay * (entry.msg + _getMsgCountString(_speakToArray, entry.dienst)).length));
+                    let nTime = new Date(new Date().getTime() + (deviceList[entry.dienst].delay * (entry.msg + _getMsgCountString(_speakToArray, entry.dienst)).length)+1900);
                     let value = nTime.getTime() - new Date(entry.endTimeSpeak).getTime();
                     for (let a = 1; a < _speakToArray.length; a++) {
                         if (entry.dienst == _speakToArray[a].dienst) {
@@ -2149,6 +2155,18 @@ function _speakTo(dienst, msg) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
                             if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+                            if (extendedExists(replacePlaceholder(idAlexaState, idAlexaSerial[a]))
+                                && getState(replacePlaceholder(idAlexaState, idAlexaSerial[a])).val) {
+                                idAlexaLastState[a] = true
+                                setState(replacePlaceholder(idAlexaPause, idAlexaSerial[a]), true)
+                            }
+                            if (idAlexaLastState[a]) {
+                                if (idAlexaTimeout) clearTimeout(idAlexaTimeout)
+                                idAlexaTimeout = setTimeout(function(a){
+                                    setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
+                                    idAlexaLastState[a] = false;
+                                }, nTime.getTime() - new Date().getTime() + 500, a)
+                            }
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
                              ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
@@ -2742,7 +2760,7 @@ async function getDataFromServer(first) {
             try {
                 for (a = 0; a < statesDWDintern.length; a++) {
                     let dp = statesDWDintern[a];
-                    if (extendedExists(baseChannelId + dp.id))  setState(baseChannelId + dp.id, tempObj[dp.id], true);
+                    if (extendedExists(baseChannelId + dp.id)) await setStateAsync(baseChannelId + dp.id, tempObj[dp.id], true);
                 }
             } catch (e) {
                 ticaLog(0, 'Fehler in SetState() #1 ' + e +' index' + a)
@@ -2965,6 +2983,7 @@ async function writeRawWarningCount () {
 async function addWarncell(obj, i){
     let wc = '';
     let id = '';
+    let restart = false;
     let wcname = ''
     if ((typeof(obj) === 'object')) {
         if (obj.state.ack) return;
@@ -2972,6 +2991,7 @@ async function addWarncell(obj, i){
         i = MODES.findIndex((a) => a.text.toLowerCase() == e[e.length-2])
         wc = obj.state.val
         id = obj.id;
+        restart = true;
     } else {
         wc = obj;
     }
@@ -3027,7 +3047,7 @@ async function addWarncell(obj, i){
             wcname = warncells[UWZ][index].text;
             warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
             if (!wcname) {
-                if (extendedExists(warncellid)) {
+                if (await existsStateAsync(warncellid)) {
                     wcname = getObject(warncellid).common.name;
                 }
             }
@@ -3082,7 +3102,7 @@ async function addWarncell(obj, i){
             }
             warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
             if (!wcname) {
-                if (extendedExists(warncellid)) {
+                if (await existsStateAsync(warncellid)) {
                     wcname = getObject(warncellid).common.name;
                 }
             }
@@ -3099,7 +3119,7 @@ async function addWarncell(obj, i){
                     if (onStopped) return;
                     let dp = statesZAMGintern[a];
                     let id = p + dp.id;
-                    if (!extendedExists(id)) {
+                    if (!await existsStateAsync(id)) {
                         await createStateAsync(id, dp.options,);
                     }
                 }
@@ -3136,7 +3156,7 @@ async function addWarncell(obj, i){
             wcname = warncells[NINA][index].text;
             warncellid += MODES[i].text.toLowerCase() +'.'+ wc;
             if (!wcname) {
-                if (extendedExists(warncellid)) {
+                if (await existsStateAsync(warncellid)) {
                     wcname = getObject(warncellid).common.name;
                 }
             }
@@ -3171,7 +3191,7 @@ async function addWarncell(obj, i){
         return;
     }
     if (index != -1) warncells[MODES[i].mode][index].area = warncells[MODES[i].mode][index].text
-    if (!extendedExists(warncellid)) {
+    if (!await existsStateAsync(warncellid)) {
         await createStateCustomAsync(warncellid, wcname, {name: wcname,type: "string",def:wcname, read: true,write: true},);
     } else {
         if (getObject(warncellid).common.type !== 'string') {
@@ -3181,7 +3201,7 @@ async function addWarncell(obj, i){
                     def:wcname
                 }
             })
-            setState(warncellid, wcname, true);
+            await setStateAsync(warncellid, wcname, true);
         } else {
             warncells[MODES[i].mode][index].area = getState(warncellid).val;
             if (warncells[MODES[i].mode][index].text === undefined) warncells[MODES[i].mode][index].text = warncells[MODES[i].mode][index].area
@@ -4040,6 +4060,10 @@ onStop(function (callback) {
 function extendedExists(id) {
     return (id) && ($(id).length > 0) && (existsState(id));
 }
+
+async function extendedExistsAsync(id) {
+    return (id) && ($(id).length > 0) && (existsStateAsync(id));
+}
 /* *************************************************************************
 * Erstellung von States incl. 0_userdata & Zugehöriges
 *           ENDE
@@ -4144,9 +4168,9 @@ async function createStateCustomAsync(id, def, options) {
         break;
     }
     if (options.def !== undefined) def = undefined
-    if (!extendedExists(id)) {
+    if (!await existsStateAsync(id)) {
         await createStateAsync(id, options);
-        if (def !== undefined) setState(id, def, true);
+        if (def !== undefined) await setStateAsync(id, def, true);
     }
 }
 /* *************************************************************************
