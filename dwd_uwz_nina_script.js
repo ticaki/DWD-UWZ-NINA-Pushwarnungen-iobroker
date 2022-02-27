@@ -1,4 +1,4 @@
-//Version 1.0.09
+//Version 1.0.10
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -232,6 +232,7 @@ var sayItVolumen        = [30]; // gleiche Anzahl wie idSayIt
 /* mehrere Einträge möglich, bei mir ging nur der Echo, 2 dots 2.Gen reagieren nicht auf announcement. */
 var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var idAlexaSerial =['G090RV32984110Y', 'G090RV32984110Y']
 var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
+alexaMultiroomParentsOff = false; // pausiere alle mit den IDs verknüpfte Multiroomgruppen
 
 // Filtereinstellungen über Objekte einstellen
 var minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden; (DWD und Nina level 1-4  / UWZ 0-5)
@@ -408,6 +409,7 @@ var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.vo
 var idAlexaState = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.currentState'
 var idAlexaPause = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPause'
 var idAlexaPlay  = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPlay'
+var idAlexaParents = alexaInstanz +  '.Echo-Devices.' + placeHolder + '.Info.multiroomParents'
 var idAlexaLastState = []
 
 var autoSendWarnings = true;
@@ -458,6 +460,8 @@ if (uTextHtmlMitOhneAlles === undefined)  uTextHtmlMitOhneAlles = false;
 
 var uTelegramReplyMarkupInline
 if (uTelegramReplyMarkupInline === undefined) uTelegramReplyMarkupInline = false;
+
+var alexaMultiroomParentsOff
 
 // Warning types
 var warningTypesString = [];
@@ -2153,11 +2157,21 @@ function _speakTo(dienst, msg) {
                         }
                     } else if (entry.dienst == ALEXA) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
+                            if (idAlexaLastState[a].ids === undefined) idAlexaLastState[a].ids = {}
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
+                            let textids = getState(replacePlaceholder(idAlexaParents, idAlexaSerial[a])).val
+                            if (textids) var ids = textids.split(',')
                             if (extendedExists(replacePlaceholder(idAlexaState, idAlexaSerial[a]))
                                 && getState(replacePlaceholder(idAlexaState, idAlexaSerial[a])).val) {
                                 idAlexaLastState[a].play = true
                                 setState(replacePlaceholder(idAlexaPause, idAlexaSerial[a]), true)
+                            } else if (alexaMultiroomParentsOff && Array.isArray(ids)) {
+                                for (let b=0; b<ids.length;b++) {
+                                    if (idAlexaLastState[a].ids[ids[b]] === undefined && getState(replacePlaceholder(idAlexaState, ids[b])).val) {
+                                        idAlexaLastState[a].ids[ids[b]] = true;
+                                        setState(replacePlaceholder(idAlexaPause, ids[b]), true)
+                                    }
+                                }
                             }
                             if (alexaVolumen[a] && extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
                                 if (idAlexaLastState[a].volumen === undefined) idAlexaLastState[a].volumen = getState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a])).val
@@ -2168,7 +2182,17 @@ function _speakTo(dienst, msg) {
                             idAlexaLastState[a].timeout = setTimeout(function(a){
                                 if (idAlexaLastState[a].play) setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
                                 if (alexaVolumen[a] && idAlexaLastState[a].volumen !== undefined && idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
-                                idAlexaLastState[a] = {};
+                                let textids = getState(replacePlaceholder(idAlexaParents, idAlexaSerial[a])).val
+                                ids = [];
+                                if (alexaMultiroomParentsOff && textids) {
+                                     ids = textids.split(',')
+                                    for (let b=0; b<ids.length;b++) {
+                                        if (idAlexaLastState[a].ids[ids[b]]) {
+                                            setState(replacePlaceholder(idAlexaPlay, ids[b]), true)
+                                        }
+                                    }
+                                }
+                                idAlexaLastState[a] = {ids:{}};
                             }, nTime.getTime() - new Date().getTime() + 500, a)
 
                             if (alexaVolumen[a]) setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
