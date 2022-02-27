@@ -325,6 +325,7 @@ var DEBUGINGORESTART = false // die Datenbank wird beim Start nicht befüllt Tes
 var uTelegramMessageShort = 'Ww?';
 var uTelegramMessageLong  = 'Wwww';
 
+
 // Aus diesen Elementen wird die html warnung zusammengesetzt.
 // Prefix wird als ersten eingefügt, dann mehrfach html_headline und html_message, wenn verfügbar. Zum Schluß kommt html_end
 // html_headline_color wird verwendet wenn eine Farbe angegeben ist und bildet hier die Hintergrundfarbe.
@@ -2154,20 +2155,20 @@ function _speakTo(dienst, msg) {
                     } else if (entry.dienst == ALEXA) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
-                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
-                                if (idAlexaLastState[a].volumen === undefined) idAlexaLastState[a].volumen = getState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a])).val
-                                setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
-                            }
                             if (extendedExists(replacePlaceholder(idAlexaState, idAlexaSerial[a]))
                                 && getState(replacePlaceholder(idAlexaState, idAlexaSerial[a])).val) {
                                 idAlexaLastState[a].play = true
                                 setState(replacePlaceholder(idAlexaPause, idAlexaSerial[a]), true)
                             }
+                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
+                                if (idAlexaLastState[a].volumen === undefined) idAlexaLastState[a].volumen = getState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a])).val
+                                if (idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+                            }
                             if (idAlexaLastState[a].timeout) clearTimeout(idAlexaLastState[a].timeout)
 
                             idAlexaLastState[a].timeout = setTimeout(function(a){
                                 if (idAlexaLastState[a].play) setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
-                                if (idAlexaLastState[a].volumen !== undefined) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
+                                if (idAlexaLastState[a].volumen !== undefined && idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
                                 idAlexaLastState[a] = {};
                             }, nTime.getTime() - new Date().getTime() + 500, a)
 
