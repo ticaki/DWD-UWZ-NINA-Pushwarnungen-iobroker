@@ -1,4 +1,4 @@
-//Version 1.0.07
+//Version 1.0.08
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -404,11 +404,10 @@ statesIntern[NINA].path = internalMowasPath
 var START = new Date();
 var ENDE = new Date();
 var idAlexa = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.announcement';
-var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.speak-volume';
+var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.volume';
 var idAlexaState = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.currentState'
 var idAlexaPause = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPause'
 var idAlexaPlay  = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPlay'
-var idAlexaTimeout = null;
 var idAlexaLastState = []
 
 var autoSendWarnings = true;
@@ -810,6 +809,7 @@ for (let a = 0; a < konstanten.length; a++) {
                 ticaLog(0,'Alexa - Serial ' + idAlexaSerial[a] + ' ist fehlerhaft. Überpüfen! Object ID:' + replacePlaceholder(idAlexa, idAlexaSerial[a]), 'error');
                 stopScript(scriptName);
             }
+            idAlexaLastState[a] = {}
         }
     }
 
@@ -2154,19 +2154,23 @@ function _speakTo(dienst, msg) {
                     } else if (entry.dienst == ALEXA) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
-                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
+                                if (idAlexaLastState[a].volumen === undefined) idAlexaLastState[a].volumen = getState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a])).val
+                                setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
+                            }
                             if (extendedExists(replacePlaceholder(idAlexaState, idAlexaSerial[a]))
                                 && getState(replacePlaceholder(idAlexaState, idAlexaSerial[a])).val) {
-                                idAlexaLastState[a] = true
+                                idAlexaLastState[a].play = true
                                 setState(replacePlaceholder(idAlexaPause, idAlexaSerial[a]), true)
                             }
-                            if (idAlexaLastState[a]) {
-                                if (idAlexaTimeout) clearTimeout(idAlexaTimeout)
-                                idAlexaTimeout = setTimeout(function(a){
-                                    setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
-                                    idAlexaLastState[a] = false;
-                                }, nTime.getTime() - new Date().getTime() + 500, a)
-                            }
+                            if (idAlexaLastState[a].timeout) clearTimeout(idAlexaLastState[a].timeout)
+
+                            idAlexaLastState[a].timeout = setTimeout(function(a){
+                                if (idAlexaLastState[a].play) setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
+                                if (idAlexaLastState[a].volumen !== undefined) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
+                                idAlexaLastState[a] = {};
+                            }, nTime.getTime() - new Date().getTime() + 500, a)
+
                             setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
                              ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
