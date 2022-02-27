@@ -267,7 +267,7 @@ var scriptOverrides = false; // Die Einstellung im Skript überschreiben bei jed
 // Die Geschwindigkeit gibt an wie lange das Skript wartet bevor es eine neue Nachricht an die Sprachausgabe sendet.
 konstanten[3].delay /*SayIt*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
 konstanten[4].delay /*Home24*/      = 90; // Vorlese Geschwindigkeit pro Zeichen in ms
-konstanten[5].delay /*Alexa*/       = 86; // Vorlese Geschwindigkeit pro Zeichen in ms
+konstanten[5].delay /*Alexa*/       = 88; // Vorlese Geschwindigkeit pro Zeichen in ms
 
 // Mit diesen Optionen verringert man die Nachrichtenlänge in dem Beschreibung oder Handlungsanweisungen
 // nicht der Nachricht hinzugefügt werden.
