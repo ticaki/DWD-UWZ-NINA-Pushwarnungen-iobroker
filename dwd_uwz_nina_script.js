@@ -1,4 +1,4 @@
-//Version 1.0.08
+//Version 1.0.09
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -324,7 +324,6 @@ var DEBUGINGORESTART = false // die Datenbank wird beim Start nicht befüllt Tes
 
 var uTelegramMessageShort = 'Ww?';
 var uTelegramMessageLong  = 'Wwww';
-
 
 // Aus diesen Elementen wird die html warnung zusammengesetzt.
 // Prefix wird als ersten eingefügt, dann mehrfach html_headline und html_message, wenn verfügbar. Zum Schluß kommt html_end
@@ -2160,7 +2159,7 @@ function _speakTo(dienst, msg) {
                                 idAlexaLastState[a].play = true
                                 setState(replacePlaceholder(idAlexaPause, idAlexaSerial[a]), true)
                             }
-                            if (extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
+                            if (alexaVolumen[a] && extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
                                 if (idAlexaLastState[a].volumen === undefined) idAlexaLastState[a].volumen = getState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a])).val
                                 if (idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
                             }
@@ -2168,12 +2167,12 @@ function _speakTo(dienst, msg) {
 
                             idAlexaLastState[a].timeout = setTimeout(function(a){
                                 if (idAlexaLastState[a].play) setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
-                                if (idAlexaLastState[a].volumen !== undefined && idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
+                                if (alexaVolumen[a] && idAlexaLastState[a].volumen !== undefined && idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
                                 idAlexaLastState[a] = {};
                             }, nTime.getTime() - new Date().getTime() + 500, a)
 
-                            setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
-                             ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
+                            if (alexaVolumen[a]) setState(replacePlaceholder(idAlexa, idAlexaSerial[a]), entry.msg + _getMsgCountString(_speakToArray, entry.dienst));
+                            ticaLog(2,'Dienst: ' + replacePlaceholder(idAlexa, idAlexaSerial[a]) + ' Nachricht: ' + entry.msg + _getMsgCountString(_speakToArray, entry.dienst))
                         }
                     }
                     ticaLog(4, 'Länge der auszugebenen Sprachnachricht: ' + (entry.endTimeSpeak.getTime() - entry.startTimeSpeak));
