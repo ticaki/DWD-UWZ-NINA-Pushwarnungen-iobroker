@@ -1,4 +1,4 @@
-//Version 1.0.10
+//Version 1.0.11
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -2159,8 +2159,9 @@ function _speakTo(dienst, msg) {
                         for (let a = 0; a < idAlexaSerial.length; a++) {
                             if (idAlexaLastState[a].ids === undefined) idAlexaLastState[a].ids = {}
                             // Wenn auf Gruppe, keine Lautstärkenregelung möglich
-                            let textids = getState(replacePlaceholder(idAlexaParents, idAlexaSerial[a])).val
-                            if (textids) var ids = textids.split(',')
+                            let textids = extendedExists(replacePlaceholder(idAlexaParents, idAlexaSerial[a])) ? getState(replacePlaceholder(idAlexaParents, idAlexaSerial[a])).val : null
+                            let ids = null
+                            if (textids) ids = textids.split(',')
                             if (extendedExists(replacePlaceholder(idAlexaState, idAlexaSerial[a]))
                                 && getState(replacePlaceholder(idAlexaState, idAlexaSerial[a])).val) {
                                 idAlexaLastState[a].play = true
@@ -2182,10 +2183,10 @@ function _speakTo(dienst, msg) {
                             idAlexaLastState[a].timeout = setTimeout(function(a){
                                 if (idAlexaLastState[a].play) setState(replacePlaceholder(idAlexaPlay, idAlexaSerial[a]), true)
                                 if (alexaVolumen[a] && idAlexaLastState[a].volumen !== undefined && idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), idAlexaLastState[a].volumen);
-                                let textids = getState(replacePlaceholder(idAlexaParents, idAlexaSerial[a])).val
-                                ids = [];
+                                let textids = extendedExists(replacePlaceholder(idAlexaParents, idAlexaSerial[a])) ? getState(replacePlaceholder(idAlexaParents, idAlexaSerial[a])).val : null
+                                let ids = [];
                                 if (alexaMultiroomParentsOff && textids) {
-                                     ids = textids.split(',')
+                                    ids = textids.split(',')
                                     for (let b=0; b<ids.length;b++) {
                                         if (idAlexaLastState[a].ids[ids[b]]) {
                                             setState(replacePlaceholder(idAlexaPlay, ids[b]), true)
