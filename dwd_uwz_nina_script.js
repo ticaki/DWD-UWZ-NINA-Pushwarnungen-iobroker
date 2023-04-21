@@ -1,8 +1,10 @@
-//Version 1.0.11
+//Version 1.1.0
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
 //
+// 1.1.0 Neue Konfigurationsoption ganzes Skript ersetzten, für Fortgeschrittene von Zeile 89-144 sind in diesem Skript änderungen in der Config.
+//          - State Plain enthält alle aktiven Warnungen in reinem Text.
 /*
 /* ************************************************************************* */
 /*             Script zum Übertragen der DWD/UWZ-Wetterwarnungen über        */
@@ -94,7 +96,8 @@ var konstanten = [
     {"name":'alexa',"value":32, count:0, delay:0, maxChar: 940},
     {"name":'state',"value":64},
     {"name":'iogo',"value":128, maxChar: 940, count: 0, delay: 300},
-    {"name":'state_html',"value":256}
+    {"name":'state_html',"value":256},
+    {"name":'state_plain',"value":512}
 ];
 const TELEGRAM = konstanten[0].value;
 const PUSHOVER = konstanten[1].value;
@@ -105,6 +108,7 @@ const ALEXA = konstanten[5].value;
 const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
 const STATE_HTML = konstanten[8].value;
+const STATE_PLAIN = konstanten[9].value;
 var uPushdienst = 0;
 const DWD = 1;
 const UWZ = 2;
@@ -136,6 +140,7 @@ if (extendedExists(aliveState)) {
 //uPushdienst+= STATE;             // Auskommentieren zum aktivieren. State befindet sich unter mainStatePath.message
 //uPushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
 //uPushdienst+= STATE_HTML;        // Auskommentieren zum aktivieren. State_html befindet sich unter mainStatePath.messageHtml als Tabelle
+//uPushdienst+= STATE_PLAIN;        // Auskommentieren zum aktivieren. States mit allen aktivien Warnungen
 
 /* ************************************************************************* */
 /*                 Beispiele zur weiteren Konfiguration                      */
@@ -365,13 +370,14 @@ checkConfigVariable('DWD2');
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
 const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
-const ALLMSG = EMAIL | STATE_HTML;
+const ALLMSG = EMAIL | STATE_HTML | STATE_PLAIN;
 const ALLMODES = DWD | UWZ | NINA | ZAMG;
 const CANHTML = EMAIL + STATE_HTML;
-const CANPLAIN = PUSH + EMAIL;
+const CANPLAIN = PUSH + EMAIL + STATE_PLAIN;
 const placeHolder = 'XXXXPLACEHOLDERXXXX';
 const configModeState = mainStatePath + 'config.mode';
 const mirrorMessageState = mainStatePath + 'message';
+const mirrorMessageStateFull = mainStatePath + 'messagePlain';
 const mirrorMessageStateHtml = mainStatePath + 'messageHtml';
 const totalWarningCountState = mainStatePath + 'totalWarnings';
 const SPACE = ' ';
@@ -920,6 +926,9 @@ async function init() { // erster fund von create custom
         // State der Pushnachrichten über pushover / telegram spiegelt
         if (!await existsStateAsync(mirrorMessageState)) {
             createStateAsync(mirrorMessageState, { read: true, write: false, desc: "State der für jede Warnung neu geschrieben wird", type: "string", def:'' });
+        }
+        if (!await existsStateAsync(mirrorMessageStateFull)) {
+            createStateAsync(mirrorMessageStateFull, { read: true, write: false, desc: "State der alle aktuellen Warnungen enthält", type: "string", def:'' });
         }
         if (!await existsStateAsync(mirrorMessageStateHtml)) {
             await createStateAsync(mirrorMessageStateHtml,  { read: true, write: false, desc: "State mit dem selben Inhalt wie die Email", type: "string", def:'' });
@@ -1647,6 +1656,7 @@ function checkWarningsMain(instant, hashForced) {
     let collectMode = 0;
     let emailHtmlWarn = '';
     let emailHtmlClear = '';
+    let emailPlainEmail = '';
     let emailSend = onClickCheckRun;
     collectMode = 0;
     let debugdata = '';
@@ -1783,11 +1793,13 @@ function checkWarningsMain(instant, hashForced) {
             }
             if (!isNewMessage) continue;
             // Plain text
+
             if ((getPushModeFlag(mode) & CANPLAIN & todoBitmask) != 0) {
                 let pushMsg = '';
                 if (uTextHtmlMitOhneAlles) {
                     pushMsg = getShortVersion(entry);
                     if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, pushMsg, '', color, false);
+                    if (todoBitmask & (EMAIL | STATE_PLAIN)) emailPlainEmail += pushMsg + SPACE
                 } else {
                     pushMsg = headline + getArtikelMode(mode) + area;
                     if (entry.repeatCounter == 1 && !onClickCheckRun) {
@@ -1804,6 +1816,7 @@ function checkWarningsMain(instant, hashForced) {
                     }
                     // Anzahl Meldungen erst am Ende zu email hinzufügen
                     if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
+                    if (todoBitmask & (EMAIL | STATE_PLAIN)) emailPlainEmail += getArtikelMode(mode) + area + ':' + pushMsg + SPACE
                     /* ab Level 4 zusätzlicher Hinweis */
                     if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 }
@@ -1847,7 +1860,9 @@ function checkWarningsMain(instant, hashForced) {
         }
     }
     if (DEBUGSENDEMAIL) DebugMail = buildHtmlEmail(DebugMail, 'Index Mode Hash Index-old Flags ignored', debugdata, null);
-
+    if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && emailPlainEmail) {
+        sendMessage(getPushModeFlag(collectMode) & STATE_PLAIN, (gefahr ? "Wichtige Warnungen" : "Warnungen") + getArtikelMode(collectMode) + "(iobroker)", emailPlainEmail);
+    }
     if ((getPushModeFlag(collectMode) & ALLMSG) != 0 && (emailHtmlWarn + emailHtmlClear) && emailSend) {
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, (emailHtmlClear ? 'Aufgehobene Warnungen' : null), emailHtmlClear, 'silver', false);
         emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, null, getStringWarnCount(null, warnDatabase.new.length), null, true);
@@ -1876,6 +1891,7 @@ function checkWarningsMain(instant, hashForced) {
         let topic = ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung');
         sendMessage(getPushModeFlag(collectMode) & PUSH, topic, pushMsg, );
         sendMessage(getPushModeFlag(collectMode) & ALLMSG, topic + getArtikelMode(collectMode) + '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
+        sendMessage(getPushModeFlag(collectMode) & STATE_PLAIN, topic + getArtikelMode(collectMode) + "(iobroker)", pushMsg);
     }
     if (DEBUGSENDEMAIL) {
         let a;
@@ -2088,6 +2104,11 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
     if ((pushdienst & STATE) != 0) {
         setState(mirrorMessageState, msg, true);
     }
+
+    if ((pushdienst & STATE_PLAIN) != 0) {
+        setState(mirrorMessageStateFull, msg, true);
+    }
+
     if ((pushdienst & STATE_HTML) != 0) {
         setState(mirrorMessageStateHtml, msg, true);
     }
@@ -2477,7 +2498,6 @@ async function getDataFromServer(first) {
                     if (results === undefined) ticaLog(0,'results === undefined')
                     if (results.status == 200) {
                         return results.data
-
                     } else {
                         ticaLog(1,'getDataFromServer() 1. Status: ' + results.status);
                     }
