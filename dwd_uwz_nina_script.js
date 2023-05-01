@@ -1,4 +1,4 @@
-//Version 1.1.0
+//Version 1.1.2
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -411,7 +411,7 @@ statesIntern[NINA].path = internalMowasPath
 var START = new Date();
 var ENDE = new Date();
 var idAlexa = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.announcement';
-var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.volume';
+var idAlexaVolumen = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Commands.speak-volume';
 var idAlexaState = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.currentState'
 var idAlexaPause = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPause'
 var idAlexaPlay  = alexaInstanz + '.Echo-Devices.' + placeHolder + '.Player.controlPlay'
