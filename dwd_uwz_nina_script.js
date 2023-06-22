@@ -1,4 +1,4 @@
-//Version 1.1.2
+//Version 1.1.3
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -386,7 +386,7 @@ const axios = require('axios');
 var numOfWarnings = 5;
 var enableInternDWD = false;
 var enableInternDWD2 = false;
-const internDWDUrl='https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json';
+//const internDWDUrl='https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json';
 const internDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.2.0&CQL_FILTER=WARNCELLID%20IN%20(%27'+ placeHolder +'%27)&request=GetFeature&typeName=dwd%3AWarnungen_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
 const interngetNameDWD2Url = 'https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=1.2.0&CQL_FILTER=WARNCELLID%20IN%20(%27'+ placeHolder +'%27)&request=GetFeature&typeName=dwd%3AWarngebiete_Gemeinden&maxFeatures=50&outputFormat=application%2Fjson';
 var internalDWDPath = mainStatePath + 'data.dwd.';
@@ -489,6 +489,7 @@ warningTypesString[DWD] = [
 {
     let tempwarningTypesString = [
         ['Gewitter', 31,32,33,34,35,36,37,38,39,40,41,91,92,93,94,95,96],//31-49, 91-96
+        ['Gewitter+', 48],
         ['Sturm', 51,52,53,54,55,56,57,58],//51-58
         ['Regen', 61,62,63,64,65,66],//61-66
         ['Schnee', 70,71,72,73,74,75,76,77,78],//71 - 78
@@ -696,7 +697,7 @@ for (let a = 0; a < konstanten.length; a++) {
 
 {
     if (dwdWarncellId) {
-        enableInternDWD = true;
+        enableInternDWD = false;
         enableInternDWD2 = true;
         if (Array.isArray(dwdWarncellId)){
             let b = 0;
@@ -2456,11 +2457,11 @@ async function getDataFromServer(first) {
         ticaLog(0,'DWD deaktivieren, keine Warncell vorhanden');
     } else if (!enableInternDWD2 && warncells[DWD].length > 0) {
         enableInternDWD2 = true;
-        enableInternDWD = true;
+        enableInternDWD = false;
         ticaLog(0,'DWD aktivieren, Warncell vorhanden');
     }
     for (let a = 0; a < warncells[DWD].length; a++) {
-        if (warncells[DWD][a][DWD2] === undefined)  await _getDataFromServer([internDWDUrl], DWD, first, warncells[DWD][a].id, a);
+        //if (warncells[DWD][a][DWD2] === undefined)  await _getDataFromServer([internDWDUrl], DWD, first, warncells[DWD][a].id, a);
         if (warncells[DWD][a][DWD] === undefined) await _getDataFromServer([replacePlaceholder(internDWD2Url, warncells[DWD][a].id)], DWD2, first, warncells[DWD][a].id, a);
     }
     if (enableInternUWZ && warncells[UWZ].length == 0) {
@@ -2509,7 +2510,7 @@ async function getDataFromServer(first) {
                     } else if (error.response == undefined) {
                         ticaLog(1, 'getDataFromServer() 3. ' + error + ' Maybe internet is down!', 'warn');
                     } else if (error.response.status == 404) {
-                        ticaLog(1, 'getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg);
+                        ticaLog(1, 'getDataFromServer() 4. ' + error.message + ' ' + error.response.data.msg + ' url:' + url);
                     } else {
                         ticaLog(1, 'getDataFromServer() 5. ')
                         ticaLog(1, error.response.data);
@@ -2546,12 +2547,16 @@ async function getDataFromServer(first) {
                 let jsonString = String(thedata);
                 let newString = jsonString.replace('warnWetter.loadWarnings(', '');
                 newString = newString.replace(/\);$/sg, ''); // damit findet es diesen String nur am Ende
+                try {
                 let tOBJ = JSON.parse(newString);
                 if (tOBJ.warnings.hasOwnProperty(area)) {
                     warncells[DWD][wcIndex][DWD] = true;
                     newOBJ = tOBJ.warnings[area];
                 }
                 else newOBJ = [];
+                } catch(e) {
+                    console.warn('Fehlerhaftes Json: ' + e)
+                }
             } else if (UWZ & m) {
                 newOBJ = thedata.results;
                 if (newOBJ.length) newOBJ.sort((a, b) => b.severity - a.severity);
@@ -3641,7 +3646,8 @@ function getDatabaseData(warn, mode){
         if (result.ec_ii_type != -1) {
             if (warningTypesString[DWD2][result.ec_ii_type] === undefined) {
                 ticaLog(0,'Bitte das Json im Forum posten: EC: ' + warningTypesString[DWD2][result.ec_ii_type] ,'warn')
-                ticaLog(0, warn, 'warn');
+                ticaLog(0, JSON.stringify(warn), 'warn');
+                result.type = -1
             } else {
                 result.type = warningTypesString[DWD2][String(result.ec_ii_type)];
                 result['picture']        = result.type === -1                ? ''    : warningTypesString[DWD][result.type][1];
