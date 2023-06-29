@@ -1,4 +1,4 @@
-//Version 1.1.3
+//Version 1.1.4
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -1516,11 +1516,11 @@ function setWeekend() {
     let weekend = 0;
     weekend = (n === 0 || n == 6) ? 1 : 0;
     if (weekend == 1) { // wenn Wochenende, dann setze Start auf 9h, sonst 6:45h
-        START = convertStringToDate(startTimeSpeakWeekend);
+        START = startTimeSpeakWeekend ? convertStringToDate(startTimeSpeakWeekend) : 0;
     } else {
-        START = convertStringToDate(startTimeSpeak);
+        START = startTimeSpeak ? convertStringToDate(startTimeSpeak) : 0;
     }
-    ENDE = convertStringToDate(endTimeSpeak);
+    ENDE = endTimeSpeak ? convertStringToDate(endTimeSpeak) : 0;
 }
 // Hilsfunktion
 function convertStringToDate(s) {
