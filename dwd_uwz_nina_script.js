@@ -1,4 +1,4 @@
-//Version 1.1.4
+//Version 1.1.5
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -3294,7 +3294,7 @@ async function getZamgName(lat, long) {
                 if (results.status == 200) {
                     return results.data
                 } else {
-                    ticaLog(1,'testValueDWD2() 1. Status: ' + results.status);
+                    ticaLog(1,'getZamgName() 1. Status: ' + results.status);
                     return undefined;
                 }
             })
@@ -3360,6 +3360,8 @@ async function _testValueDWD2 (value) {
             && result.features[0].properties.KURZNAME))
         {
             let city = result.features[0].properties.KURZNAME
+            if (city.indexOf('.') != -1) city = result.features[0].properties.NAME
+
             if (value[a].single === undefined) {
                 warncells[DWD][a].text = city
                 ticaLog(1, 'DWD Warncell-Id: ' + warncells[DWD][a].id + ' gefunden: '+ warncells[DWD][a].text );
