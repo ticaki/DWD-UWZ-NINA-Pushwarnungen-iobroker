@@ -1,4 +1,4 @@
-//Version 1.1.5
+//Version 1.1.6
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -488,8 +488,7 @@ warningTypesString[DWD] = [
 ];
 {
     let tempwarningTypesString = [
-        ['Gewitter', 31,32,33,34,35,36,37,38,39,40,41,91,92,93,94,95,96],//31-49, 91-96
-        ['Gewitter+', 48],
+        ['Gewitter', 31,32,33,34,35,36,37,38,39,40,41,91,92,93,94,95,96,48],//31-49, 91-96
         ['Sturm', 51,52,53,54,55,56,57,58],//51-58
         ['Regen', 61,62,63,64,65,66],//61-66
         ['Schnee', 70,71,72,73,74,75,76,77,78],//71 - 78
