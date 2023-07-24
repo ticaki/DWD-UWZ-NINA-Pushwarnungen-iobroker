@@ -1,4 +1,4 @@
-//Version 1.1.5.b
+//Version 1.1.5.c
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -1841,7 +1841,7 @@ function checkWarningsMain(instant, hashForced) {
                     }
                     // Anzahl Meldungen erst am Ende zu email hinzufügen
                     if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
-                    if (todoBitmask & (EMAIL | STATE_PLAIN)) emailPlainEmail += headline + getArtikelMode(mode) + area + ':' + pushMsg + SPACE
+                    if (todoBitmask & (EMAIL | STATE_PLAIN)) emailPlainEmail += pushMsg + SPACE
                     /* ab Level 4 zusätzlicher Hinweis */
                     if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 }
