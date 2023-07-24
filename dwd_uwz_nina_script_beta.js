@@ -1,4 +1,4 @@
-//Version 1.1.5.a
+//Version 1.1.5.b
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -1338,11 +1338,12 @@ async function setAlertState(go = false) {
                 for (let c = 0; c < warnDatabase.new.length; c++) {
                     let entry = warnDatabase.new[c];
                     let typ = entry.type
-                    if (entry.hasOwnProperty('EC_II') 
-                        && specialWarningTypesString.hasOwnProperty(entry.EC_II) 
-                        && specialWarningTypesString[entry.EC_II][b] === true) 
+                    if (entry.hasOwnProperty('ec_ii_type') 
+                        && specialWarningTypesString.hasOwnProperty(entry.ec_ii_type) 
+                        && specialWarningTypesString[entry.ec_ii_type][b] === true) 
                     {
                         typ = b
+                        log('wer ist das:' + b + ' area:' + entry.area)
                     }
                     if (entry.mode == mode[a].mode && typ == b && entry.level > AlertLevel && entry.area == area && !entry.ignored) {
                         AlertLevel = warnDatabase.new[c].level;
@@ -1840,7 +1841,7 @@ function checkWarningsMain(instant, hashForced) {
                     }
                     // Anzahl Meldungen erst am Ende zu email hinzufügen
                     if (todoBitmask & (EMAIL | STATE_HTML)) emailHtmlWarn = buildHtmlEmail(emailHtmlWarn, headline + getArtikelMode(mode) + area + ':', pushMsg, color, false);
-                    if (todoBitmask & (EMAIL | STATE_PLAIN)) emailPlainEmail += getArtikelMode(mode) + area + ':' + pushMsg + SPACE
+                    if (todoBitmask & (EMAIL | STATE_PLAIN)) emailPlainEmail += headline + getArtikelMode(mode) + area + ':' + pushMsg + SPACE
                     /* ab Level 4 zusätzlicher Hinweis */
                     if (warnDatabase.new.length > 1) pushMsg += getStringWarnCount(count, warnDatabase.new.length);
                 }
@@ -1914,8 +1915,8 @@ function checkWarningsMain(instant, hashForced) {
 
         let topic = ((collectMode & NINA || !collectMode) ? 'Entwarnungen' : 'Wetterentwarnung');
         sendMessage(getPushModeFlag(collectMode) & PUSH, topic, pushMsg, );
-        sendMessage(getPushModeFlag(collectMode) & ALLMSG, topic + getArtikelMode(collectMode) + '(iobroker)', buildHtmlEmail('', pushMsg, null, 'silver', true));
-        sendMessage(getPushModeFlag(collectMode) & STATE_PLAIN, topic + getArtikelMode(collectMode) + "(iobroker)", pushMsg);
+        sendMessage(getPushModeFlag(collectMode) & ALLMSG & CANHTML, '', buildHtmlEmail('', topic + getArtikelMode(collectMode) + '(iobroker)', pushMsg, 'silver', true));
+        sendMessage(getPushModeFlag(collectMode) & ALLMSG & CANPLAIN, topic + getArtikelMode(collectMode) + "(iobroker)", pushMsg);
     }
     if (DEBUGSENDEMAIL) {
         let a;
@@ -3658,7 +3659,7 @@ function getDatabaseData(warn, mode){
             why += (warn.ALTITUDE && warn.ALTITUDE * 0.3048 > maxhoehe) ? 'Höhenlage der Warnung ist zu hoch - ':'';
             why += (getCapLevel(warn.SEVERITY) < minlevel) ? 'Level zu niedrig - ':'';
             why += (warn.CEILING && warn.CEILING * 0.3048 < minhoehe) ? 'Höhenlage der Warnung ist zu niedrig - ':'';
-            ticaLog(2, why + 'Übergebenene Warnung UWZ verworfen');
+            ticaLog(2, why + 'Übergebenene Warnung DWD2 verworfen');
             return null;
         }
         result['mode'] = DWD;
@@ -3851,15 +3852,15 @@ function getLevelColor(level, typ) {
 // gibt Nina level zurück
 function getCapLevel(str, type) {
     let ninaLevel = [
-        'Minor',
-        'Moderate',
-        'Severe',
-        'Extreme'
+        'minor',
+        'moderate',
+        'severe',
+        'extreme'
     ]
     let offset = 1;
     // Hochwassser ist immer Severe das ist im Vergleich denke ich zu hoch.
     //if (type == 'Hochwasserinformation') offset = 0;
-    return ninaLevel.indexOf(str) + offset;
+    return ninaLevel.indexOf(str.toLowerCase()) + offset;
 }
 
 function removeHtml(a) {
