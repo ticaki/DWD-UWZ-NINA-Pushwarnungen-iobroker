@@ -14,8 +14,8 @@ Mit diesem Script kannst du Warnungen des Deutschen Wetterdienstes, der Unwetter
 Für DWD, Zamg und UWZ gibt es Datenpunkte um bei bestimmten Gefahren selbst gesteuerte Aktionen auszuführen. Letzteres nutze ich z.B. um bei Sturm/Regen und offenen Fenstern auf diese hinzuweisen.
 
 Unterstützt:
-- Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder ioGo
-- DWD-Adapter & Unwetterzentrale-Script & NINA-Adapter V0.0.22 sowie Standalone Datenabruf für DWD, NINA, UWZ und Zamg
+- Telegram, Pushover, Home24-Mediaplayer, SayIt, Alexa, Datenpunkt, eMail oder Whatsapp
+- Standalone Datenabruf für DWD, NINA, UWZ und Zamg
 - Wetterwarnung
 - Wetterentwarnung
 
@@ -29,13 +29,12 @@ Funktionen:
 - Konfigurationsprüfung soweit möglich
 - Automodus und einzelne Pushdienste über iobroker schaltbar, sowohl für Automodus als auch Manuell
 - Optimierte Sprachausgabe
-- Fingerweg vom .alive state :)
 
 Kleinkram:
 - Sprachausgabe: Sturmdetails werden ausgefiltert oder korrekt ausgesprochen (konfigurierbar)
 - Sprachausgabe: Pause zwischen dem Absenden der einzelnen Warnungen an die Wiedergabeeinheit konfigurierbar.
 - Manuelle Sprachnachrichten können die Zeitschaltuhr missachten. (konfigurierbar)
-- Multi-User/Device bei fast allen Pushdiensten verfügbar (außer Datenpunkt & pushover)
+- Multi-User/Device bei fast allen Pushdiensten verfügbar (außer Datenpunkt & pushover & whatsapp)
 - Autorestart bei Datenpunkterstellung
 - Alexa und SayIt mit Lautstärkeeinstellung. Alexagruppen unterstützen keine Lautstärke trotzdem konfigurieren.
 - Zusätzliche Hervorhebung konfigurierbar über attentionWarningLevel (im Betreff/Ansage)
@@ -46,29 +45,27 @@ Dank an:
 - Mic für die createUserStates() Funktionen
 - CruziX der diese eingebaut hat.
 - crunchip, sigi234, Latzi fürs Testen und Ideen
-- die ursprünglichen Authoren s.o.
+- die ursprünglichen Authoren s.o. (im Skript)
 
 Bedeutung der Farben:
 - 0 - Grün
-- 1 - Dunkelgrün
+- 1 - Dunkelgrün (wobei tails entfernt)
 - 2 - Gelb Wetterwarnungen (Stufe 2)
 - 3 - Orange Warnungen vor markantem Wetter (Stufe 3)
 - 4 - Rot Unwetterwarnungen (Stufe 4).
 - 5 - Violett Warnungen vor extremem Unwetter (DWD -> Weltuntergang nach aktueller Erfahrung und Nina -> höchste Stufe
 
 ## Vorbemerkung zur Konfigurationen
+Update: Das Skript wird in Zukunft keine externen Adapter mehr benötigen oder unterstützen.
 Das Skript und die Dokumentation wurden zu erst nur für externe Adapter geschrieben, daher beziehen sich vieles auf die Zusammenarbeit mit diesen. Wenn ihr den integrierten Datenabruf verwenden wollt, findet ihr unter Objekten im Unterverzeichnis
 ```
 0_userdata.0.wetterwarnung1.config.basiskonfiguration.warnzelle
 ```
 Die Warnzellen die verwendet werden. Ihr könnt dort Warnzellen hinzufügen und entfernen. Im Unterschied zu allen anderen Datenpunkten die sich über die Objekte verändern lassen, überschreiben die Änderungen dort jedoch nicht die Einstellungen im Skript. Wenn das Skript gestartet wird, werden alle im Skript definierten Warnzellen dort eingetragen, anschließend werden alle dort eingetragenen Warnzellen vom Skript eingelesen und verwendet. Folglich könnt ihr keine Warnzellen löschen die im Skript definiert sind. Folgenden Variablen werden für die Definition von Warnzellen verwendet.
 
-```
-var dwdWarncellId = ''; // DWD
-var regionName          = [['','']]; // UWZ
-var zamgCoordinates = []; // ZAMG
-ninaCoordinates = [] //   NINA
-```
+Update: Das wird alles über Datenpunkte erledigt
+
+
 
 ## Konfiguration in ioBroker/Objekte unter mainStatePath.config
 1. DWD/UWZ/NINA auf true stellen um den jeweiligen Modus zu aktiveren.
