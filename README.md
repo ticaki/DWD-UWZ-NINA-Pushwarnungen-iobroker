@@ -1,5 +1,10 @@
 # DWD-UWZ-NINA-Pushwarnungen-iobroker
 
+# Vorbemerkung
+Diese Anleitung ist schon seit längerem nicht überarbeitet worden, daher nicht ganz aktuell.
+Das Skript mit dem anhang beta, wird zur dieser Zeit (08/2023) überarbeitet, da gibt es immer wieder unkommentierte Änderungen. Die Konfiguration wird in diesem ebenfalls immer mal wieder angepasst, so das ein einfaches Copy&Paste nicht ausreicht. Könnt ihr gerne testen, aber es ist expliziert eher ALPHA als beta.
+
+
 ## Support
 Supportthread: [Iobroker Forum](https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/217)
 
