@@ -1,4 +1,4 @@
-//Version 1.1.6
+//Version 1.1.7
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -2197,6 +2197,7 @@ function _speakTo(dienst, msg) {
                             }
                             if (alexaVolumen[a] && extendedExists(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]))) {
                                 if (idAlexaLastState[a].volumen === undefined) idAlexaLastState[a].volumen = getState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a])).val
+                                idAlexaLastState[a].volumen = idAlexaLastState[a].volumen === null ? 0 : idAlexaLastState[a].volumen
                                 if (idAlexaLastState[a].volumen != alexaVolumen[a]) setState(replacePlaceholder(idAlexaVolumen, idAlexaSerial[a]), alexaVolumen[a]);
                             }
                             if (idAlexaLastState[a].timeout) clearTimeout(idAlexaLastState[a].timeout)
