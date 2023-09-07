@@ -1,4 +1,4 @@
-//Version 1.1.7
+//Version 1.1.8
 // Erläuterung Update:
 // Suche im Script nach 123456 und kopiere/ersetze ab diesem Punkt. So braucht ihr die Konfiguration nicht zu erneuern.
 // Link: https://forum.iobroker.net/topic/30616/script-dwd-uwz-nina-warnungen-als-push-sprachnachrichten/
@@ -97,7 +97,8 @@ var konstanten = [
     {"name":'state',"value":64},
     {"name":'iogo',"value":128, maxChar: 940, count: 0, delay: 300},
     {"name":'state_html',"value":256},
-    {"name":'state_plain',"value":512}
+    {"name":'state_plain',"value":512},
+    {"name":'whatsapp',"value":1024}
 ];
 const TELEGRAM = konstanten[0].value;
 const PUSHOVER = konstanten[1].value;
@@ -109,6 +110,7 @@ const STATE = konstanten[6].value;
 const IOGO = konstanten[7].value;
 const STATE_HTML = konstanten[8].value;
 const STATE_PLAIN = konstanten[9].value;
+const WHATSAPP = konstanten[10].value;
 var uPushdienst = 0;
 const DWD = 1;
 const UWZ = 2;
@@ -141,7 +143,7 @@ if (extendedExists(aliveState)) {
 //uPushdienst+= IOGO;              // Auskommentieren zum aktivieren. Einstellungen nicht vergessen
 //uPushdienst+= STATE_HTML;        // Auskommentieren zum aktivieren. State_html befindet sich unter mainStatePath.messageHtml als Tabelle
 //uPushdienst+= STATE_PLAIN;        // Auskommentieren zum aktivieren. States mit allen aktivien Warnungen
-
+//uPushdienst+= WHATSAPP; 
 /* ************************************************************************* */
 /*                 Beispiele zur weiteren Konfiguration                      */
 /* ************************************************************************* */
@@ -239,6 +241,9 @@ var idAlexaSerial       = ['']; // die reine Seriennummer des Echos z.B.: var id
 var alexaVolumen        = [30]; // Lautstärke die gleiche Anzahl an Einträgen wie bei idAlexaSerial
 alexaMultiroomParentsOff = false; // pausiere alle mit den IDs verknüpfte Multiroomgruppen
 
+//Konfiguration von WhatsApp Telefonnummer
+var whatsAppUser = ''
+
 // Filtereinstellungen über Objekte einstellen
 var minlevel                      =    1 // Warnungen unterhalb dieses Levels nicht senden; (DWD und Nina level 1-4  / UWZ 0-5)
 var attentionWarningLevel         =    3 // Warnung gleich oder oberhalb dieses Levels mit zusätzlichen Hinweisen versehen
@@ -309,6 +314,7 @@ var pushoverInstanz=    'pushover.0';
 var ioGoInstanz=        'iogo.0';
 var alexaInstanz=       'alexa2.0';
 var emailInstanz=       'email.0';
+var whatsAppInstanz=    'whatsapp-cmb.0';
 
 /* ************************************************************************* */
 /* ************************************************************************* */
@@ -369,7 +375,7 @@ checkConfigVariable('DWD2');
 
 // Variable nicht konfigurierbar
 const SPEAK = ALEXA + HOMETWO + SAYIT;
-const PUSH = TELEGRAM + PUSHOVER + IOGO + STATE;
+const PUSH = TELEGRAM + PUSHOVER + STATE + WHATSAPP;
 const ALLMSG = EMAIL | STATE_HTML | STATE_PLAIN;
 const ALLMODES = DWD | UWZ | NINA | ZAMG;
 const CANHTML = EMAIL + STATE_HTML;
@@ -481,10 +487,11 @@ warningTypesString[DWD] = [
     ['Glatteis', '❄'],
     ['Tauwetter', '⛄'],
     ['Hitze', '🔥'],
-    ['UV Belastung', '🔆']
+    ['UV Belastung', '🔆'],
     /*,
         ['Kuestenwarnungen', ''],
         ['Binnenseewarnungen', '']*/
+    ['Gewitter+', '⚡🌪🌧']
 ];
 {
     let tempwarningTypesString = [
@@ -497,10 +504,11 @@ warningTypesString[DWD] = [
         ['Glatteis', 24,84,85,86,87],//24, 84-87
         ['Tauwetter', 88,89,],
         ['Hitzewarnungen',247,248],
-        ['UV_Warnungen', 246]
+        ['UV_Warnungen', 246],
         /*,
             ['Kuestenwarnungen', ''],
             ['Binnenseewarnungen', '']*/
+        ['Gewitter+', 46,48]  
     ];
     warningTypesString[DWD2] = {};
     for (let a = 0; a<tempwarningTypesString.length;a++) {
@@ -797,7 +805,6 @@ for (let a = 0; a < konstanten.length; a++) {
     checkConfigArray(idMediaplayer, 'idMediaplayer', 'string');
     checkConfigArray(telegramUser, 'telegramUser', 'string');
     checkConfigArray(idSayIt, 'idSayIt', 'string');
-    checkConfigArray(ioGoUser, 'ioGoUser', 'string');
     checkConfigArray(telegramChatId, 'telegramChatId', 'string');
 
     for (let a = 0; a < sayItVolumen.length; a++) {
@@ -1327,8 +1334,9 @@ async function setAlertState(go = false) {
                 }
 
                 tempExistIds.push(stateAlertIdFull);
-                if (!await existsStateAsync(stateAlertIdFull + stateAlert[0].name) || getState(stateAlertIdFull + stateAlert[0].name).val != AlertLevel ||
-                    (AlertIndex > -1 && (!await existsStateAsync(stateAlertIdFull + stateAlert[9].name) || getState(stateAlertIdFull + stateAlert[9].name).val != warnDatabase.new[AlertIndex].hash))) {
+                
+                // hier gehen wir nur rein wenn der State nicht exisiert oder eine Alert gefunden wurde oder noch ein hash eingetragen ist
+                if (!existsState(stateAlertIdFull + stateAlert[0].name) || AlertIndex > -1 || getState(stateAlertIdFull + stateAlert[9].name).val) {
                     let cwarn = false;
                     if (AlertIndex > -1) {
                         let start = warnDatabase.new[AlertIndex].start ? new Date(warnDatabase.new[AlertIndex].start) : new Date(new Date().setHours(new Date().getHours() - 2));
@@ -1361,8 +1369,11 @@ async function setAlertState(go = false) {
                         data[9] = (AlertIndex > -1 ? warnDatabase.new[AlertIndex].hash : 0)
                         data[10] = (AlertIndex > -1 ? (warnDatabase.new[AlertIndex].ec_ii_type !== undefined ? warnDatabase.new[AlertIndex].ec_ii_type : -1) : -1)
                         for (let index=0; index < data.length; index++) {
-                            if (onStopped) return;
-                            if (await extendedExistsAsync(stateAlertIdFull + stateAlert[index].name)) await setStateAsync(stateAlertIdFull + stateAlert[index].name, data[index], true)
+                            
+                            if (await extendedExistsAsync(stateAlertIdFull + stateAlert[index].name)) {
+                                if (getState(stateAlertIdFull + stateAlert[index].name).val != data[index]) 
+                                    await setStateAsync(stateAlertIdFull + stateAlert[index].name, data[index], true)
+                            }
                             else {
                                 try {
                                     await createStateCustomAsync(stateAlertIdFull + stateAlert[index].name, data[index], stateAlert[index].type);
@@ -1805,13 +1816,14 @@ function checkWarningsMain(instant, hashForced) {
                     if (entry.repeatCounter == 1 && !onClickCheckRun) {
                         pushMsg += ' wurde verlängert.';
                     } else {
-                        pushMsg += (bt ? NEWLINE + sTime : '');
+                        pushMsg += (bt ?  sTime + NEWLINE : '');
                         if (uTextMitBeschreibung) {
-                            pushMsg += NEWLINE + NEWLINE + description;
+                            pushMsg +=  NEWLINE + description;
                             if (meteo && uZAMGMitMeteoinformationen) pushMsg += meteo ? NEWLINE + NEWLINE + 'Wetterinformation: ' + meteo : '';
                             if (uTextMitAnweisungen && !!instruction && typeof instruction === 'string' && instruction.length > 2) {
                                 pushMsg += NEWLINE + 'Handlungsanweisungen:' + NEWLINE + instruction;
                             }
+                            pushMsg+=NEWLINE
                         }
                     }
                     // Anzahl Meldungen erst am Ende zu email hinzufügen
@@ -2084,23 +2096,21 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
             _sendTo(PUSHOVER, pushoverInstanz, opt);
         });
     }
-    if ((pushdienst & IOGO) != 0) {
-        ticaLog(4, 'send Msg with Iogo');
+    if ((pushdienst & WHATSAPP) != 0) {
+        ticaLog(4, 'send Msg with WhatsApp');
         let j = {};
         j.text = msg;
-        j.title = topic;
-        if (ioGoExpiry > 0 ) j.expiry = ioGoExpiry;
-        if (ioGoUser.length > 0) {
-            j.user = ioGoUser[0];
-            for (let a = 1; a < ioGoUser.length; a++) {
-                j.user += ',' + ioGoUser[a];
-            }
-        }
-        _sendSplitMessage(IOGO, j.text.slice(), j, function(msg, opt, c) {
+        if (whatsAppUser) j.number = whatsAppUser;
+        _sendSplitMessage(WHATSAPP, j.text.slice(), j, function(msg, opt, c) {
             opt.text = msg;
-            _sendTo(IOGO, ioGoInstanz, opt);
+            _sendTo(WHATSAPP, whatsAppInstanz, opt);
         });
     }
+    sendTo('whatsapp-cmb.0', 'send', {
+    text: 'My message', 
+    phone: '+491234567890' // optional, if empty the message will be sent to the default configured number
+});
+
     if ((pushdienst & STATE) != 0) {
         setState(mirrorMessageState, msg, true);
     }
