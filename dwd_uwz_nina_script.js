@@ -2106,10 +2106,6 @@ function sendMessage(pushdienst, topic, msg, entry = null, msgFull = null) {
             _sendTo(WHATSAPP, whatsAppInstanz, opt);
         });
     }
-    sendTo('whatsapp-cmb.0', 'send', {
-    text: 'My message', 
-    phone: '+491234567890' // optional, if empty the message will be sent to the default configured number
-});
 
     if ((pushdienst & STATE) != 0) {
         setState(mirrorMessageState, msg, true);
